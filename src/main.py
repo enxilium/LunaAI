@@ -18,7 +18,13 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import simpleaudio as sa
 from PIL import Image
-
+import spacy
+from spacy.matcher import Matcher
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 import pyperclip
 
 # <------ INITIALIZATION ------>
@@ -32,13 +38,15 @@ GOOGLE_SEARCH_API = ""
 GOOGLE_CSE_ID = ""
 WOLFRAMALPHA_APP_ID = ""
 DESKTOP_PATH = ""
+SERVICE = ""
 sp = None
 data = None
 saved_applications = None
 
 def initialize():
     print("Initializing...")
-    global ACTIVATION_WORD, SPOTIFY_DEVICE_ID, CACHED_VOLUME, COBALT_API_ENDPOINT, DOWNLOADS_PATH, GOOGLE_SEARCH_API, GOOGLE_CSE_ID, WOLFRAMALPHA_APP_ID, DESKTOP_PATH, sp, data, saved_applications
+    global ACTIVATION_WORD, SPOTIFY_DEVICE_ID, CACHED_VOLUME, COBALT_API_ENDPOINT, DOWNLOADS_PATH, GOOGLE_SEARCH_API, \
+    GOOGLE_CSE_ID, WOLFRAMALPHA_APP_ID, DESKTOP_PATH, sp, data, saved_applications, SERVICE
 
     ACTIVATION_WORD = "luna"
 
@@ -89,6 +97,33 @@ def initialize():
         print(f"Spotify selected device: {devices['devices'][0]['name']}")
     else:
         print("No available devices found.")
+    
+    # Google OAuth
+
+    GOOGLE_SCOPES = ["https://www.googleapis.com/auth/calendar"]
+
+    creds = None
+    # The file token.json stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists("./data/token.json"):
+        creds = Credentials.from_authorized_user_file("./data/token.json", GOOGLE_SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "./data/credentials.json", GOOGLE_SCOPES
+            )
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open("./data/token.json", "w") as token:
+            token.write(creds.to_json())
+    try:
+        SERVICE = build("calendar", "v3", credentials=creds)
+    except HttpError as error:
+        print(f"An error occurred: {error}")
 
 # <------ COMMANDS ------>
 
@@ -363,23 +398,53 @@ def createSetup(query: str):
     speak("Setup creation successful!")
 
 def addCalendarEvent(query: str):
-    speak("Sure! Please specify the event name, followed by the date and time.")
+    global SERVICE
 
-    event = ""
+    start, end = luna.parseDateTime(" ".join(query))
+    speak("Sure! Please specify the event title.")
 
     while True:
-        event = parseCommand(timeout=5)
-        if event:
+        event_description = parseCommand(timeout=5)
+        if event_description:
             break
         speak("Sorry, I didn't catch that. Please try again.")
     
-    # Parse the event
-    event = event.split()
+    speak("Got it. Would you like to add a physical location to the event?")
 
-    for word in event:
+    while True:
+        response = parseCommand(timeout=5)
+        if response.lower() == "yes" or response.lower() == "no":
+            break
+        speak("Sorry, I didn't catch that. Please try again.")
+    
+    location = ""
 
+    if response.lower() == "yes":
+        speak("Please specify the location.")
+        while True:
+            location = parseCommand(timeout=5)
+            if location:
+                break
+            speak("Sorry, I didn't catch that. Please try again.")
+    
+    event = {
+        'summary': event_description,
+        'description': event_description,
+        'location': location,
+        'start': {
+            'dateTime': start,
+            'timeZone': 'America/New_York',
+        },
+        'end': {
+            'dateTime': end,
+            'timeZone': 'America/New_York',
+        },
+        }
 
-    speak(f"Understood. Adding {event} to your calendar.")
+    event = SERVICE.events().insert(calendarId='primary', body=event).execute()
+    print('Event created: %s' % (event.get('htmlLink')))
+
+    speak(f"Understood. Added {event_description} to your calendar.")
 
 # Command Dictionary
 commands = {
@@ -429,7 +494,7 @@ def parseCommand(timeout):
             listener.adjust_for_ambient_noise(source, duration=1)
             listener.dynamic_energy_threshold = True
             listener.pause_threshold = 1 
-            input_speech = listener.listen(source, timeout=timeout, phrase_time_limit=10)
+            input_speech = listener.listen(source)
             print("Recognizing...")
             query = listener.recognize_google(input_speech, language="en-us")
             print(f"Received Input: {query}\n")

@@ -1,19 +1,14 @@
-from googleapiclient.discovery import build
-from dotenv import load_dotenv
-import os
-import requests
-import subprocess
 import auxiliary
-import wolframalpha
-import pyperclip
-import json
+import datetime
+import dateparser
 
+print(auxiliary.parseDateTime("I have a meeting from 2 PM to 4 PM next Monday"))
 
-# Main loop to continuously listen with timeout
-def main():
-    saved_applications = [app.lower() for app in ["operagxbrowser", "Visual Studio Code", "Spotify"]]
-    query = "open google chrome and visual studio code opera gx browser please"
-    print(auxiliary.find_matching_phrases(query, saved_applications))
+import dateparser
 
-if __name__ == "__main__":
-    main()
+# Parse "next Monday" from the current date
+parsed_date = dateparser.parse("next Thursday", settings={
+    'RELATIVE_BASE': datetime.datetime.now(),
+    'PREFER_DATES_FROM': 'future'
+})
+print("Parsed date:", parsed_date)

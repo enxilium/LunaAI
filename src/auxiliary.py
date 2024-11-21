@@ -1,9 +1,15 @@
 from googleapiclient.discovery import build
 import subprocess
 import os
+import platform
 import json
 from pathlib import Path
 import win32com.client  # Requires `pywin32` package for reading `.lnk` files
+import spacy
+import dateparser
+from datetime import datetime, timedelta
+
+nlp = spacy.load("en_core_web_sm")
 
 def google_search(query, api_key, cse_id):
         service = build("customsearch", "v1", developerKey=api_key)
@@ -54,10 +60,17 @@ def save_applications(apps):
 
 def get_applications():
     # Paths to Start Menu directories
-    start_menu_paths = [
-        Path("C:/ProgramData/Microsoft/Windows/Start Menu/Programs"),
-        Path.home() / "AppData/Roaming/Microsoft/Windows/Start Menu/Programs"
-    ]
+
+    if platform.system() == "Windows":
+        start_menu_paths = [
+            Path("C:/ProgramData/Microsoft/Windows/Start Menu/Programs"),
+            Path.home() / "AppData/Roaming/Microsoft/Windows/Start Menu/Programs"
+        ]
+    elif platform.system() == "Darwin":
+        start_menu_paths = [
+            Path.home() / ".local/share/applications",
+            Path("/usr/share/applications")
+        ]
 
     # List to store discovered applications
     applications = {}
@@ -99,3 +112,54 @@ def find_matching_phrases(query, collection):
     unmatched_words = [word for word in query if word not in matched_words]
 
     return matches, unmatched_words
+
+def parseDateTime(input_text):
+    # Process input text with SpaCy
+    doc = nlp(input_text)
+    
+    # Initialize default values
+    event_date = datetime.now()  # Default to today if no date found
+    event_time = []  # Default to None if no time found, indicating all-day event
+
+    # Extract date and time entities
+    for ent in doc.ents:
+        if ent.label_ == "DATE":
+            parsed_date = dateparser.parse(ent.text.strip("next"))
+            if "next" in ent.text:
+                parsed_date = parsed_date + timedelta(weeks=1)
+            
+            if parsed_date:
+                event_date = parsed_date
+        elif ent.label_ == "TIME":
+            # Standardize time expressions
+            if "noon" in ent.text.lower():
+                event_time = (dateparser.parse("12:00"), dateparser.parse("13:00"))
+            elif "midnight" in ent.text.lower():
+                event_time = (dateparser.parse("00:00"), dateparser.parse("01:00"))
+            elif "morning" in ent.text.lower():
+                event_time = (dateparser.parse("09:00"), dateparser.parse("10:00"))  # Assuming morning as 9 AM
+            elif "afternoon" in ent.text.lower():
+                event_time = (dateparser.parse("15:00"), dateparser.parse("16:00"))  # Assuming afternoon as 12 PM
+            elif "evening" in ent.text.lower():
+                event_time = (dateparser.parse("18:00"), dateparser.parse("19:00"))  # Assuming evening as 6 PM
+            elif "night" in ent.text.lower():
+                event_time = (dateparser.parse("21:00"), dateparser.parse("22:00"))  # Assuming night as 9 PM
+            else:
+                if "to" in ent.text:
+                    text = ent.text.split(" to ")
+
+                    for c in text:
+                        event_time.append(dateparser.parse(c))
+
+                    event_time = tuple(event_time)
+                else:
+                    parsed_time = dateparser.parse(ent.text)
+                    event_time = (parsed_time, (parsed_time + timedelta(hours=1)))
+
+    if event_time == []:
+        event_time = (dateparser.parse("00:00"), dateparser.parse("23:59"))
+
+    startDateTime = datetime.combine(event_date, event_time[0].time()).isoformat()
+    endDateTime = datetime.combine(event_date, event_time[1].time()).isoformat()
+
+    return startDateTime, endDateTime
