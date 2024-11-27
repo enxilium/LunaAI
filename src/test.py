@@ -1,14 +1,4 @@
-import auxiliary
-import datetime
-import dateparser
+import subprocess
 
-print(auxiliary.parseDateTime("I have a meeting from 2 PM to 4 PM next Monday"))
-
-import dateparser
-
-# Parse "next Monday" from the current date
-parsed_date = dateparser.parse("next Thursday", settings={
-    'RELATIVE_BASE': datetime.datetime.now(),
-    'PREFER_DATES_FROM': 'future'
-})
-print("Parsed date:", parsed_date)
+subprocess.run("wsl bash -c \"cd ~/Projects/LunaAI && source .venv/bin/activate && cd models && python3.10 -m piper.http_server --model en_US-hfc_female-medium.onnx\"", shell=True)
+subprocess.run("wsl --shutdown", shell=True)

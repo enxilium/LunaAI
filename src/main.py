@@ -7,31 +7,32 @@ import io
 import auxiliary as luna
 
 import json
-
-import speech_recognition as sr
+import google.generativeai as genai
+import sounddevice as sd
 from googleapiclient.discovery import build
 from googlesearch import search
 import webbrowser
 import wikipedia
+import queue
+import vosk
 import wolframalpha
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import simpleaudio as sa
-from PIL import Image
-import spacy
-from spacy.matcher import Matcher
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+import traceback
 import pyperclip
+import subprocess
+
 
 # <------ INITIALIZATION ------>
 
 ACTIVATION_WORD = ""
 SPOTIFY_DEVICE_ID = ""
-CACHED_VOLUME = 0
 COBALT_API_ENDPOINT = ""
 DOWNLOADS_PATH = ""
 GOOGLE_SEARCH_API = ""
@@ -42,13 +43,24 @@ SERVICE = ""
 sp = None
 data = None
 saved_applications = None
+model = None
+sr_model = None
+q = None
 
 def initialize():
     print("Initializing...")
-    global ACTIVATION_WORD, SPOTIFY_DEVICE_ID, CACHED_VOLUME, COBALT_API_ENDPOINT, DOWNLOADS_PATH, GOOGLE_SEARCH_API, \
-    GOOGLE_CSE_ID, WOLFRAMALPHA_APP_ID, DESKTOP_PATH, sp, data, saved_applications, SERVICE
+    global ACTIVATION_WORD, SPOTIFY_DEVICE_ID, COBALT_API_ENDPOINT, DOWNLOADS_PATH, GOOGLE_SEARCH_API, \
+    GOOGLE_CSE_ID, WOLFRAMALPHA_APP_ID, DESKTOP_PATH, sp, data, saved_applications, SERVICE, model, listener, q, sr_model
 
     ACTIVATION_WORD = "luna"
+
+    try:
+        subprocess.Popen("wsl bash -c \"cd ~/Projects/LunaAI/cobalt && docker compose up -d\"", shell=True)
+        subprocess.Popen("wsl bash -c \"cd ~/Projects/LunaAI && source .venv/bin/activate && cd models && python3.10 -m piper.http_server --model en_US-hfc_female-medium.onnx\"", shell=True)
+        print("Servers started.")
+    except Exception as e:
+        print(f"Error starting servers: {e}")
+        exit()
 
     with open('./data/settings.json', 'r') as f:
         data = json.load(f)
@@ -65,10 +77,9 @@ def initialize():
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(pool_connections=100, pool_maxsize=100, max_retries=3)
     session.mount('https://', adapter)
-    CACHED_VOLUME = int(data['previousSession']['cachedVolume'])
 
     # COBALT API
-    COBALT_API_ENDPOINT = "http://localhost:9000/"
+    COBALT_API_ENDPOINT = "https://cobalt.api.timelessnesses.me"
     DOWNLOADS_PATH = os.path.join(os.path.expanduser("~"), "Downloads")
 
     # GOOGLE SEARCH API
@@ -125,15 +136,36 @@ def initialize():
     except HttpError as error:
         print(f"An error occurred: {error}")
 
+    instructions = "You are Luna, an AI desktop assistant who is both friendly and helpful. You are designed \
+            with several commands, such as playing music (play <song>), pausing music (pause), changing volume (volume up/down), \
+            downloading files from the internet (download <file>), computing mathematical queries (compute <query>), \
+            , creating setups (create <setup>), opening setups (open <setup>), scheduling events (schedule <event>), and exiting the program (exit). \
+            If prompted, you should provide users with instructions on how to use your commands: say your name followed by the command name. \
+            Respond in only plaintext English at all times, ignoring formatting such as asterisks or underscores. Also, your responses should be concise to maximize efficiency."
+
+    # Gemini initialization
+    genai.configure(api_key=data['apiKeys']['gemini_key'])
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        system_instruction=instructions)
+    
+    # Initialize the recognizer and queue
+    sr_model = vosk.Model("vosk")  # Replace with your model path, e.g., "vosk-model-en-us-0.22"
+    q = queue.Queue()
+
 # <------ COMMANDS ------>
 
 # <---- Operational ---->
 def close(query: str):
+
     global data
 
     speak("All systems shutting down. Goodbye.")
     print("Saving settings...")
     luna.save_settings(data)
+    print("Settings saved.")
+    print("Shutting down servers...")
+    subprocess.run("wsl --shutdown", shell=True)
     exit()
 
 def refreshApplications(query: str):
@@ -192,24 +224,21 @@ def pauseSpotify(query: str):
     speak("Music paused.")
 
 def volumeSpotify(query: str):
-    global CACHED_VOLUME;
-    global data;
+
+    currentVolume = sp.current_playback()['device']['volume_percent']
 
     volume = query[0]
     
     if volume == "up":
-        new_volume = CACHED_VOLUME + 25
+        new_volume = min(currentVolume + 25, 100)
     elif volume == "down":
-        new_volume = CACHED_VOLUME - 25
+        new_volume = max(0, currentVolume - 25)
     else:
         speak("Sorry, I didn't catch that. Please specify volume up or down.")
         return
     
     sp.volume(new_volume)
     speak(f"Volume set to {new_volume} percent.")
-    CACHED_VOLUME = new_volume
-
-    data["previousSession"]["cachedVolume"] = CACHED_VOLUME
 
 def queueSpotify(query: str):
     global SPOTIFY_DEVICE_ID
@@ -242,26 +271,22 @@ def downloadFile(query: str):
     query = " ".join(query)
     result_link = luna.google_search(query, GOOGLE_SEARCH_API, GOOGLE_CSE_ID)
 
-    speak("Sure! Would you like the file in mp4 or mp3 format?")
+    speak("Sure! Would you like the file in video or audio format?")
     
     response = ""
     mode = "auto"
 
-    while True:
-        response = parseCommand(timeout=5)
-        if response:
-            response = response.lower()
-            if response == "mp3":
-                mode = "audio"
-                speak("Okay, downloading mp3...")
-                break
-            elif response == "mp4":
-                mode = "auto"
-                speak("Okay, downloading mp4...")
-                break
+    response = parseCommand(["video", "audio"]).lower().split()
 
-        speak("Sorry, I didn't catch that. Please specify mp3 or mp4.")
-    
+    if "audio" in response:
+        mode = "audio"
+        response = "mp3"
+        speak("Okay, downloading audio...")
+    elif "video" in response:
+        mode = "auto"
+        response = "mp4"
+        speak("Okay, downloading video...")
+
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/json"
@@ -270,15 +295,11 @@ def downloadFile(query: str):
         "url": result_link,
         "downloadMode": mode
     }
-
-    print(data)
-
+    
     api_response = requests.post(COBALT_API_ENDPOINT, headers=headers, json=data)
     try:
         file_url = requests.get(api_response.json().get('url'), stream=True)
         file_name = api_response.json().get('filename')
-
-        print(file_url, file_name)
 
         with open(os.path.join(DOWNLOADS_PATH, file_name), "wb") as file:
             for chunk in file_url.iter_content(chunk_size=8192):
@@ -286,7 +307,7 @@ def downloadFile(query: str):
         
         luna.remux_file(os.path.join(DOWNLOADS_PATH, file_name), os.path.join(DOWNLOADS_PATH, query + "." + response))
     except Exception as e:
-        print(e)
+        print(traceback.format_exc())
 
 # <---- Computational ---->
 def compute(query: str):
@@ -333,63 +354,44 @@ def createSetup(query: str):
     setup_name = ""
     setup_applications = []
 
-    while True:
-        response = parseCommand(timeout=5)
-        if response is not None:
-            response = response.lower()
-            if response == "cancel":
-                speak("Setup creation cancelled.")
-                return
-            else:
-                print(response)
-                setup_name = response
-                break
-        speak("Sorry, I didn't catch that. Please try again, or say CANCEL to cancel.")
-    
-    speak(f"Understood. What applications would you like to open in the setup {setup_name}?")
+    response = parseCommand(anyInput=True).lower().split()
+
+    if "cancel" in response:
+        speak("Setup creation cancelled.")
+        return
+    else:
+        setup_name = response
 
     while True:
-        response = parseCommand(timeout=5)
-        if response:
-            response = response.lower()
-            if response == "cancel":
-                speak("Setup creation cancelled.")
-                return
-            else:
+        speak(f"Understood. What applications would you like to open in the setup {setup_name}?")
+
+        response = parseCommand(anyInput=True).lower().split()
+
+        if "cancel" in response:
+            speak("Setup creation cancelled.")
+            return
+        else:
+            match = luna.find_matching_phrases(response, saved_applications)
+            setup_applications, unfound_applications = match[0], match[1]
+
+            # In case user has installed more programs since last refresh
+            if len(unfound_applications) > 0:
+                speak("I didn't find some applications. Refreshing automatically...")
+                refreshApplications(None)
                 match = luna.find_matching_phrases(response, saved_applications)
+                print(match)
                 setup_applications, unfound_applications = match[0], match[1]
 
-                # In case user has installed more programs since last refresh
-                if len(unfound_applications) > 0:
-                    speak("I didn't find some applications. Refreshing automatically...")
-                    refreshApplications(None)
-                    match = luna.find_matching_phrases(response, saved_applications)
-                    print(match)
-                    setup_applications, unfound_applications = match[0], match[1]
+            speak("The applications you want to include are " + ", ".join(setup_applications) + ". Is that correct?")
 
-                speak("The applications you want to include are " + ", ".join(setup_applications) + ". Is that correct?")
-                while True:
-                    response = parseCommand(timeout=5)
-                    if response:
-                        response = response.lower()
-                        if response == "cancel":
-                            speak("Setup creation cancelled.")
-                            return
-                        if response == "yes":
-                            break
-                        elif response == "no":
-                            speak("Okay, let's try again.")
-                            break
-                        else:
-                            speak("Sorry, I didn't catch that. Please try again.")
-                if response == "yes":
-                    speak("Okay! Initializing setup creation...")
-                    break
-                else:
-                    speak("Please specify the applications you would like to include.")
-                    continue
+            response = parseCommand(["yes", "no", "cancel"]).lower().split()
 
-        speak("Sorry, I didn't catch that. Please try again, or say CANCEL to cancel.")
+            if "cancel" in response:
+                speak("Setup creation cancelled.")
+                return
+            elif "yes" in response:
+                speak("Okay! Initializing setup creation...")
+                break
 
     data['setups'][setup_name] = setup_applications
 
@@ -403,29 +405,17 @@ def addCalendarEvent(query: str):
     start, end = luna.parseDateTime(" ".join(query))
     speak("Sure! Please specify the event title.")
 
-    while True:
-        event_description = parseCommand(timeout=5)
-        if event_description:
-            break
-        speak("Sorry, I didn't catch that. Please try again.")
+    event_description = parseCommand(anyInput=True)
     
     speak("Got it. Would you like to add a physical location to the event?")
 
-    while True:
-        response = parseCommand(timeout=5)
-        if response.lower() == "yes" or response.lower() == "no":
-            break
-        speak("Sorry, I didn't catch that. Please try again.")
+    response = parseCommand(["yes", "no"]).lower().split()    
     
     location = ""
 
-    if response.lower() == "yes":
+    if "yes" in response:
         speak("Please specify the location.")
-        while True:
-            location = parseCommand(timeout=5)
-            if location:
-                break
-            speak("Sorry, I didn't catch that. Please try again.")
+        location = parseCommand(anyInput=True).lower().split()
     
     event = {
         'summary': event_description,
@@ -482,38 +472,56 @@ def speak(input_text):
 
     play_obj.wait_done()
 
-def parseCommand(timeout):
+
+def audio_callback(indata, frames, time, status):
+    """
+    Callback function to receive audio data in real-time.
+    """
+    global q
+
+    if status:
+        print(f"Audio Status: {status}")
+    q.put(bytes(indata))
+
+def parseCommand(activation_words: list[str], anyInput=False):
     """
     Function to parse the command from the user.
     """
-    listener = sr.Recognizer()
-    print("Listening...")
+    global sr_model
 
-    try:
-        with sr.Microphone() as source:
-            listener.adjust_for_ambient_noise(source, duration=1)
-            listener.dynamic_energy_threshold = True
-            listener.pause_threshold = 1 
-            input_speech = listener.listen(source)
-            print("Recognizing...")
-            query = listener.recognize_google(input_speech, language="en-us")
-            print(f"Received Input: {query}\n")
-    except sr.WaitTimeoutError:
-            print("Timeout: No speech detected. Restarting listener...")
-            return None  # Return None to indicate no command was detected
-    except Exception as e:
-        print("Couldn't quite catch that...")
-        print(e)
+    print(f"Listening for activation words: '{activation_words}'")
+    with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype="int16",
+                           channels=1, callback=audio_callback):
+        rec = vosk.KaldiRecognizer(sr_model, 16000)
 
-        return "None"
+        while True:
+            data = q.get()
+            if rec.AcceptWaveform(data):
+                result = json.loads(rec.Result())
+                print(f"Recognized: {result.get('text')}")
 
-    return query
+                if len(result.get("text", "").split()) > 0 and anyInput:
+                    return result.get('text')
+
+                if any({word in result.get("text", "").lower().split() for word in activation_words}):
+                    return result.get('text')
+            else:
+                partial = json.loads(rec.PartialResult())
+
+                if len(partial.get("text", "").split()) > 0 and anyInput:
+                    return partial.get('text')
+                if any({word in partial.get("text", "").lower().split() for word in activation_words}):
+                    return partial.get("text", "")
 
 def callLLM(query):
     """
     Function that calls the Gemini API and generate a response.
     """
-    speak("request received.")
+    global model
+
+    response = model.generate_content(query)
+
+    speak(response.text)
 
 def main():
     global saved_applications
@@ -523,21 +531,19 @@ def main():
     speak("Luna activated. All systems operational. How can I help you today?")
 
     while True:
-        query = parseCommand(timeout=5)
+        query = parseCommand([ACTIVATION_WORD]).lower().split()
 
-        if query:
-            query = query.lower().split()
-            # check for activation word
-            if ACTIVATION_WORD in query:
-                idx = query.index(ACTIVATION_WORD)
-                query = query[idx+1:] if idx < len(query) - 1 else []
+        print(query)
 
-                print(query)
+        idx = query.index(ACTIVATION_WORD)
+        parsed = query[idx+1:] if idx < len(query) - 1 else [-1]
 
-                if query[0] in commands:
-                    commands[query[0]](query[1:])
-                else:
-                    callLLM(" ".join(query))
+        print(parsed)
+
+        if parsed[0] in commands:
+            commands[parsed[0]](parsed[1:])
+        else:
+            callLLM(" ".join(query))
 
 if __name__ == "__main__":
     main()
