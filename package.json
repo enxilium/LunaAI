@@ -4,7 +4,7 @@
     "private": true,
     "main": "electron/main.js",
     "scripts": {
-        "start": "react-scripts start",
+        "start": "cross-env BROWSER=none react-scripts start",
         "electron:dev": "concurrently -k \"npm start\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
         "electron:build": "react-scripts build && electron-builder",
         "build": "react-scripts build",

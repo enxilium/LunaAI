@@ -7,7 +7,6 @@ let mainWindow = null;
 let orbWindow = null;
 let recentlyDragged = false;
 let dragTimeout = null;
-let lastKnownPosition = { x: 0, y: 0 };
 
 function createMainWindow() {
     mainWindow = new BrowserWindow({
@@ -77,10 +76,6 @@ function createOrbWindow() {
     // Add this event listener after window creation
     orbWindow.on('moved', () => {
         // Store the current position immediately
-        const bounds = orbWindow.getBounds();
-        lastKnownPosition = { x: bounds.x, y: bounds.y };
-        
-        // Set the recently dragged flag when window is moved by user
         recentlyDragged = true;
         
         // Clear any existing timeout
