@@ -5,7 +5,7 @@ const disconnectService = require('./settings/disconnect-service');
 const getListeningStatus = require('./status/get-listening-status');
 const getPicovoiceKey = require('./services/get-picovoice-key');
 const startListening = require('./status/start-listening');
-const stopListening = require('./status/stop-listening');
+const hideOrb = require('./status/hide-orb');
 
 /**
  * Central handler for all invoke requests from renderer process
@@ -36,9 +36,9 @@ async function handleInvoke(request, context = {}) {
             
         case 'start-listening':
             return await startListening(context);
-            
-        case 'stop-listening':
-            return await stopListening(context);
+
+        case 'hide-orb':
+            return await hideOrb();
 
         default:
             throw new Error(`Unknown invoke method: ${name}`);

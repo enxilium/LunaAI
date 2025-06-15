@@ -1,7 +1,7 @@
-const getUserData = require('./credentials-service.js');
-const getSpotifyService = require('./spotify-service.js');
-const getWitService = require('./wit-service.js');
-const { getAudioService } = require('./audio-service.js');
+const getUserData = require("./credentials-service.js");
+const getSpotifyService = require("./spotify-service.js");
+const getWitService = require("./wit-service.js");
+const { getAudioService } = require("./audio-service.js");
 
 async function initializeServices() {
     const userData = getUserData();
@@ -18,4 +18,8 @@ async function initializeServices() {
 
 module.exports = {
     initializeServices,
+    getUserData,
+    getSpotifyService,
+    getWitService,
+    getAudioService,
 };

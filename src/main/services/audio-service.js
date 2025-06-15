@@ -4,6 +4,8 @@ const path = require("path");
 const { Readable } = require("stream");
 const getWitService = require("./wit-service");
 const { getMainWindow } = require("../windows/main-window");
+const { appEvents, EVENTS } = require("../events");
+const stopListening = require("../invokes/status/hide-orb");
 
 let audioService = null;
 
@@ -136,77 +138,90 @@ class AudioInputStream extends Readable {
  * Handles microphone access without permission prompts
  */
 class AudioService {
-    constructor(listener) {
+    constructor() {
         this.recording = false;
         this.witService = null;
         this.chunks = [];
-        this.listener = listener;
         this.sampleRate = 16000;
         this.audioStream = null;
         this.streamActive = false;
         this.currentWitConversation = null;
         this.recordingTimeout = null;
         this.mainWindow = null;
+
+        // Setup event listeners
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Listen for stop recording events
+        appEvents.on(EVENTS.STOP_LISTENING, ({ mainWindow }) => {
+            console.log("AudioService: Received stop-listening event");
+
+            this.stopRecording(this.mainWindow);
+        });
     }
 
     /**
      * Initialize the audio service
      */
     async initialize() {
-        try {
-            this.witService = await getWitService();
+        this.witService = await getWitService();
+        this.mainWindow = getMainWindow();
 
-            if (this.witService) {
-                console.log("AudioService: Setting up wit-service listeners");
+        if (this.witService) {
+            console.log("AudioService: Setting up event listeners");
 
-                this.witService.on("full-response", (response) => {
-                    this.notifyListener({
-                        type: "final-response",
-                        data: response,
-                    });
+            // Listen for events from the central event bus
+            appEvents.on(EVENTS.PROCESSING_REQUEST, () => {
+                this.handleListener({
+                    type: "processing-request",
                 });
+            });
 
-                // Handle streaming MP3 audio chunks
-                this.witService.on("audio-chunk", (audioData) => {
-                    this.notifyListener({
-                        type: "audio-chunk",
-                        data: {
-                            chunk: audioData.chunk,
-                            totalBytes: audioData.totalBytes,
-                            contentType: "audio/mpeg",
-                            isMP3: true,
-                        },
-                    });
+            // Handle streaming MP3 audio chunks
+            appEvents.on(EVENTS.AUDIO_CHUNK, (audioData) => {
+                this.handleListener({
+                    type: "audio-chunk",
+                    data: {
+                        chunk: audioData.chunk,
+                        totalBytes: audioData.totalBytes,
+                        contentType: "audio/mpeg",
+                        isMP3: true,
+                    },
                 });
+            });
 
-                // Handle end of MP3 audio stream
-                this.witService.on("audio-stream-end", (streamInfo) => {
-                    console.log(
-                        "AudioService: Received audio-stream-end from wit-service"
-                    );
-                    this.notifyListener({
-                        type: "audio-stream-end",
-                        data: {
-                            ...streamInfo,
-                            contentType: "audio/mpeg",
-                            isMP3: true,
-                        },
-                    });
+            // Handle end of MP3 audio stream
+            appEvents.on(EVENTS.AUDIO_STREAM_END, (streamInfo) => {
+                console.log("AudioService: Received audio-stream-end event");
+                this.handleListener({
+                    type: "audio-stream-end",
+                    data: {
+                        ...streamInfo,
+                        contentType: "audio/mpeg",
+                        isMP3: true,
+                    },
                 });
+            });
 
-                // Handle error responses
-                this.witService.on("error", (error) => {
-                    console.error("AudioService: Wit.ai error:", error);
-                    this.notifyListener({
-                        type: "error",
-                        error: error.message || "Unknown Wit.ai error",
-                    });
+            appEvents.on(EVENTS.CONVERSATION_END, () => {
+                console.log("AudioService: Received conversation-end event");
+                this.handleListener({
+                    type: "conversation-end",
                 });
+            });
 
-                console.log("AudioService: All wit-service listeners set up");
-            }
-        } catch (error) {
-            console.error("Failed to initialize Wit.ai service:", error);
+            // Handle error responses
+            appEvents.on(EVENTS.ERROR, (error) => {
+                console.error("AudioService: Wit.ai error:", error);
+                this.handleListener({
+                    type: "error",
+                    error,
+                });
+            });
+
+            console.log("AudioService: All event listeners set up");
         }
     }
 
@@ -216,8 +231,11 @@ class AudioService {
      */
     async startRecording(mainWindow) {
         if (this.recording) {
+            console.log("AudioService: Already recording");
             return true;
         }
+
+        console.log("AudioService: Starting recording");
 
         this.mainWindow = mainWindow;
 
@@ -238,7 +256,6 @@ class AudioService {
                         this.witService.startConversation(this.audioStream);
                 } catch (error) {
                     console.error("Error starting Wit.ai conversation:", error);
-                    // Don't stop recording if Wit.ai fails, we can still save the audio
                 }
             } else {
                 console.warn("Wit.ai service not initialized");
@@ -264,6 +281,12 @@ class AudioService {
      * @returns {Boolean} Success status
      */
     async stopRecording(mainWindow) {
+        console.log("AudioService: Stopping recording");
+
+        if (mainWindow) {
+            mainWindow.webContents.send("stop-listening");
+        }
+
         if (!this.recording) {
             return true;
         }
@@ -296,7 +319,7 @@ class AudioService {
             // Wait for Wit.ai conversation to complete
             if (this.currentWitConversation) {
                 try {
-                    const result = await this.currentWitConversation;
+                    await this.currentWitConversation;
                     this.currentWitConversation = null;
                 } catch (error) {
                     console.error(
@@ -405,146 +428,32 @@ class AudioService {
         return this.streamActive ? this.audioStream : null;
     }
 
-    /**
-     * Save recorded audio to a WAV file
-     * @param {String} filename - Optional filename to save to
-     * @returns {String} Path to saved file
-     */
-    saveRecordingToFile(filename = null) {
-        if (this.chunks.length === 0) {
-            return null;
-        }
-
-        try {
-            // Generate filename if not provided
-            if (!filename) {
-                const timestamp = new Date()
-                    .toISOString()
-                    .replace(/[:.]/g, "-");
-                filename = `recording-${timestamp}.wav`;
+    handleListener(response) {
+        if (response.type === "processing-request") {
+            appEvents.emit(EVENTS.STOP_LISTENING, { mainWindow: this.mainWindow });
+            this.mainWindow.webContents.send("processing");
+        } else if (response.type === "audio-chunk") {
+            try {
+                const base64Chunk = response.data.chunk.toString("base64");
+                this.mainWindow.webContents.send("audio-chunk-received", {
+                    chunk: base64Chunk,
+                });
+            } catch (error) {
+                console.error("Error processing audio chunk:", error);
             }
-
-            // Ensure directory exists
-            const userDataPath = app.getPath("userData");
-            const recordingsDir = path.join(userDataPath, "recordings");
-            if (!fs.existsSync(recordingsDir)) {
-                fs.mkdirSync(recordingsDir, { recursive: true });
-            }
-
-            const filePath = path.join(recordingsDir, filename);
-
-            // Calculate total length in bytes
-            let totalLength = 0;
-            for (const chunk of this.chunks) {
-                totalLength += chunk.length;
-            }
-
-            // Create WAV file
-            const buffer = this.createWavFile(totalLength);
-
-            // Write to file
-            fs.writeFileSync(filePath, buffer);
-
-            return filePath;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    /**
-     * Create a WAV file buffer from the recorded audio chunks
-     * @param {Number} totalLength - Total number of bytes in all chunks
-     * @returns {Buffer} WAV file buffer
-     */
-    createWavFile(totalLength) {
-        // WAV file header size
-        const headerLength = 44;
-
-        // Calculate actual data size (total bytes in chunks)
-        const dataSize = totalLength;
-
-        // Create buffer for the entire WAV file
-        const buffer = Buffer.alloc(headerLength + dataSize);
-
-        // Write WAV header
-        // RIFF header
-        buffer.write("RIFF", 0);
-        // File size (data size + 36)
-        buffer.writeUInt32LE(36 + dataSize, 4);
-        // WAVE header
-        buffer.write("WAVE", 8);
-        // Format chunk marker
-        buffer.write("fmt ", 12);
-        // Format chunk length
-        buffer.writeUInt32LE(16, 16);
-        // Sample format (1 = PCM)
-        buffer.writeUInt16LE(1, 20);
-        // Channels (1 = mono)
-        buffer.writeUInt16LE(1, 22);
-        // Sample rate
-        buffer.writeUInt32LE(this.sampleRate, 24);
-        // Byte rate (SampleRate * NumChannels * BitsPerSample/8)
-        buffer.writeUInt32LE((this.sampleRate * 1 * 16) / 8, 28);
-        // Block align (NumChannels * BitsPerSample/8)
-        buffer.writeUInt16LE((1 * 16) / 8, 32);
-        // Bits per sample
-        buffer.writeUInt16LE(16, 34);
-        // Data chunk marker
-        buffer.write("data", 36);
-        // Data size
-        buffer.writeUInt32LE(dataSize, 40);
-
-        // Write audio data - directly copy each chunk's buffer
-        let offset = 44;
-        for (const chunk of this.chunks) {
-            chunk.copy(buffer, offset);
-            offset += chunk.length;
-        }
-
-        return buffer;
-    }
-
-    /**
-     * Notify all listeners of an event
-     * @param {Object} event - Event data
-     */
-    notifyListener(event) {
-        try {
-            this.listener(event);
-        } catch (error) {
-            console.error("Error in audio listener:", error);
-        }
-    }
-}
-
-async function handleListener(response) {
-
-    if (response.type === "final-response") {
-        console.log("Final response:", response);
-    } else if (response.type === "audio-chunk") {
-        try {
-            const base64Chunk = response.data.chunk.toString("base64");
-            this.mainWindow.webContents.send("audio-chunk-received", {
-                chunk: base64Chunk,
-                totalBytes: response.data.totalBytes,
-                contentType: "audio/mpeg", // Specify MP3 format
-                isMP3: true,
+        } else if (response.type === "audio-stream-end") {
+            this.mainWindow.webContents.send("audio-stream-complete", {
+                ...response.data, 
             });
-        } catch (error) {
-            console.error("Error processing audio chunk:", error);
+        } else if (response.type === "conversation-end") {
+            this.mainWindow.webContents.send("conversation-end");
         }
-    } else if (response.type === "audio-stream-end") {
-        this.mainWindow.webContents.send("audio-stream-complete", {
-            ...response.data,
-            contentType: "audio/mpeg",
-            isMP3: true,
-        });
     }
 }
 
 async function getAudioService() {
     if (!audioService) {
-        audioService = new AudioService(handleListener);
+        audioService = new AudioService();
         await audioService.initialize();
     }
     return audioService;

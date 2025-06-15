@@ -1,30 +1,41 @@
 const { Wit, log } = require("node-wit");
-const { getDate, getTime, getWeather, checkCalendar } = require("../commands");
+const { getDate, getTime, getWeather, checkCalendar, addCalendarEvent, handleError, handleEnd } = require("../commands");
 const { v4: uuidv4 } = require("uuid");
-const { EventEmitter } = require("events");
+const { appEvents, EVENTS } = require("../events");
 
 let witService = null;
 
-class WitService extends EventEmitter {
+class WitService {
     constructor() {
-        super();
         this.actions = {
             getDate,
             getTime,
             getWeather,
             checkCalendar,
+            addCalendarEvent,
+            handleError,
+            handleEnd
         };
+
         this.wit = null;
         this.contextMap = {};
         this.sessionId = uuidv4();
         this.currentConversation = null;
     }
 
+    resetConversation() {
+        this.currentConversation = null;
+        this.sessionId = uuidv4();
+        this.contextMap = {};
+    }
+
     async initialize() {
         const ACCESS_KEY = process.env.WIT_ACCESS_KEY;
+
         if (!ACCESS_KEY) {
             throw new Error("WIT_ACCESS_KEY environment variable not set");
         }
+
         this.wit = new Wit({
             accessToken: ACCESS_KEY,
             actions: this.actions,
@@ -36,15 +47,28 @@ class WitService extends EventEmitter {
 
         this.wit.on("fullTranscription", (text) => {
             console.log("Full:", text + " (final)");
+            appEvents.emit(EVENTS.PROCESSING_REQUEST);
         });
 
         this.wit.on("response", (data) => {
-            const text = data.speech.q;
-
-            this.synthesizeSpeech(text);
+            console.log("Response from Wit:", data);
+            
+            if (data.speech) {
+                this.synthesizeSpeech(data.speech.q);
+            }
         });
 
-        console.log("WitService initialized");
+        appEvents.on(EVENTS.RESET_CONVERSATION, () => {
+            this.resetConversation();
+        });
+
+        appEvents.on(EVENTS.ERROR, (error) => {
+            // TODO: HandleError function
+            this.synthesizeSpeech("I'm sorry, I had an error. Please try again.");
+            handleEnd(this.contextMap);
+        });
+
+        console.log("Wit initialized.");
     }
 
     /**
@@ -61,15 +85,8 @@ class WitService extends EventEmitter {
             throw new Error("Wit.ai service not initialized");
         }
 
-        // End any existing conversation
-        if (this.currentConversation) {
-            this.currentConversation = null;
-        }
-
         try {
-            // Create a new session ID for this conversation
-            this.sessionId = uuidv4();
-
+            console.log("Using old conversation", this.currentConversation != null);
             // Set correct content type for raw PCM audio
             const contentType =
                 "audio/raw;encoding=signed-integer;bits=16;rate=16000;endian=little";
@@ -90,15 +107,12 @@ class WitService extends EventEmitter {
             }
 
             // Emit the full response
-            this.emit("full-response", result);
+            appEvents.emit(EVENTS.FULL_RESPONSE, result);
 
             return result;
         } catch (error) {
-            console.error("Wit.ai error:", error);
-            this.emit("error", error);
+            appEvents.emit(EVENTS.ERROR, error);
             throw error;
-        } finally {
-            this.currentConversation = null;
         }
     }
 
@@ -110,13 +124,6 @@ class WitService extends EventEmitter {
         return this.currentConversation !== null;
     }
 
-    /**
-     * Synthesize speech using Wit.ai built-in synthesize method with streaming
-     * @param {string} text - Text to synthesize
-     * @param {string} voice - Voice to use (e.g., 'wit$Rosie')
-     * @param {string} style - Style to use (e.g., 'soft')
-     * @returns {Promise<Buffer>} Complete audio buffer
-     */
     async synthesizeSpeech(text) {
         try {
             const voice = "wit$Rosie"; // Default voice
@@ -132,45 +139,38 @@ class WitService extends EventEmitter {
                 style, // style
             );
 
-            try {
-                return new Promise((resolve, reject) => {
-                    const chunks = [];
-                    let totalBytes = 0;
+            return new Promise((resolve, reject) => {
+                const chunks = [];
+                let totalBytes = 0;
 
-                    // Stream audio chunks as they arrive
-                    response.body.on("data", (chunk) => {
-                        chunks.push(chunk);
-                        totalBytes += chunk.length;
+                // Stream audio chunks as they arrive
+                response.body.on("data", (chunk) => {
+                    chunks.push(chunk);
+                    totalBytes += chunk.length;
 
-                        // Emit streaming MP3 audio chunks for immediate playback
-                        this.emit("audio-chunk", {
-                            chunk: chunk,
-                            isFinal: false,
-                        });
-                    });
-
-                    response.body.on("end", () => {
-                        const audioBuffer = Buffer.concat(chunks);
-
-                        // Signal end of streaming
-                        this.emit("audio-stream-end", {
-                            totalBytes: totalBytes,
-                            contentType: "audio/mpeg",
-                            isMP3: true,
-                        });
-
-                        resolve(audioBuffer);
-                    });
-
-                    response.body.on("error", (error) => {
-                        console.error("Stream error:", error);
-                        this.emit("audio-stream-error", error);
-                        reject(error);
+                    // Emit streaming MP3 audio chunks for immediate playback
+                    appEvents.emit(EVENTS.AUDIO_CHUNK, {
+                        chunk: chunk,
+                        isFinal: false,
                     });
                 });
-            } else {
-                throw new Error("No audio stream in response");
-            }
+
+                response.body.on("end", () => {
+                    const audioBuffer = Buffer.concat(chunks);
+
+                    // Signal end of streaming
+                    appEvents.emit(EVENTS.AUDIO_STREAM_END, {
+                        totalBytes: totalBytes,
+                    });
+
+                    resolve(audioBuffer);
+                });
+
+                response.body.on("error", (error) => {
+                    console.error("Stream error:", error);
+                    reject(error);
+                });
+            });
         } catch (error) {
             console.error("Error in synthesizeSpeech:", error);
             throw error;
@@ -180,8 +180,12 @@ class WitService extends EventEmitter {
 
 async function getWitService() {
     if (!witService) {
-        witService = new WitService();
-        await witService.initialize();
+        try {
+            witService = new WitService();
+            await witService.initialize();
+        } catch {
+            throw new Error("Failed to initialize Wit service. Please check your WIT_ACCESS_KEY environment variable.");
+        }
     }
     return witService;
 }

@@ -2,18 +2,18 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 interface AudioChunkData {
     chunk: string; // base64 encoded
-    totalBytes: number;
 }
 
 interface StreamInfo {
     totalBytes: number;
     duration?: number;
-    isFinal?: boolean;
 }
 
 export default function useAudioPlayback() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
+    const [isFinished, setIsFinished] = useState(false);
+    const [conversationEnd, setConversationEnd] = useState(false);
 
     // We'll use an Audio element for MP3 playback - much simpler than Web Audio API for PCM
     const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -27,6 +27,7 @@ export default function useAudioPlayback() {
 
             audioElementRef.current.onplay = () => {
                 setIsPlaying(true);
+                setIsFinished(false); // Reset finished state when playback starts
             };
 
             audioElementRef.current.onpause = () => {
@@ -34,7 +35,9 @@ export default function useAudioPlayback() {
             };
 
             audioElementRef.current.onended = () => {
+                console.log("Audio playback ended");
                 setIsPlaying(false);
+                setIsFinished(true); // Set finished state when playback ends
                 // Clean up URL objects
                 if (audioUrlRef.current) {
                     URL.revokeObjectURL(audioUrlRef.current);
@@ -47,7 +50,7 @@ export default function useAudioPlayback() {
 
     // Handle incoming audio chunks
     const playChunk = useCallback((chunkData: AudioChunkData) => {
-        try {
+        try {           
             // Convert base64 to binary
             const binaryString = atob(chunkData.chunk);
             const chunk = new Uint8Array(binaryString.length);
@@ -66,16 +69,9 @@ export default function useAudioPlayback() {
     // Handle stream end - play the complete audio
     const handleStreamEnd = useCallback(
         (streamInfo: StreamInfo) => {
-            console.log("Audio stream complete:", streamInfo);
-
-            if (streamInfo.isFinal) {
-                console.log("Final stream confirmed, stopping listening.");
-                window.electron.invoke("stop-listening");
-            }
-
             try {
                 if (audioDataRef.current.length === 0) {
-                    console.log("No audio data to play");
+                    setIsFinished(true); // Mark as finished even if there's no audio to play
                     return;
                 }
 
@@ -115,10 +111,9 @@ export default function useAudioPlayback() {
                     audioElementRef.current.src = audioUrlRef.current;
                     audioElementRef.current
                         .play()
-                        .then(() => console.log("Playing MP3 audio"))
-                        .catch((err) =>
-                            console.error("Error playing audio:", err)
-                        );
+                        .catch((err) => {
+                            console.error("Error playing audio:", err);
+                        });
                 }
 
                 // Reset data buffer for next stream
@@ -134,18 +129,6 @@ export default function useAudioPlayback() {
 
     // Set up IPC listeners
     useEffect(() => {
-        if (
-            !window.electron?.onAudioChunk ||
-            !window.electron?.onAudioStreamEnd
-        ) {
-            console.warn(
-                "Audio streaming methods not available in electron API"
-            );
-            return;
-        }
-
-        console.log("Setting up audio streaming listeners");
-
         // Initialize audio
         initializeAudio();
 
@@ -159,10 +142,16 @@ export default function useAudioPlayback() {
             handleStreamEnd(streamInfo);
         });
 
+        window.electron.receive("conversation-end", () => {
+            setConversationEnd(true);
+        });
+
         // Cleanup function
         return () => {
-            if (window.electron?.removeAudioListeners) {
-                window.electron.removeAudioListeners();
+            if (window.electron) {
+                window.electron.removeListener("audio-chunk-received");
+                window.electron.removeListener("audio-stream-complete");
+                window.electron.removeListener("conversation-end");
             }
 
             if (audioElementRef.current) {
@@ -180,11 +169,14 @@ export default function useAudioPlayback() {
     // Manual method to ensure audio is ready
     const startAudioContext = useCallback(() => {
         initializeAudio();
+        setIsFinished(false);
+        setConversationEnd(false); // Reset conversationEnd when starting a new audio context
     }, [initializeAudio]);
 
     return {
         isPlaying,
-        isInitialized,
+        isFinished,
+        conversationEnd,
         startAudioContext,
     };
 }

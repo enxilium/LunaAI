@@ -1,10 +1,11 @@
-const { app, ipcMain, protocol } = require("electron");
+const { app, ipcMain, protocol, BrowserWindow } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { handleCommand } = require("./commands");
 const { initializeServices } = require("./services");
 const handleInvoke = require("./invokes");
 const { getAudioService } = require("./services/audio-service");
+const { appEvents, EVENTS } = require("./events");
 require("dotenv").config();
 
 let audioService = null;
@@ -32,6 +33,9 @@ async function initialize() {
     
     // Get audio service and set up event forwarding
     audioService = await getAudioService();
+
+    // Set up event listeners for app events
+    setupAppEventListeners();
 }
 
 // Setup IPC handlers

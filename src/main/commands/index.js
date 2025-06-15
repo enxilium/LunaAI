@@ -2,7 +2,8 @@ const { setOrbWindow } = require("../windows/orb-window");
 const { useSpotifyService } = require("./spotify");
 const { getWeather } = require("./weather");
 const { getDate, getTime } = require("./date");
-const { checkCalendar } = require("./calendar");
+const { checkCalendar, addCalendarEvent } = require("./calendar");
+const { handleError, handleEnd } = require("./misc")
 
 async function handleCommand(commandCall) {
     let args = commandCall.args;
@@ -31,5 +32,8 @@ module.exports = {
     getTime,
     getWeather,
     checkCalendar,
-    useSpotifyService
+    addCalendarEvent,
+    useSpotifyService,
+    handleError,
+    handleEnd,
 };

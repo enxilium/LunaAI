@@ -5,14 +5,9 @@ import useAudioPlayback from "./useAudioPlayback";
 export default function useOrb() {
     const [visible, setVisible] = useState(false);
     const [listeningState, setListeningState] = useState(false); // True means listening
-    const [processingTranscription, setProcessingTranscription] = useState(false);
+    const [processing, setProcessing] = useState(false);
     const { keywordDetection } = useKeywordDetection();
-    const { isPlaying, isInitialized, startAudioContext } = useAudioPlayback();
-
-    // For debugging
-    useEffect(() => {
-        console.log("useOrb state:", { visible, listeningState });
-    }, [visible, listeningState]);
+    const { isPlaying, isFinished, conversationEnd, startAudioContext } = useAudioPlayback();
 
     useEffect(() => {
         if (keywordDetection) {
@@ -20,26 +15,60 @@ export default function useOrb() {
             setListeningState(true);
             setVisible(true);
 
+            window.electron.setupAudioListeners();
+
             window.electron.invoke("start-listening")
+
             startAudioContext();
         }
     }, [keywordDetection]);
-    
-    // Monitor listening state to control audio recording
+
     useEffect(() => {
-        if (listeningState) {
-            console.log("Starting renderer-based audio recording");
-            setProcessingTranscription(false);
-        } else if (!listeningState) {
-            console.log("Stopping renderer-based audio recording");
-            // This is where we shift to the processing state
-            setProcessingTranscription(true);
+        // Set up the stop-listening event handler
+        window.electron.receive("stop-listening", () => {
+            setListeningState(false);
+
+            setTimeout(() => {
+                setProcessing(false);
+            }, 2000); // Give time for processing animation
+        });
+
+        // Clean up listener when component unmounts
+        return () => {
+            window.electron.removeListener("stop-listening");
+        };
+    }, []);
+
+    useEffect(() => {
+        window.electron.receive("processing", () => {
+            setProcessing(true);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (isPlaying) {
+            setProcessing(false);
         }
-    }, [listeningState]);
+    }, [isPlaying]);
+
+    useEffect(() => {
+        if (isFinished) {
+            console.log("Audio playback finished, conversationEnd:", conversationEnd);
+
+            if (conversationEnd) {
+                window.electron.invoke("hide-orb");
+            } else {
+                window.electron.invoke("start-listening");
+            }
+        }
+        
+    }, [isFinished]);
     
+   
     return {
         isListening: listeningState,
+        isSpeaking: isPlaying,
         visible,
-        processingTranscription,
+        processing,
     };
 }

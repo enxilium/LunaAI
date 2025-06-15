@@ -5,7 +5,7 @@
   "description": "My Electron application description",
   "main": "src/main/main.js",
   "scripts": {
-    "dev": "concurrently \"webpack serve --config webpack.dev.js\" \"cross-env NODE_ENV=development electron .\"",
+    "dev": "concurrently \"webpack serve --config webpack.dev.js\" \"cross-env NODE_ENV=development electron . --trace-warnings\"",
     "package": "electron-forge package",
     "make": "webpack --config webpack.prod.js && electron-forge make",
     "publish": "webpack --config webpack.prod.js && electron-forge publish",
@@ -19,6 +19,8 @@
   "license": "MIT",
   "dependencies": {
     "@babel/preset-typescript": "^7.27.0",
+    "@langchain/core": "^0.3.58",
+    "@langchain/google-genai": "^0.2.12",
     "@picovoice/porcupine-react": "^3.0.3",
     "@picovoice/porcupine-web": "^3.0.3",
     "@picovoice/web-voice-processor": "^4.0.9",
@@ -26,7 +28,9 @@
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.1.0",
     "keytar": "^7.9.0",
+    "langchain": "^0.3.28",
     "mic": "^2.1.2",
+    "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
     "node-microphone": "^0.1.6",
     "node-wit": "^6.6.0",
