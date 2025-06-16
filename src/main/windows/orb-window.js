@@ -7,76 +7,91 @@ let orbWindow = null;
 let recentlyDragged = false;
 let dragTimeout = null;
 
-function createOrbWindow() {
-    const { width } = screen.getPrimaryDisplay().workAreaSize;
+async function createOrbWindow() {
+    return new Promise((resolve, reject) => {
+        const { width } = screen.getPrimaryDisplay().workAreaSize;
 
-    orbWindow = new BrowserWindow({
-        width: 100, // Fixed size large enough for animation
-        height: 100,
-        x: width - 120,
-        y: 100,
-        frame: false,
-        transparent: true,
-        alwaysOnTop: true,
-        skipTaskbar: true,
-        resizable: false,
-        hasShadow: false,
-        roundedCorners: false,
-        backgroundThrottling: false,
-        webPreferences: {
-            preload: path.join(__dirname, "../../preload/preload.js"),
-            contextIsolation: true,
-            nodeIntegration: false,
-        },
-    });
+        orbWindow = new BrowserWindow({
+            width: 100, // Fixed size large enough for animation
+            height: 100,
+            x: width - 120,
+            y: 100,
+            frame: false,
+            transparent: true,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            resizable: false,
+            hasShadow: false,
+            roundedCorners: false,
+            backgroundThrottling: false,
+            webPreferences: {
+                preload: path.join(__dirname, "../../preload/preload.js"),
+                contextIsolation: true,
+                nodeIntegration: false,
+            },
+        });
 
-    // Use a more aggressive always-on-top setting
-    orbWindow.setAlwaysOnTop(true, "floating");
-
-    orbWindow.webContents.openDevTools({ mode: "detach" });
-
-    // Load the orb window
-    if (process.env.NODE_ENV === "development") {
-        orbWindow.loadURL("http://localhost:3000?window=orb");
-    } else {
-        orbWindow.loadURL(
-            `file://${getResourcePath("app/index.html")}?window=orb`
-        );
-    }
-
-    orbWindow.hide(); // Start hidden
-
-    // Add this event handler for continuous boundary checking during dragging
-    orbWindow.on("move", () => {
-        // Continuously constrain the window position during drag
-        preventOffscreenMovement(orbWindow);
-    });
-
-    // Add this event listener after window creation
-    orbWindow.on("moved", () => {
-        // Store the current position immediately
-        recentlyDragged = true;
-
-        // Clear any existing timeout
-        if (dragTimeout) clearTimeout(dragTimeout);
-
-        // Reset the flag after a longer delay to prevent interference
-        dragTimeout = setTimeout(() => {
-            recentlyDragged = false;
-        }, 1500); // Longer timeout to ensure stability
-
-        // Re-assert always-on-top to ensure it stays on top
+        // Use a more aggressive always-on-top setting
         orbWindow.setAlwaysOnTop(true, "floating");
-    });
 
-    // Handle close event - hide instead of close
-    orbWindow.on("close", (event) => {
-        // If app is not quitting, prevent window closure
-        if (!app.isQuitting) {
-            event.preventDefault();
-            orbWindow.hide();
-            return false;
+        orbWindow.webContents.openDevTools({ mode: "detach" });
+        
+        // Resolve promise when window is ready
+        orbWindow.webContents.once('did-finish-load', () => {
+            console.log('Orb window loaded successfully');
+            resolve(orbWindow);
+        });
+
+        // Reject promise if there's an error
+        orbWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
+            const error = new Error(`Failed to load orb window: ${errorDescription} (${errorCode})`);
+            console.error(error);
+            reject(error);
+        });
+
+        // Load the orb window
+        if (process.env.NODE_ENV === "development") {
+            orbWindow.loadURL("http://localhost:3000?window=orb");
+        } else {
+            orbWindow.loadURL(
+                `file://${getResourcePath("app/index.html")}?window=orb`
+            );
         }
+
+        orbWindow.hide(); // Start hidden
+
+        // Add this event handler for continuous boundary checking during dragging
+        orbWindow.on("move", () => {
+            // Continuously constrain the window position during drag
+            preventOffscreenMovement(orbWindow);
+        });
+
+        // Add this event listener after window creation
+        orbWindow.on("moved", () => {
+            // Store the current position immediately
+            recentlyDragged = true;
+
+            // Clear any existing timeout
+            if (dragTimeout) clearTimeout(dragTimeout);
+
+            // Reset the flag after a longer delay to prevent interference
+            dragTimeout = setTimeout(() => {
+                recentlyDragged = false;
+            }, 1500); // Longer timeout to ensure stability
+
+            // Re-assert always-on-top to ensure it stays on top
+            orbWindow.setAlwaysOnTop(true, "floating");
+        });
+
+        // Handle close event - hide instead of close
+        orbWindow.on("close", (event) => {
+            // If app is not quitting, prevent window closure
+            if (!app.isQuitting) {
+                event.preventDefault();
+                orbWindow.hide();
+                return false;
+            }
+        });
     });
 }
 

@@ -1,5 +1,13 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
+// Setup a safer logging method
+const preloadLog = (...args) => {
+    ipcRenderer.send("preload-log", ...args);
+};
+
+// Log immediately using the safe function
+preloadLog("Preload script loaded successfully");
+
 // Audio recording capabilities
 let audioContext = null;
 let audioStream = null;
@@ -9,31 +17,43 @@ const BUFFER_SIZE = 4096; // Buffer size
 let isRecording = false;
 let dataCounter = 0;
 let startTime = 0;
+let isProcessingAudio = false;  // Flag to prevent overlapping audio processing
+
+// Set up event listeners immediately
+ipcRenderer.on("start-listening", async () => {
+    preloadLog("Received start-listening event");
+    await startAudioCapture();
+});
+
+ipcRenderer.on("stop-listening", async () => {
+    preloadLog("Received stop-listening event");
+    await stopAudioCapture();
+});
 
 // Standard API exposure
 contextBridge.exposeInMainWorld("electron", {
     // Validating what frontend (renderer) can send to backend (main process)
     send: (command) => {
-        const validChannels = [
-            "update-orb-size",
-            "save-settings",
-            "disconnect-service",
-            "audio-data",
-        ];
+        const validChannels = ["update-orb-size", "audio-data"];
 
         if (validChannels.includes(command.name)) {
             ipcRenderer.send("command", command);
         } else {
-            console.error(`Invalid command: ${command}`);
+            preloadLog(`Invalid command: ${command}`);
         }
     },
 
     // Validating what backend (main process) can send to frontend (renderer)
     receive: (channel, func) => {
-        const validChannels = ["error-response", "stop-listening", "processing", "conversation-end"];
+        const validChannels = [
+            "error-response",
+            "stop-listening",
+            "processing",
+            "conversation-end",
+            "start-listening",
+        ];
 
         if (validChannels.includes(channel)) {
-            // Log when we set up a listener
             ipcRenderer.on(channel, (event, ...args) => {
                 func(...args);
             });
@@ -45,7 +65,6 @@ contextBridge.exposeInMainWorld("electron", {
         const validMethods = [
             "get-picovoice-key",
             "get-settings",
-            "get-listening-status",
             "authorize-service",
             "disconnect-service",
             "start-listening",
@@ -56,17 +75,6 @@ contextBridge.exposeInMainWorld("electron", {
             return ipcRenderer.invoke("invoke", { name, args });
         }
         return Promise.reject(new Error(`Invalid invoke method: ${name}`));
-    },
-
-    // Set up the event listeners just once
-    setupAudioListeners: () => {
-        ipcRenderer.on("start-audio-capture", async () => {
-            await startAudioCapture();
-        });
-
-        ipcRenderer.on("stop-audio-capture", async () => {
-            await stopAudioCapture();
-        });
     },
 
     onAudioChunk: (callback) => {
@@ -90,8 +98,9 @@ contextBridge.exposeInMainWorld("electron", {
 // Audio recording functions
 async function startAudioCapture() {
     try {
-        // Clear any existing audio context
-        if (audioContext) {
+        // If already recording, stop first to reset everything
+        if (isRecording) {
+            preloadLog("Already recording, stopping first");
             await stopAudioCapture();
         }
 
@@ -124,50 +133,62 @@ async function startAudioCapture() {
         audioProcessor = audioContext.createScriptProcessor(BUFFER_SIZE, 1, 1);
         audioProcessor.onaudioprocess = (e) => {
             if (!isRecording) return;
-
-            dataCounter++;
-
-            // Get raw audio data
-            const inputData = e.inputBuffer.getChannelData(0);
-
-            // Convert Float32Array to Int16Array with proper scaling
-            const intData = new Int16Array(inputData.length);
-            for (let i = 0; i < inputData.length; i++) {
-                // Properly scale float [-1.0, 1.0] to int16 [-32768, 32767]
-                // This is critical for audio quality
-                const sample = Math.max(-1, Math.min(1, inputData[i]));
-                // Use proper scaling factor for negative vs positive values
-                intData[i] =
-                    sample < 0
-                        ? Math.floor(sample * 0x8000)
-                        : Math.floor(sample * 0x7fff);
+            
+            // Prevent overlapping processing
+            if (isProcessingAudio) return;
+            isProcessingAudio = true;
+            
+            try {
+                dataCounter++;
+    
+                // Get raw audio data
+                const inputData = e.inputBuffer.getChannelData(0);
+    
+                // Convert Float32Array to Int16Array with proper scaling
+                const intData = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    // Properly scale float [-1.0, 1.0] to int16 [-32768, 32767]
+                    // This is critical for audio quality
+                    const sample = Math.max(-1, Math.min(1, inputData[i]));
+                    // Use proper scaling factor for negative vs positive values
+                    intData[i] =
+                        sample < 0
+                            ? Math.floor(sample * 0x8000)
+                            : Math.floor(sample * 0x7fff);
+                }
+    
+                // Create a Buffer that preserves the int16 data exactly
+                const buffer = Buffer.from(intData.buffer);
+    
+                // Log status periodically (every ~1 second)
+                if (dataCounter % 24 === 0) {
+                    const elapsedSeconds = Math.round(
+                        (Date.now() - startTime) / 1000
+                    );
+                    preloadLog(`Recording for ${elapsedSeconds}s, chunks: ${dataCounter}`);
+                }
+    
+                // Send to main process - using a Uint8Array to preserve the binary data exactly
+                ipcRenderer.send("audio-data", {
+                    data: new Uint8Array(buffer),
+                    sampleRate: SAMPLE_RATE,
+                    format: "int16",
+                    counter: dataCounter,
+                });
+            } finally {
+                isProcessingAudio = false;
             }
-
-            // Create a Buffer that preserves the int16 data exactly
-            const buffer = Buffer.from(intData.buffer);
-
-            // Log status periodically (every ~1 second)
-            if (dataCounter % 24 === 0) {
-                const elapsedSeconds = Math.round(
-                    (Date.now() - startTime) / 1000
-                );
-            }
-
-            // Send to main process - using a Uint8Array to preserve the binary data exactly
-            ipcRenderer.send("audio-data", {
-                data: new Uint8Array(buffer),
-                sampleRate: SAMPLE_RATE,
-                format: "int16",
-                counter: dataCounter,
-            });
         };
 
         // Connect audio nodes
         source.connect(audioProcessor);
         audioProcessor.connect(audioContext.destination);
-
+        
+        preloadLog("Audio capture started successfully");
     } catch (error) {
         isRecording = false;
+        isProcessingAudio = false;
+        preloadLog(`Error starting audio capture: ${error.message}`);
         console.error("Error starting audio capture:", error);
     }
 }
@@ -175,6 +196,7 @@ async function startAudioCapture() {
 async function stopAudioCapture() {
     try {
         isRecording = false;
+        isProcessingAudio = false;
 
         // Disconnect and clean up audio nodes
         if (audioProcessor) {
@@ -195,15 +217,19 @@ async function stopAudioCapture() {
             try {
                 await audioContext.close();
             } catch (closeError) {
-                console.warn("Could not close AudioContext:", closeError.message);
+                console.warn(
+                    "Could not close AudioContext:",
+                    closeError.message
+                );
             }
-        } else if (audioContext) {
         }
-        
+
         // Always set to null to ensure we create a new one next time
         audioContext = null;
-
+        
+        preloadLog("Audio capture stopped");
     } catch (error) {
+        preloadLog(`Error stopping audio capture: ${error.message}`);
         console.error("Error stopping audio capture:", error);
     }
 }

@@ -8,17 +8,14 @@ export default function useOrb() {
     const [processing, setProcessing] = useState(false);
     const { keywordDetection } = useKeywordDetection();
     const { isPlaying, isFinished, conversationEnd, startAudioContext } = useAudioPlayback();
-
+    
     useEffect(() => {
         if (keywordDetection) {
             console.log("Keyword detected!");
             setListeningState(true);
             setVisible(true);
-
-            window.electron.setupAudioListeners();
-
-            window.electron.invoke("start-listening")
-
+            
+            window.electron.invoke("start-listening");
             startAudioContext();
         }
     }, [keywordDetection]);
@@ -41,8 +38,15 @@ export default function useOrb() {
 
     useEffect(() => {
         window.electron.receive("processing", () => {
+            console.log("Processing started");
             setProcessing(true);
         });
+
+        // Clean up listener when component unmounts
+        return () => {
+            console.log("Cleaning up processing listener");
+            window.electron.removeListener("processing");
+        };
     }, []);
 
     useEffect(() => {

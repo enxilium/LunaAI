@@ -1,16 +1,15 @@
 const { getMainWindow } = require("../../windows/main-window");
-const { appEvents, EVENTS } = require("../../events");
+const { getEventsService } = require("../../services/events-service");
 
 async function handleEnd(context_map) {
     console.log("Handling conversation end.");
 
+    const eventsService = await getEventsService();
+
     let mainWindow = getMainWindow();
     
-    // Emit an event instead of directly calling audio service
-    appEvents.emit(EVENTS.STOP_LISTENING, { mainWindow });
-    appEvents.emit(EVENTS.RESET_CONVERSATION);
-    appEvents.emit(EVENTS.CONVERSATION_END);
-
+    eventsService.stopListening(mainWindow);
+    eventsService.endConversation(mainWindow);
 
     return { context_map, stop: true };
 }

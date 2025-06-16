@@ -1,7 +1,7 @@
 const { Wit, log } = require("node-wit");
 const { getDate, getTime, getWeather, checkCalendar, addCalendarEvent, handleError, handleEnd } = require("../commands");
 const { v4: uuidv4 } = require("uuid");
-const { appEvents, EVENTS } = require("../events");
+const { getEventsService, EVENT_TYPES } = require("./events-service");
 
 let witService = null;
 
@@ -21,6 +21,8 @@ class WitService {
         this.contextMap = {};
         this.sessionId = uuidv4();
         this.currentConversation = null;
+
+        this.eventsService = null;
     }
 
     resetConversation() {
@@ -31,6 +33,7 @@ class WitService {
 
     async initialize() {
         const ACCESS_KEY = process.env.WIT_ACCESS_KEY;
+        this.eventsService = await getEventsService();
 
         if (!ACCESS_KEY) {
             throw new Error("WIT_ACCESS_KEY environment variable not set");
@@ -47,7 +50,7 @@ class WitService {
 
         this.wit.on("fullTranscription", (text) => {
             console.log("Full:", text + " (final)");
-            appEvents.emit(EVENTS.PROCESSING_REQUEST);
+            this.eventsService.processingStarted()
         });
 
         this.wit.on("response", (data) => {
@@ -58,11 +61,13 @@ class WitService {
             }
         });
 
-        appEvents.on(EVENTS.RESET_CONVERSATION, () => {
+        // Listen for reset conversation events
+        this.eventsService.on(EVENT_TYPES.RESET_CONVERSATION, () => {
             this.resetConversation();
         });
 
-        appEvents.on(EVENTS.ERROR, (error) => {
+        // Listen for error events
+        this.eventsService.on(EVENT_TYPES.ERROR, (error) => {
             // TODO: HandleError function
             this.synthesizeSpeech("I'm sorry, I had an error. Please try again.");
             handleEnd(this.contextMap);
@@ -106,22 +111,10 @@ class WitService {
                 this.contextMap = result.context_map;
             }
 
-            // Emit the full response
-            appEvents.emit(EVENTS.FULL_RESPONSE, result);
-
             return result;
         } catch (error) {
-            appEvents.emit(EVENTS.ERROR, error);
-            throw error;
+            this.eventsService.reportError(error);
         }
-    }
-
-    /**
-     * Get the current conversation status
-     * @returns {Boolean} Whether a conversation is active
-     */
-    isConversationActive() {
-        return this.currentConversation !== null;
     }
 
     async synthesizeSpeech(text) {
@@ -148,20 +141,14 @@ class WitService {
                     chunks.push(chunk);
                     totalBytes += chunk.length;
 
-                    // Emit streaming MP3 audio chunks for immediate playback
-                    appEvents.emit(EVENTS.AUDIO_CHUNK, {
-                        chunk: chunk,
-                        isFinal: false,
-                    });
+                    this.eventsService.sendAudioChunk(chunk);
                 });
 
                 response.body.on("end", () => {
                     const audioBuffer = Buffer.concat(chunks);
 
                     // Signal end of streaming
-                    appEvents.emit(EVENTS.AUDIO_STREAM_END, {
-                        totalBytes: totalBytes,
-                    });
+                    this.eventsService.audioStreamComplete(totalBytes);
 
                     resolve(audioBuffer);
                 });
@@ -190,4 +177,6 @@ async function getWitService() {
     return witService;
 }
 
-module.exports = getWitService;
+module.exports = {
+    getWitService
+};
