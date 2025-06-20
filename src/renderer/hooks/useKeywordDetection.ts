@@ -20,6 +20,16 @@ export default function useKeywordDetection() {
         release,
     } = usePorcupine();
 
+    const checkFileExists = async (url: any) => {
+        try {
+            const response = await fetch(url, { method: "HEAD" });
+            return response.ok;
+        } catch (error) {
+            console.error(`File doesn't exist: ${url}`, error);
+            return false;
+        }
+    };
+
     // Get Picovoice access key from main process
     useEffect(() => {
         if (window.electron?.invoke) {
@@ -47,6 +57,17 @@ export default function useKeywordDetection() {
                     model: MODEL_FILE_NAME,
                 });
 
+                // In your initPorcupine function
+                const keywordFileExists = await checkFileExists(
+                    KEYWORD_FILE_NAME
+                );
+                const modelFileExists = await checkFileExists(MODEL_FILE_NAME);
+
+                if (!keywordFileExists || !modelFileExists) {
+                    console.error("Required model files not found!");
+                    return;
+                }
+
                 const porcupineKeyword = {
                     publicPath: KEYWORD_FILE_NAME,
                     label: KEYWORD_LABEL,
@@ -56,10 +77,12 @@ export default function useKeywordDetection() {
                     publicPath: MODEL_FILE_NAME,
                 };
 
-                await init(accessKey, porcupineKeyword, porcupineModel).then(() => {
-                    console.log("Porcupine initialized successfully");
-                    start();
-                });
+                await init(accessKey, porcupineKeyword, porcupineModel).then(
+                    () => {
+                        console.log("Porcupine initialized successfully");
+                        start();
+                    }
+                );
                 console.log("Wake word detection initialized and started");
             } catch (err) {
                 console.error("Failed to initialize Porcupine:", err);
