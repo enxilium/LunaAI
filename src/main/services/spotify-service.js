@@ -484,4 +484,4 @@ async function getSpotifyService() {
     return spotifyService;
 }
 
-module.exports = getSpotifyService;
+module.exports = { getSpotifyService };

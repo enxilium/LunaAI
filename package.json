@@ -6,6 +6,8 @@
   "main": "src/main/main.js",
   "scripts": {
     "dev": "concurrently \"webpack serve --config webpack.dev.js\" \"cross-env NODE_ENV=development electron . --trace-warnings\"",
+    "renderer": "webpack serve --config webpack.dev.js",
+    "start": "cross-env NODE_ENV=development electron . --trace-warnings",
     "package": "electron-forge package",
     "make": "webpack --config webpack.prod.js && electron-forge make",
     "publish": "webpack --config webpack.prod.js && electron-forge publish",

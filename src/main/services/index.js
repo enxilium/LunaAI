@@ -1,5 +1,5 @@
-const getUserData = require("./credentials-service.js");
-const getSpotifyService = require("./spotify-service.js");
+const { getUserData } = require("./credentials-service.js");
+const { getSpotifyService } = require("./spotify-service.js");
 const { getWitService } = require("./wit-service.js");
 const { getAudioService } = require("./audio-service.js");
 const { getEventsService } = require("./events-service.js");
