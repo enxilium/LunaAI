@@ -1,4 +1,4 @@
-const getUserData = require("../../services/credentials-service");
+const getUserData = require("../services/credentials-service");
 
 /**
  * Handles the disconnect-service invoke call
@@ -8,8 +8,8 @@ const getUserData = require("../../services/credentials-service");
 async function disconnectService(service) {
     const userData = getUserData();
 
-    // TODO: 
-    
+    // TODO:
+
     if (service === "spotify") {
         await userData.deleteCredentials("spotify.accessToken");
         await userData.deleteCredentials("spotify.refreshToken");
@@ -18,10 +18,10 @@ async function disconnectService(service) {
     }
 
     console.log("Disconnected from service:", service);
-    
+
     return {
-        value: true
+        value: true,
     };
 }
 
-module.exports = disconnectService; 
+module.exports = { disconnectService };

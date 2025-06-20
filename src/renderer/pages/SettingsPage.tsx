@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaSpotify, FaDiscord, FaGoogle } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { RiNotionFill } from "react-icons/ri";
-import Integration from "../components/Integration";
+import { Integration, BinarySetting } from "../components/settingsComponents";
 
 const INTEGRATIONS = [
     {
@@ -23,6 +23,34 @@ const INTEGRATIONS = [
     }
 ]
 
+const PREFERENCES = [
+    {
+        name: "clippingEnabled",
+        title: "Enable Clipping",
+        description: "Allow clipping of content from your screen.",
+    },
+    {
+        name: "runOnStartup",
+        title: "Run on Startup",
+        description: "Start the application automatically when you log in.",
+    },
+    {
+        name: "startMinimized",
+        title: "Start Minimized",
+        description: "Launch the application in a minimized state.",
+    },
+    {
+        name: "automaticallyCheckForUpdates",
+        title: "Automatically Check for Updates",
+        description: "Check for application updates automatically.",
+    },
+    {
+        name: "learningMode",
+        title: "Learning Mode (Experimental)",
+        description: "Enable learning mode for personalized content. NOTE: This feature involves saving your user data. See our privacy policy for more information.",
+    }
+]
+
 
 const SettingsPage: React.FC = () => {
     const [settings, setSettings] = useState({
@@ -37,6 +65,10 @@ const SettingsPage: React.FC = () => {
         const newSettings = await window.electron.invoke('get-settings');
         console.log('Fetched settings:', newSettings);
         setSettings(newSettings);
+    }
+
+    async function updateSettings(name: string, value: any) {
+
     }
 
     useEffect(() => {
@@ -55,6 +87,20 @@ const SettingsPage: React.FC = () => {
                             name={integration.name}
                             icon={integration.icon}
                             isConnected={settings[integration.name + 'Auth' as keyof typeof settings]}
+                        />
+                    </div>
+                ))}
+            </div>
+
+            <h2 className="text-2xl font-semibold mt-8 mb-4">Preferences</h2>
+            <div className="grid grid-cols-1 gap-6">
+                {PREFERENCES.map((pref) => (
+                    <div key={pref.name}>
+                        <BinarySetting
+                            title={pref.title}
+                            description={pref.description}
+                            value={settings[pref.name as keyof typeof settings]}
+                            onChange={(value: boolean) => updateSettings(pref.name, value)}
                         />
                     </div>
                 ))}

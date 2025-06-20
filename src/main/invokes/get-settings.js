@@ -1,5 +1,5 @@
-const getUserData = require("../../services/credentials-service");
-const { getEventsService } = require("../../services/events-service");
+const { getUserData } = require("../services/credentials-service");
+const { getEventsService } = require("../services/events-service");
 
 /**
  * Handles the get-settings invoke call
@@ -9,9 +9,21 @@ const { getEventsService } = require("../../services/events-service");
 async function getSettings(setting) {
     // TODO: Error handling
     const userData = getUserData();
-    const SETTINGS = ["spotifyAuth", "googleAuth", ];
-    
-    if (!setting) { // If no specific setting is requested, return all settings
+    const SETTINGS = [
+        "spotifyAuth",
+        "googleAuth",
+        "discordAuth",
+        "notionAuth",
+        "clippingEnabled",
+        "clipsFolder",
+        "runOnStartup",
+        "startMinimized",
+        "automaticallyCheckForUpdates",
+        "learningMode",
+    ];
+
+    if (!setting) {
+        // If no specific setting is requested, return all settings
         const settingsObject = {};
 
         SETTINGS.forEach((settingName) => {
@@ -27,4 +39,4 @@ async function getSettings(setting) {
     }
 }
 
-module.exports = getSettings; 
+module.exports = { getSettings };

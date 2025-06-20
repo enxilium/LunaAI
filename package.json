@@ -21,6 +21,7 @@
     "@babel/preset-typescript": "^7.27.0",
     "@langchain/core": "^0.3.58",
     "@langchain/google-genai": "^0.2.12",
+    "@material/web": "^2.3.0",
     "@picovoice/porcupine-react": "^3.0.3",
     "@picovoice/porcupine-web": "^3.0.3",
     "@picovoice/web-voice-processor": "^4.0.9",

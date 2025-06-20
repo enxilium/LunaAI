@@ -1,5 +1,5 @@
-const { createMainWindow } = require('./main-window');
-const { createOrbWindow } = require('./orb-window');
+const { getMainWindow, createMainWindow } = require('./main-window');
+const { getOrbWindow, setOrbWindow, createOrbWindow } = require('./orb-window');
 
 async function createWindows() {
     console.log('Creating windows...');
@@ -20,4 +20,7 @@ async function createWindows() {
 
 module.exports = {
     createWindows,
+    getMainWindow,
+    getOrbWindow,
+    setOrbWindow
 };

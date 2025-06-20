@@ -1,11 +1,7 @@
 const { EventEmitter } = require("events");
 const { BrowserWindow, ipcMain } = require("electron");
-const { getMainWindow } = require("../windows/main-window");
-const { getOrbWindow, setOrbWindow } = require("../windows/orb-window");
-const getSettings = require("../invokes/settings/get-settings");
-const authorizeService = require("../invokes/settings/authorize-service");
-const disconnectService = require("../invokes/settings/disconnect-service");
-const getPicovoiceKey = require("../invokes/settings/get-picovoice-key");
+const { getMainWindow, getOrbWindow, setOrbWindow } = require("../windows");
+const { getSettings, updateSettings, authorizeService, disconnectService, getPicovoiceKey } = require("../invokes");
 
 /**
  * Event types enumeration
@@ -53,7 +49,7 @@ class EventsService extends EventEmitter {
         this.orbWindow = null;
 
         this.listeningStatus = false;
-        
+
         // Track audio data to prevent duplicates
         this.lastAudioDataCounter = 0;
     }
@@ -77,19 +73,19 @@ class EventsService extends EventEmitter {
             console.log("IPC handlers already registered, skipping");
             return;
         }
-        
+
         // Handle audio data from renderer
         ipcMain.on("audio-data", (event, data) => {
             // Check for duplicate or out-of-order audio data
             if (data.counter && data.counter <= this.lastAudioDataCounter) {
                 return;
             }
-            
+
             // Update counter
             if (data.counter) {
                 this.lastAudioDataCounter = data.counter;
             }
-            
+
             this.emit(EVENT_TYPES.AUDIO_DATA_RECEIVED, data);
         });
 
@@ -106,6 +102,11 @@ class EventsService extends EventEmitter {
                     break;
                 case "get-settings":
                     return await getSettings(request.args[0]);
+                case "update-settings":
+                    return await updateSettings(
+                        request.args[0],
+                        request.args[1]
+                    );
                 case "authorize-service":
                     return await authorizeService(request.args[0]);
                 case "disconnect-service":
@@ -121,7 +122,7 @@ class EventsService extends EventEmitter {
                     throw new Error(`Unknown invoke method: ${request.name}`);
             }
         });
-        
+
         ipcHandlersRegistered = true;
         console.log("IPC handlers registered successfully");
     }
@@ -185,7 +186,7 @@ class EventsService extends EventEmitter {
     startListening() {
         // Reset audio counter when starting a new recording
         this.lastAudioDataCounter = 0;
-        
+
         this.emit(EVENT_TYPES.START_LISTENING);
         this.showOrbWindow();
         this.listeningStatus = true;
@@ -253,7 +254,7 @@ class EventsService extends EventEmitter {
     reportError(error) {
         const errorMessage = error instanceof Error ? error.message : error;
         console.error("Error occurred:", errorMessage);
-        
+
         // Emit error event for other services to react
         this.emit(EVENT_TYPES.ERROR, error);
     }

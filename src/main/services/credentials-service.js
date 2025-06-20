@@ -47,4 +47,4 @@ function getUserData() {
     return userData;
 }
 
-module.exports = getUserData;
+module.exports = { getUserData };

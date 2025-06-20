@@ -6,4 +6,4 @@ async function getPicovoiceKey() {
     return process.env.PICOVOICE_ACCESS_KEY;
 }
 
-module.exports = getPicovoiceKey; 
+module.exports = { getPicovoiceKey }; 

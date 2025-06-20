@@ -1,5 +1,5 @@
-const getUserData = require("../../services/credentials-service");
-const getSpotifyService = require("../../services/spotify-service");
+const getUserData = require("../services/credentials-service");
+const getSpotifyService = require("../services/spotify-service");
 
 /**
  * Handles the authorize-service invoke call
@@ -22,4 +22,4 @@ async function authorizeService(service) {
     return authorizeSuccess;
 }
 
-module.exports = authorizeService; 
+module.exports = { authorizeService };
