@@ -13,16 +13,13 @@ async function authorizeService(service) {
         case "spotify":
             const spotifyService = await getSpotifyService();
             authorizeSuccess = await spotifyService.authorize();
-            getUserData().setConfig("spotifyAuthorized", authorizeSuccess);
+            getUserData().setConfig("spotifyAuth", authorizeSuccess);
             break;
         default:
             throw new Error("Authorization not supported for this service");
     }
 
-    return {
-        field: service + "Authorized",
-        value: authorizeSuccess,
-    };
+    return authorizeSuccess;
 }
 
 module.exports = authorizeService; 

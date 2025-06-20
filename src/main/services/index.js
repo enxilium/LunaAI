@@ -11,9 +11,9 @@ async function initializeServices() {
     const spotifyService = await getSpotifyService();
 
     if (spotifyService.isAuthorized()) {
-        userData.setConfig("spotifyAuthorized", true);
+        userData.setConfig("spotifyAuth", true);
     } else {
-        userData.setConfig("spotifyAuthorized", false);
+        userData.setConfig("spotifyAuth", false);
     }
     
     const witService = await getWitService();

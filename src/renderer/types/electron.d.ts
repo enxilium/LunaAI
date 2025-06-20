@@ -12,7 +12,7 @@ declare global {
                 channel: string,
             ) => void;
             invoke: (
-                channel: 'get-picovoice-key' | 'get-settings' | 'get-listening-status' | 'authorize-service' | 'disconnect-service' | 'start-listening' | 'hide-orb' | 'transcribe-audio',
+                channel: 'get-picovoice-key' | 'get-settings' | 'get-listening-status' | 'authorize-service' | 'disconnect-service' | 'start-listening' | 'hide-orb' | 'error',
                 ...args: any[]
             ) => Promise<any>;
             setupAudioListeners: () => void;

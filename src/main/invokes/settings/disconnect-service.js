@@ -7,20 +7,20 @@ const getUserData = require("../../services/credentials-service");
  */
 async function disconnectService(service) {
     const userData = getUserData();
+
+    // TODO: 
     
     if (service === "spotify") {
         await userData.deleteCredentials("spotify.accessToken");
         await userData.deleteCredentials("spotify.refreshToken");
         await userData.deleteCredentials("spotify.expiresAt");
-
-        await userData.deleteConfig("spotifyAuthorized");
+        await userData.deleteConfig("spotifyAuth");
     }
 
     console.log("Disconnected from service:", service);
     
     return {
-        field: service + "Authorized",
-        value: false
+        value: true
     };
 }
 

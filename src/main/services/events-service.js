@@ -115,6 +115,8 @@ class EventsService extends EventEmitter {
                 case "hide-orb":
                     this.hideOrbWindow();
                     break;
+                case "error":
+                    this.reportError(request.args[0]);
                 default:
                     throw new Error(`Unknown invoke method: ${request.name}`);
             }
