@@ -73,7 +73,9 @@ export default function useKeywordDetection() {
             if (isListening) {
                 stop();
             }
-            release();
+            if (isLoaded) {
+                release();
+            }
         };
     }, [accessKey, KEYWORD_FILE_NAME, MODEL_FILE_NAME]);
 
