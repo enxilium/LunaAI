@@ -56,9 +56,10 @@ export default function useKeywordDetection() {
                     publicPath: MODEL_FILE_NAME,
                 };
 
-                await init(accessKey, porcupineKeyword, porcupineModel);
-                // Start listening once initialized
-                start();
+                await init(accessKey, porcupineKeyword, porcupineModel).then(() => {
+                    console.log("Porcupine initialized successfully");
+                    start();
+                });
                 console.log("Wake word detection initialized and started");
             } catch (err) {
                 console.error("Failed to initialize Porcupine:", err);
