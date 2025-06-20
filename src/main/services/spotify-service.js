@@ -1,4 +1,4 @@
-const getUserData = require("./credentials-service");
+const { getUserData } = require("./credentials-service");
 const http = require("http");
 const url = require("url");
 const { shell } = require("electron");
