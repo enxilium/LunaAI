@@ -1,5 +1,6 @@
 const { getMainWindow, createMainWindow } = require('./main-window');
 const { getOrbWindow, setOrbWindow, createOrbWindow } = require('./orb-window');
+const { getErrorService } = require('../services/error-service');
 
 async function createWindows() {
     console.log('Creating windows...');
@@ -13,7 +14,8 @@ async function createWindows() {
         console.log('All windows created and loaded successfully');
         return { mainWindow, orbWindow };
     } catch (error) {
-        console.error('Error creating windows:', error);
+        const errorService = getErrorService();
+        errorService.reportError(error, 'windows-index');
         throw error;
     }
 }

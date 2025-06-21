@@ -1,5 +1,6 @@
-const getUserData = require("../services/credentials-service");
-const getSpotifyService = require("../services/spotify-service");
+const { getUserData } = require("../services/credentials-service");
+const { getSpotifyService } = require("../services/spotify-service");
+const { getErrorService } = require("../services/error-service");
 
 /**
  * Handles the authorize-service invoke call
@@ -16,7 +17,8 @@ async function authorizeService(service) {
             getUserData().setConfig("spotifyAuth", authorizeSuccess);
             break;
         default:
-            throw new Error("Authorization not supported for this service");
+            const errorService = getErrorService();
+            errorService.reportError(new Error("Authorization not supported for this service"), 'authorize-service');
     }
 
     return authorizeSuccess;

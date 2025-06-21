@@ -30,7 +30,7 @@ class DataStorage {
     }
 
     getConfig(key) {
-        return this.store.get(key, defaultValue = false);
+        return this.store.get(key);
     }
 
     deleteConfig(key) {

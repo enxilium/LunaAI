@@ -1,4 +1,5 @@
 const { Readable } = require("stream");
+const { getErrorService } = require("../services/error-service");
 
 /**
  * Custom audio stream for Wit.ai
@@ -51,7 +52,8 @@ class AudioInputStream extends Readable {
             }
         } catch (error) {
             this.isReading = false;
-            console.error("Error in AudioInputStream._read:", error);
+            const errorService = getErrorService();
+            errorService.reportError(error, 'audio-input-stream._read');
         }
     }
 
@@ -92,7 +94,8 @@ class AudioInputStream extends Readable {
 
             return true;
         } catch (error) {
-            console.error("Error in AudioInputStream.write:", error);
+            const errorService = getErrorService();
+            errorService.reportError(error, 'audio-input-stream.write');
             return false;
         }
     }

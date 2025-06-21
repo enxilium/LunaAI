@@ -1,6 +1,7 @@
 const { BrowserWindow, screen, app } = require("electron");
 const path = require("path");
 const { getResourcePath } = require("../utils/paths");
+const { getErrorService } = require("../services/error-service");
 
 const ORB_MARGIN = 30;
 let orbWindow = null;
@@ -45,7 +46,8 @@ async function createOrbWindow() {
         // Reject promise if there's an error
         orbWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
             const error = new Error(`Failed to load orb window: ${errorDescription} (${errorCode})`);
-            console.error(error);
+            const errorService = getErrorService();
+            errorService.reportError(error, 'orb-window');
             reject(error);
         });
 

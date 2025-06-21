@@ -6,6 +6,7 @@ export default function useOrb() {
     const [visible, setVisible] = useState(false);
     const [listeningState, setListeningState] = useState(false); // True means listening
     const [processing, setProcessing] = useState(false);
+    const [errorHandling, setErrorHandling] = useState(false);
     const { keywordDetection } = useKeywordDetection();
     const { isPlaying, isFinished, conversationEnd, startAudioContext } = useAudioPlayback();
     
@@ -42,6 +43,11 @@ export default function useOrb() {
             setProcessing(true);
         });
 
+        window.electron.receive("error-handling", () => {
+            console.log("Error handling started");
+            setErrorHandling(true);
+        });
+
         // Clean up listener when component unmounts
         return () => {
             console.log("Cleaning up processing listener");
@@ -61,6 +67,8 @@ export default function useOrb() {
 
             if (conversationEnd) {
                 window.electron.invoke("hide-orb");
+            } else if (errorHandling) {
+                setProcessing(true);
             } else {
                 window.electron.invoke("start-listening");
             }

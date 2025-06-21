@@ -1,4 +1,5 @@
 const { toTitleCase } = require("../../utils/string-formatting");
+const { getErrorService } = require("../../services/error-service");
 
 async function checkCalendar(context_map) {
     console.log("Checking calendar");
@@ -7,7 +8,6 @@ async function checkCalendar(context_map) {
 
 async function addCalendarEvent(context_map) {
     try {
-        // Do some stuff - without NLG
         const event_date = context_map.event_date[0].body;
         const event_title = toTitleCase(context_map.event_title[0].body);
 
@@ -15,7 +15,8 @@ async function addCalendarEvent(context_map) {
         context_map.success = true;
 
     } catch (error) {
-        console.error("Error in addCalendarEvent:", error);
+        const errorService = getErrorService();
+        errorService.reportError(error, 'calendar-command');
         context_map.success = false;
         context_map.error = error.message;
 

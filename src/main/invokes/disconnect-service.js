@@ -8,7 +8,7 @@ const getUserData = require("../services/credentials-service");
 async function disconnectService(service) {
     const userData = getUserData();
 
-    // TODO:
+    // TODO: Implement disconnect for all services
 
     if (service === "spotify") {
         await userData.deleteCredentials("spotify.accessToken");

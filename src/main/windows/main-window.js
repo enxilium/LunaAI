@@ -1,6 +1,7 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 const { getResourcePath } = require('../utils/paths');
+const { getErrorService } = require('../services/error-service');
 
 let mainWindow = null;
 
@@ -25,7 +26,8 @@ function createMainWindow() {
         // Reject promise if there's an error
         mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
             const error = new Error(`Failed to load main window: ${errorDescription} (${errorCode})`);
-            console.error(error);
+            const errorService = getErrorService();
+            errorService.reportError(error, 'main-window');
             reject(error);
         });
 

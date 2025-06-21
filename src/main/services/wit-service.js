@@ -68,9 +68,21 @@ class WitService {
 
         // Listen for error events
         this.eventsService.on(EVENT_TYPES.ERROR, (error) => {
-            // TODO: HandleError function
-            this.synthesizeSpeech("I'm sorry, I had an error. Please try again.");
-            handleEnd(this.contextMap);
+            try {
+                const result = handleError({error: error, context_map: this.contextMap});
+                const solution = result && result.context_map && result.context_map.solution 
+                    ? result.context_map.solution 
+                    : "I'm sorry, an error occurred.";
+                
+                this.eventsService.showOrbWindow();
+                this.synthesizeSpeech(solution);
+                this.eventsService.sendToRenderer("error-handling");
+            } catch (innerError) {
+                console.error("Error in error handler:", innerError);
+                this.synthesizeSpeech("I'm sorry, an unexpected error occurred. Please try again.");
+            } finally {
+                handleEnd(this.contextMap);
+            }
         });
 
         console.log("Wit initialized.");
@@ -120,7 +132,7 @@ class WitService {
     async synthesizeSpeech(text) {
         try {
             const voice = "wit$Rosie"; // Default voice
-            const style = "soft"; // Default style
+            const style = "formal"; // Default style
 
             console.log(
                 `Synthesizing speech: "${text}" with voice: ${voice}, style: ${style}`

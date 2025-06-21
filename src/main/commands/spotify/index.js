@@ -1,4 +1,5 @@
 const getSpotifyService = require("../../services/spotify-service");
+const { getErrorService } = require("../../services/error-service");
 
 async function useSpotifyService(args) {
     const spotifyService = await getSpotifyService();
@@ -15,7 +16,9 @@ async function useSpotifyService(args) {
         case "volume":
             return await spotifyService.setVolume(args.volume);
         default:
-            console.error(`Unknown Spotify command: ${args.command}`);
+            const error = new Error(`Unknown Spotify command: ${args.command}`);
+            const errorService = getErrorService();
+            errorService.reportError(error, 'spotify-command');
             return {
                 type: "error-response",
                 message: `Unknown Spotify command: ${args.command}`,

@@ -5,7 +5,7 @@ declare global {
         electron: {
             send: (command: { name: string; args: any }) => void;
             receive: (
-                channel: 'error-response' | 'stop-listening' | 'processing' | 'conversation-end' | 'start-listening',
+                channel: 'error-response' | 'stop-listening' | 'processing' | 'conversation-end' | 'start-listening' | 'error-handling'
                 func: (...args: any[]) => void
             ) => void;
             removeListener: (

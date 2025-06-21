@@ -2,6 +2,7 @@ const { EventEmitter } = require("events");
 const { BrowserWindow, ipcMain } = require("electron");
 const { getMainWindow, getOrbWindow, setOrbWindow } = require("../windows");
 const { getSettings, updateSettings, authorizeService, disconnectService, getPicovoiceKey } = require("../invokes");
+const { getErrorService } = require("./error-service");
 
 /**
  * Event types enumeration
@@ -52,6 +53,8 @@ class EventsService extends EventEmitter {
 
         // Track audio data to prevent duplicates
         this.lastAudioDataCounter = 0;
+
+        this.errorService = null;
     }
 
     /**
@@ -61,6 +64,28 @@ class EventsService extends EventEmitter {
         this.mainWindow = getMainWindow();
         this.orbWindow = getOrbWindow();
         this._setupIpcHandlers();
+        this.errorService = getErrorService();
+        this._subscribeToErrorService();
+    }
+
+    /**
+     * Subscribe to the centralized error service
+     * @private
+     */
+    _subscribeToErrorService() {
+        try { 
+            // Subscribe to all errors reported to the error service
+            this.errorService.on('error', (errorInfo) => {
+                this.reportError(errorInfo.error);
+                
+                // Optionally log additional information
+                if (this.debugMode) {
+                    console.log(`[EventsService] Received error from ${errorInfo.source} at ${errorInfo.timestamp}`);
+                }
+            });
+        } catch (error) {
+            console.error("Error setting up error service subscription:", error);
+        }
     }
 
     /**
@@ -119,7 +144,7 @@ class EventsService extends EventEmitter {
                 case "error":
                     this.reportError(request.args[0]);
                 default:
-                    throw new Error(`Unknown invoke method: ${request.name}`);
+                    this.errorService.reportError(new Error(`Unknown invoke method: ${request.name}`), 'events-service');
             }
         });
 
@@ -265,6 +290,7 @@ class EventsService extends EventEmitter {
                 console.log("Hiding orb window");
                 if (this.orbWindow && !this.orbWindow.isDestroyed()) {
                     this.orbWindow.hide();
+                    this.emit(EVENT_TYPES.RESET_CONVERSATION);
                 }
             }, 1000); // 1 second delay to match fade-out animation
         }

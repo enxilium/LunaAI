@@ -1,5 +1,6 @@
 const { getWitService } = require("./wit-service");
 const { getEventsService, EVENT_TYPES } = require("./events-service");
+const { getErrorService } = require("./error-service");
 const AudioInputStream = require("../utils/audio-input-stream");
 
 let audioService = null;
@@ -21,6 +22,7 @@ class AudioService {
         
         // Services
         this.eventsService = null;
+        this.errorService = null;
         this.witService = null;
         
         // Debug tracking
@@ -33,7 +35,7 @@ class AudioService {
     async initialize() {
         this.witService = await getWitService();
         this.eventsService = await getEventsService();
-
+        this.errorService = getErrorService();
         // Listen for events from the central event service
         this.eventsService.on(EVENT_TYPES.PROCESSING_REQUEST, () => {
             this.stopRecording();
@@ -60,11 +62,6 @@ class AudioService {
      * @returns {Boolean} Success status
      */
     async startRecording() {
-        if (this.recording) {
-            console.log("AudioService: Already recording");
-            return true;
-        }
-
         console.log("AudioService: Starting recording");
 
         try {
@@ -82,8 +79,7 @@ class AudioService {
 
             return true;
         } catch (error) {
-            console.error("Error starting recording:", error);
-            this.eventsService.reportError(error);
+            this.errorService.reportError(error, 'audio-service');
             this.recording = false;
             this.streamActive = false;
             return false;
@@ -134,16 +130,14 @@ class AudioService {
                     await this.currentWitConversation;
                     this.currentWitConversation = null;
                 } catch (error) {
-                    console.error("Error completing Wit.ai conversation:", error);
-                    this.eventsService.reportError(error);
+                    this.errorService.reportError(error, 'audio-service');
                     this.currentWitConversation = null;
                 }
             }
 
             return true;
         } catch (error) {
-            console.error("Error stopping recording:", error);
-            this.eventsService.reportError(error);
+            this.errorService.reportError(error, 'audio-service');
             // Ensure flags are reset even on error
             this.recording = false;
             this.streamActive = false;
@@ -209,7 +203,7 @@ class AudioService {
                     processedData.writeInt16LE(intArray[i], i * 2);
                 }
             } else {
-                throw new Error("Unsupported audio data format");
+                this.errorService.reportError(new Error("Unsupported audio data format"), 'audio-service');
             }
 
             // Stream the data immediately through the AudioInputStream
@@ -226,8 +220,7 @@ class AudioService {
             // Store chunk for potential file saving
             this.chunks.push(processedData);
         } catch (error) {
-            console.error("Error processing audio data:", error);
-            this.eventsService.reportError(error);
+            this.errorService.reportError(error, 'audio-service');
         }
     }
 }

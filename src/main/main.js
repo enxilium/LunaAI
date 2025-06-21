@@ -2,6 +2,7 @@ const { app, ipcMain, protocol, BrowserWindow } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
+const { getErrorService } = require("./services/error-service");
 
 require("dotenv").config();
 
@@ -19,7 +20,8 @@ async function initialize() {
         try {
             return callback(decodeURIComponent(url));
         } catch (error) {
-            console.error("Error with protocol handler:", error);
+            const errorService = getErrorService();
+            errorService.reportError(error, 'protocol-handler');
         }
     });
 
@@ -36,7 +38,8 @@ async function initialize() {
         // Log initialization complete
         console.log("Luna AI initialized and ready");
     } catch (error) {
-        console.error("Error during initialization:", error);
+        const errorService = getErrorService();
+        errorService.reportError(error, 'main-initialization');
     }
 }
 

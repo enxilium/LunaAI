@@ -27,6 +27,7 @@
     "@picovoice/porcupine-react": "^3.0.3",
     "@picovoice/porcupine-web": "^3.0.3",
     "@picovoice/web-voice-processor": "^4.0.9",
+    "axios": "^1.10.0",
     "dotenv": "^16.5.0",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.1.0",
