@@ -8,16 +8,14 @@ async function checkCalendar(context_map) {
 
 async function addCalendarEvent(context_map) {
     try {
-        const event_date = context_map.event_date[0].body;
-        const event_title = toTitleCase(context_map.event_title[0].body);
+        const event_date = context_map.event_date;
+        const date_utc = context_map.utc;
+        const event_title = toTitleCase(context_map.event_title);
 
         console.log(`Adding calendar event: ${event_title} on ${event_date}`);
-        context_map.success = true;
-
     } catch (error) {
         const errorService = getErrorService();
         errorService.reportError(error, 'calendar-command');
-        context_map.success = false;
         context_map.error = error.message;
 
     } finally {

@@ -1,4 +1,4 @@
-const getUserData = require("../services/credentials-service");
+const { getUserData } = require("../services/credentials-service");
 
 /**
  * Handles the disconnect-service invoke call

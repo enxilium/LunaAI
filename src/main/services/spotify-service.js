@@ -1,11 +1,18 @@
 const { getUserData } = require("./credentials-service");
+const { getEventsService } = require("./events-service");
+const { getErrorService } = require("./error-service");
 const http = require("http");
 const url = require("url");
 const { shell } = require("electron");
+const SpotifyWebApi = require('spotify-web-api-node');
+const { openApplication } = require("../commands/open")
 
 const userData = getUserData();
-const BASE_API = "https://api.spotify.com/v1";
 
+/**
+ * Spotify Service
+ * Manages authentication and interaction with Spotify API using spotify-web-api-node
+ */
 class SpotifyService {
     constructor() {
         this.clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -20,15 +27,29 @@ class SpotifyService {
             "user-read-playback-state",
             "user-modify-playback-state",
         ];
+        
+        // Initialize the Spotify API wrapper
+        this.spotifyApi = new SpotifyWebApi({
+            clientId: this.clientId,
+            clientSecret: this.clientSecret,
+            redirectUri: this.redirectUri
+        });
+        
         this.accessToken = null;
         this.refreshToken = null;
         this.authorized = false;
+
+        this.eventsService = null;
+        this.errorService = null;
     }
 
     // Core authentication and token methods
 
     async initialize() {
         try {
+            this.eventsService = await getEventsService();
+            this.errorService = await getErrorService();
+            
             // Check for stored tokens
             const accessToken = await userData.getCredentials(
                 "spotify.accessToken"
@@ -43,6 +64,10 @@ class SpotifyService {
             if (accessToken && refreshToken && expiresAt) {
                 this.accessToken = accessToken;
                 this.refreshToken = refreshToken;
+                
+                // Set the tokens on the API instance
+                this.spotifyApi.setAccessToken(accessToken);
+                this.spotifyApi.setRefreshToken(refreshToken);
 
                 const expiryTime = parseInt(expiresAt);
 
@@ -60,9 +85,26 @@ class SpotifyService {
             console.log("No valid Spotify tokens found");
             return false;
         } catch (error) {
-            console.error("Failed to initialize Spotify:", error);
+            this.reportError(error, "initialize");
             return false;
         }
+    }
+
+    /**
+     * Reports an error and formats it for return
+     * @param {Error} error - The error that occurred
+     * @param {string} method - The method where the error occurred
+     * @returns {Object} - Error object with message and success flag
+     */
+    reportError(error, method) {
+        // Log the error for debugging
+        console.error(`Spotify service error in ${method}:`, error);
+        
+        // Return formatted error object
+        return {
+            success: false,
+            error: `Error in ${method}: ${error.message}`
+        };
     }
 
     async authorize() {
@@ -92,26 +134,29 @@ class SpotifyService {
                     );
 
                     try {
-                        // Exchange code for tokens - manually handle the token exchange
-                        const tokenResponse = await this.exchangeCodeForTokens(
-                            code
-                        );
+                        // Exchange code for tokens using the wrapper library
+                        const data = await this.spotifyApi.authorizationCodeGrant(code);
 
                         // Store tokens
-                        this.accessToken = tokenResponse.access_token;
-                        this.refreshToken = tokenResponse.refresh_token;
+                        this.accessToken = data.body.access_token;
+                        this.refreshToken = data.body.refresh_token;
+                        
+                        // Set tokens on the API instance
+                        this.spotifyApi.setAccessToken(data.body.access_token);
+                        this.spotifyApi.setRefreshToken(data.body.refresh_token);
 
+                        // Store tokens in user data
                         await userData.setCredentials(
                             "spotify.accessToken",
-                            tokenResponse.access_token
+                            data.body.access_token
                         );
                         await userData.setCredentials(
                             "spotify.refreshToken",
-                            tokenResponse.refresh_token
+                            data.body.refresh_token
                         );
                         await userData.setCredentials(
                             "spotify.expiresAt",
-                            String(Date.now() + tokenResponse.expires_in * 1000)
+                            String(Date.now() + data.body.expires_in * 1000)
                         );
 
                         console.log("Spotify tokens stored successfully");
@@ -120,10 +165,7 @@ class SpotifyService {
                         server.close();
                         resolve(true);
                     } catch (error) {
-                        console.error(
-                            "Failed to exchange code for tokens:",
-                            error
-                        );
+                        this.reportError(error, "authorize");
                         server.close();
                         reject(error);
                     }
@@ -140,20 +182,19 @@ class SpotifyService {
                     // Generate random state for CSRF protection
                     const state = Math.random().toString(36).substring(2, 15);
 
-                    // Generate the authorization URL
-                    const authUrl = `https://accounts.spotify.com/authorize?client_id=${
-                        this.clientId
-                    }&response_type=code&redirect_uri=${encodeURIComponent(
-                        this.redirectUri
-                    )}&state=${state}&scope=${encodeURIComponent(
-                        this.scopes.join(" ")
-                    )}&show_dialog=true`;
+                    // Generate the authorization URL using the wrapper
+                    const authUrl = this.spotifyApi.createAuthorizeURL(
+                        this.scopes, 
+                        state, 
+                        true // showDialog
+                    );
 
                     // Open URL in user's default browser
                     console.log(`Opening auth URL in browser: ${authUrl}`);
                     await shell.openExternal(authUrl);
                 } catch (error) {
                     server.close();
+                    this.reportError(error, "authorize");
                     reject(
                         new Error(`Failed to open browser: ${error.message}`)
                     );
@@ -162,39 +203,10 @@ class SpotifyService {
 
             // Handle server errors
             server.on("error", (err) => {
+                this.reportError(err, "authorize-server");
                 reject(new Error(`Server error: ${err.message}`));
             });
         });
-    }
-
-    async exchangeCodeForTokens(code) {
-        const authString = Buffer.from(
-            `${this.clientId}:${this.clientSecret}`
-        ).toString("base64");
-        const response = await fetch("https://accounts.spotify.com/api/token", {
-            method: "POST",
-            headers: {
-                Authorization: `Basic ${authString}`,
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({
-                grant_type: "authorization_code",
-                code: code,
-                redirect_uri: this.redirectUri,
-                client_id: this.clientId,
-            }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-                `Token request failed: ${
-                    errorData.error_description || response.statusText
-                }`
-            );
-        }
-
-        return response.json();
     }
 
     async refreshAccessToken() {
@@ -207,54 +219,30 @@ class SpotifyService {
                 return false;
             }
 
-            const authString = Buffer.from(
-                `${this.clientId}:${this.clientSecret}`
-            ).toString("base64");
-
-            const response = await fetch(
-                "https://accounts.spotify.com/api/token",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        Authorization: `Basic ${authString}`,
-                    },
-                    body: new URLSearchParams({
-                        grant_type: "refresh_token",
-                        refresh_token: this.refreshToken,
-                        // Remove client_id from body since it's now in the auth header
-                    }),
-                }
-            );
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(
-                    `Refresh token request failed: ${
-                        errorData.error_description || response.statusText
-                    }`
-                );
-            }
-
-            const data = await response.json();
+            // Use the wrapper to refresh the token
+            const data = await this.spotifyApi.refreshAccessToken();
 
             // Update the access token
-            this.accessToken = data.access_token;
+            this.accessToken = data.body.access_token;
+            this.spotifyApi.setAccessToken(data.body.access_token);
+            
+            // Store the new token
             await userData.setCredentials(
                 "spotify.accessToken",
-                data.access_token
+                data.body.access_token
             );
             await userData.setCredentials(
                 "spotify.expiresAt",
-                String(Date.now() + data.expires_in * 1000)
+                String(Date.now() + data.body.expires_in * 1000)
             );
 
             // If a new refresh token was provided, update it
-            if (data.refresh_token) {
-                this.refreshToken = data.refresh_token;
+            if (data.body.refresh_token) {
+                this.refreshToken = data.body.refresh_token;
+                this.spotifyApi.setRefreshToken(data.body.refresh_token);
                 await userData.setCredentials(
                     "spotify.refreshToken",
-                    data.refresh_token
+                    data.body.refresh_token
                 );
             }
 
@@ -263,13 +251,12 @@ class SpotifyService {
 
             return true;
         } catch (error) {
-            console.error("Failed to refresh access token:", error);
+            this.reportError(error, "refreshAccessToken");
             return false;
         }
     }
 
-    // Helper for making authenticated requests to the Spotify API
-    async apiRequest(endpoint, method = "GET", body = null) {
+    async getPlaylists(limit = 50) {
         try {
             // Ensure we have valid tokens
             if (!this.accessToken) {
@@ -278,85 +265,59 @@ class SpotifyService {
                     await this.authorize();
                 }
             }
-
-            // Build request options
-            const options = {
-                method,
-                headers: {
-                    Authorization: `Bearer ${this.accessToken}`,
-                },
-            };
-
-            // Add body if provided
-            if (body) {
-                options.headers["Content-Type"] = "application/json";
-                options.body = JSON.stringify(body);
-            }
-
-            // Make the request
-            const response = await fetch(`${BASE_API}${endpoint}`, options);
-
-            // SUCCESS: No content (common for playback commands)
-            if (response.status === 204) {
-                return { success: true };
-            }
-
-            // SUCCESS: Has content
-            if (response.ok) {
-                // Only try to parse if there's a response body
-                const contentType = response.headers.get("content-type");
-                if (contentType && contentType.includes("application/json")) {
-                    return await response.json();
-                } else {
-                    return { success: true };
-                }
-            }
-
-            // ERROR: Handle error responses
-            try {
-                const errorData = await response.json();
-                throw new Error(
-                    `API request failed: ${
-                        errorData.error?.message || response.statusText
-                    }`
-                );
-            } catch (jsonError) {
-                throw new Error(`API request failed: ${response.statusText}`);
-            }
+            
+            const response = await this.spotifyApi.getUserPlaylists({ limit });
+            return response.body;
         } catch (error) {
-            console.error(`Error making request to ${endpoint}:`, error);
-            throw error;
+            // Return error message instead of throwing
+            return this.reportError(error, "getPlaylists");
         }
     }
 
-    // API methods that wrap the Spotify REST endpoints
-
-    async getUserProfile() {
-        return this.apiRequest("/me");
-    }
-
-    async getPlaylists(limit = 50) {
-        return this.apiRequest(`/me/playlists?limit=${limit}`);
-    }
-
     async getTopTracks(timeRange = "medium_term", limit = 20) {
-        return this.apiRequest(
-            `/me/top/tracks?time_range=${timeRange}&limit=${limit}`
-        );
+        try {
+            const response = await this.spotifyApi.getMyTopTracks({ 
+                time_range: timeRange, 
+                limit 
+            });
+            return response.body;
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "getTopTracks");
+        }
     }
 
     async getTopArtists(timeRange = "medium_term", limit = 20) {
-        return this.apiRequest(
-            `/me/top/artists?time_range=${timeRange}&limit=${limit}`
-        );
+        try {
+            const response = await this.spotifyApi.getMyTopArtists({ 
+                time_range: timeRange, 
+                limit 
+            });
+            return response.body;
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "getTopArtists");
+        }
     }
 
     async getCurrentlyPlaying() {
-        return this.apiRequest("/me/player/currently-playing");
+        try {
+            const response = await this.spotifyApi.getMyCurrentPlayingTrack();
+            return response.body;
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "getCurrentlyPlaying");
+        }
     }
 
     async getPlaybackState() {
-        return this.apiRequest("/me/player");
+        try {
+            const response = await this.spotifyApi.getMyCurrentPlaybackState();
+            return response.body;
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "getPlaybackState");
+        }
     }
 
     async ensureActivePlayback() {
@@ -370,15 +331,27 @@ class SpotifyService {
             }
 
             // Otherwise, find available devices
-            const devices = await this.getDevices();
+            const devicesResponse = await this.spotifyApi.getMyDevices();
+            let devices = devicesResponse.body;
+            
             if (!devices || !devices.devices || devices.devices.length === 0) {
-                console.log("No Spotify devices available");
-                return false;
+                console.log("No Spotify devices available. Attempting to connect to a device.");
+
+                let context_map = { application: "spotify" };
+                
+                // Open Spotify application
+                await openApplication(context_map);
+
+                if (context_map.error) {
+                    this.reportError(new Error(context_map.error), "ensureActivePlayback");
+                    return false;
+                }
+
+                devices = await this.spotifyApi.getMyDevices().body;
             }
 
             // Pick the first available device
-            const device =
-                devices.devices.find((d) => d.is_active) || devices.devices[0];
+            const device = devices.devices.find((d) => d.is_active) || devices.devices[0];
             console.log(`Activating Spotify device: ${device.name}`);
 
             // Transfer playback to this device
@@ -388,26 +361,263 @@ class SpotifyService {
             await new Promise((resolve) => setTimeout(resolve, 1000));
             return true;
         } catch (error) {
-            console.error("Failed to ensure active playback:", error);
+            this.reportError(error, "ensureActivePlayback");
             return false;
         }
     }
 
-    async play(uri = null) {
-        // Ensure we have an active device first
-        if (!(await this.ensureActivePlayback())) {
-            throw new Error("No Spotify devices available");
-        }
+    async search(track, artist, type = "track") {
+        try {
+            let response;
+            let query = "";
+            
+            // Build query based on search type
+            if (type === "track") {
+                // For track searches, we can use both track and artist
+                query = artist 
+                    ? `track:${track} artist:${artist}`
+                    : `track:${track}`;
+            } else if (type === "album" && artist) {
+                // For album searches with artist name
+                query = `album:${track} artist:${artist}`;
+            } else if (type === "album") {
+                // For album searches without artist name
+                query = `album:${track}`;
+            } else if (type === "playlist" && artist) {
+                // For playlist searches, artist name can be part of the query
+                // but not as a specific filter since playlists don't have "artists"
+                query = `${track} ${artist}`;
+            } else {
+                // Default case for playlist without artist or other types
+                query = track;
+            }
+            
+            console.log(`Searching for ${type} with query: ${query}`);
 
-        // Continue with existing play implementation
-        const body = uri ? { uris: [uri] } : undefined;
-        return this.apiRequest("/me/player/play", "PUT", body);
+            switch (type) {
+                case "track":
+                    response = await this.spotifyApi.searchTracks(query);
+                    break;
+                case "playlist":
+                    response = await this.spotifyApi.searchPlaylists(query);
+                    break;
+                case "album":
+                    response = await this.spotifyApi.searchAlbums(query);
+                    break;
+                default:
+                    return {
+                        success: false,
+                        error: `Invalid search type: ${type}`
+                    };
+            }
+            
+            // Check if we have results based on the type
+            let items = [];
+            let propertyName = "";
+            
+            switch(type) {
+                case "track":
+                    if (!response.body.tracks || !response.body.tracks.items.length) {
+                        console.log('No tracks found matching the search criteria');
+                        return { 
+                            success: false,
+                            error: `No tracks found matching "${track}" ${artist ? `by "${artist}"` : ''}`
+                        };
+                    }
+                    items = response.body.tracks.items.filter(item => item !== null);
+                    propertyName = "track";
+                    break;
+                case "playlist":
+                    if (!response.body.playlists || !response.body.playlists.items.length) {
+                        console.log('No playlists found matching the search criteria');
+                        return { 
+                            success: false,
+                            error: `No playlists found matching "${track}"`
+                        };
+                    }
+                    items = response.body.playlists.items.filter(item => item !== null);
+                    propertyName = "playlist";
+                    break;
+                case "album":
+                    if (!response.body.albums || !response.body.albums.items.length) {
+                        console.log('No albums found matching the search criteria');
+                        return { 
+                            success: false,
+                            error: `No albums found matching "${track}" ${artist ? `by "${artist}"` : ''}`
+                        };
+                    }
+                    items = response.body.albums.items.filter(item => item !== null);
+                    propertyName = "album";
+                    break;
+            }
+            
+            // Make sure we still have items after filtering nulls
+            if (items.length === 0) {
+                return {
+                    success: false,
+                    error: `No valid ${type}s found matching the search criteria`
+                };
+            }
+            
+            // Get the top result
+            const topResult = items[0];
+            
+            // Format the result based on the type
+            let formattedResult = { success: true };
+            
+            switch(type) {
+                case "track":
+                    formattedResult[propertyName] = {
+                        id: topResult.id,
+                        name: topResult.name,
+                        uri: topResult.uri,
+                        artists: Array.isArray(topResult.artists) ? topResult.artists.map(artist => ({
+                            name: artist?.name || 'Unknown Artist',
+                            id: artist?.id || 'unknown'
+                        })) : [{ name: 'Unknown Artist', id: 'unknown' }],
+                        album: {
+                            name: topResult.album?.name || 'Unknown Album',
+                            release_date: topResult.album?.release_date || 'Unknown Date'
+                        },
+                        duration_ms: topResult.duration_ms || 0,
+                        popularity: topResult.popularity || 0
+                    };
+                    formattedResult.allResults = items.map(item => ({
+                        id: item.id || 'unknown',
+                        name: item.name || 'Unknown Track',
+                        uri: item.uri || '',
+                        artists: Array.isArray(item.artists) ? item.artists.map(artist => artist?.name || 'Unknown Artist').join(', ') : 'Unknown Artist',
+                        album: item.album?.name || 'Unknown Album'
+                    }));
+                    break;
+                case "playlist":
+                    formattedResult[propertyName] = {
+                        id: topResult.id || 'unknown',
+                        name: topResult.name || 'Unknown Playlist',
+                        uri: topResult.uri || '',
+                        owner: {
+                            id: topResult.owner?.id || 'unknown',
+                            display_name: topResult.owner?.display_name || 'Unknown Owner'
+                        },
+                        tracks: {
+                            total: topResult.tracks?.total || 0
+                        },
+                        description: topResult.description || '',
+                        public: topResult.public || false,
+                        collaborative: topResult.collaborative || false
+                    };
+                    formattedResult.allResults = items.map(item => {
+                        if (!item) return null;
+                        return {
+                            id: item.id || 'unknown',
+                            name: item.name || 'Unknown Playlist',
+                            uri: item.uri || '',
+                            owner: item.owner?.display_name || 'Unknown Owner',
+                            tracks: item.tracks?.total || 0
+                        };
+                    }).filter(item => item !== null);
+                    break;
+                case "album":
+                    formattedResult[propertyName] = {
+                        id: topResult.id || 'unknown',
+                        name: topResult.name || 'Unknown Album',
+                        uri: topResult.uri || '',
+                        artists: Array.isArray(topResult.artists) ? topResult.artists.map(artist => ({
+                            name: artist?.name || 'Unknown Artist',
+                            id: artist?.id || 'unknown'
+                        })) : [{ name: 'Unknown Artist', id: 'unknown' }],
+                        release_date: topResult.release_date || 'Unknown Date',
+                        total_tracks: topResult.total_tracks || 0,
+                        album_type: topResult.album_type || 'album'
+                    };
+                    formattedResult.allResults = items.map(item => {
+                        if (!item) return null;
+                        return {
+                            id: item.id || 'unknown',
+                            name: item.name || 'Unknown Album',
+                            uri: item.uri || '',
+                            artists: Array.isArray(item.artists) ? item.artists.map(artist => artist?.name || 'Unknown Artist').join(', ') : 'Unknown Artist',
+                            release_date: item.release_date || 'Unknown Date',
+                            total_tracks: item.total_tracks || 0
+                        };
+                    }).filter(item => item !== null);
+                    break;
+            }
+            
+            return formattedResult;
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "search");
+        }
+    }
+
+    async play(title, artist = "", type = "track", personal = false) {
+        try {
+            // Ensure we have an active device first
+            if (!(await this.ensureActivePlayback())) {
+                return {
+                    success: false,
+                    error: "No Spotify devices available"
+                };
+            }
+
+            let itemToPlay = null;
+            let artistsText = "";
+
+            // Search for the content based on type if not personal
+            if (!personal) {
+                const searchResult = await this.search(title, artist, type);
+                
+                if (!searchResult.success) {
+                    return searchResult; // Return the error from search
+                }
+                
+                // Extract the appropriate item based on type
+                if (type === "track") {
+                    itemToPlay = searchResult.track;
+                    artistsText = `by "${itemToPlay.artists.map(a => a.name).join(', ')}"`;
+                } else if (type === "playlist") {
+                    itemToPlay = searchResult.playlist;
+                    artistsText = `by ${itemToPlay.owner.display_name}`;
+                } else if (type === "album") {
+                    itemToPlay = searchResult.album;
+                    artistsText = `by "${itemToPlay.artists.map(a => a.name).join(', ')}"`;
+                }
+            } else {
+                // Personal content
+                itemToPlay = {}; //TODO: Implement searching personal playlists
+            }
+            
+            // Play the found content
+            console.log(`Playing ${type}: "${itemToPlay.name}" ${artistsText}`);
+
+            // The context_uri is different from a track URI - for albums and playlists we need to use the context
+            if (type === "track") {
+                await this.spotifyApi.play({ uris: [itemToPlay.uri] });
+            } else {
+                await this.spotifyApi.play({ context_uri: itemToPlay.uri });
+            }
+            
+            return {
+                success: true,
+                message: `Now playing ${type}: "${itemToPlay.name}" ${artistsText}`,
+                item_details: itemToPlay
+            };
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "play");
+        }
     }
 
     async pause() {
         try {
             // First, check current playback state
             const playbackState = await this.getPlaybackState();
+
+            // If playbackState has an error, return it
+            if (playbackState && playbackState.error) {
+                return playbackState;
+            }
 
             // If nothing is playing or no active device, nothing to pause
             if (!playbackState || !playbackState.is_playing) {
@@ -416,52 +626,104 @@ class SpotifyService {
             }
 
             // Only try to pause if something is actually playing
-            return this.apiRequest("/me/player/pause", "PUT");
+            await this.spotifyApi.pause();
+            return { success: true };
         } catch (error) {
-            console.error("Failed to pause playback:", error);
-            throw error;
+            // Return error message instead of throwing
+            return this.reportError(error, "pause");
         }
     }
 
     async nextTrack() {
-        // Ensure we have an active device first
-        if (!(await this.ensureActivePlayback())) {
-            throw new Error("No Spotify devices available");
-        }
+        try {
+            // Ensure we have an active device first
+            if (!(await this.ensureActivePlayback())) {
+                return {
+                    success: false,
+                    error: "No Spotify devices available"
+                };
+            }
 
-        return this.apiRequest("/me/player/next", "POST");
+            await this.spotifyApi.skipToNext();
+            return { success: true };
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "nextTrack");
+        }
     }
 
     async previousTrack() {
-        // Ensure we have an active device first
-        if (!(await this.ensureActivePlayback())) {
-            throw new Error("No Spotify devices available");
-        }
+        try {
+            // Ensure we have an active device first
+            if (!(await this.ensureActivePlayback())) {
+                return {
+                    success: false,
+                    error: "No Spotify devices available"
+                };
+            }
 
-        return this.apiRequest("/me/player/previous", "POST");
+            await this.spotifyApi.skipToPrevious();
+            return { success: true };
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "previousTrack");
+        }
     }
 
     async setVolume(volumePercent) {
-        // Ensure we have an active device first
-        if (!(await this.ensureActivePlayback())) {
-            throw new Error("No Spotify devices available");
-        }
+        try {
+            // Ensure we have an active device first
+            if (!(await this.ensureActivePlayback())) {
+                return {
+                    success: false,
+                    error: "No Spotify devices available"
+                };
+            }
 
-        return this.apiRequest(
-            `/me/player/volume?volume_percent=${volumePercent}`,
-            "PUT"
-        );
+            await this.spotifyApi.setVolume(volumePercent);
+            return { success: true };
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "setVolume");
+        }
     }
 
     async getDevices() {
-        return this.apiRequest("/me/player/devices");
+        try {
+            const response = await this.spotifyApi.getMyDevices();
+            return response.body;
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "getDevices");
+        }
     }
 
     async transferPlayback(deviceId, play = true) {
-        return this.apiRequest("/me/player", "PUT", {
-            device_ids: [deviceId],
-            play: play,
-        });
+        try {
+            await this.spotifyApi.transferMyPlayback([deviceId], { play });
+            return { success: true };
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "transferPlayback");
+        }
+    }
+
+    async setShuffle(state) {
+        try {
+            // Ensure we have an active device first
+            if (!(await this.ensureActivePlayback())) {
+                return {
+                    success: false,
+                    error: "No Spotify devices available"
+                };
+            }
+
+            await this.spotifyApi.setShuffle({ state });
+            return { success: true };
+        } catch (error) {
+            // Return error message instead of throwing
+            return this.reportError(error, "setShuffle");
+        }
     }
 
     isAuthorized() {

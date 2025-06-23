@@ -1,5 +1,25 @@
 const { Wit, log } = require("node-wit");
-const { getDate, getTime, getWeather, checkCalendar, addCalendarEvent, handleError, handleEnd } = require("../commands");
+const { 
+    getDate, 
+    getTime, 
+    getWeather, 
+    checkCalendar, 
+    addCalendarEvent, 
+    handleError, 
+    handleEnd,
+    // Import individual Spotify commands with updated names
+    skipTrack,
+    playPreviousTrack,
+    resumePlayback,
+    shufflePlayback,
+    pausePlayback,
+    increaseVolume,
+    decreaseVolume,
+    playSong,
+    // App opening commands
+    open,
+    openSpotify
+} = require("../commands");
 const { v4: uuidv4 } = require("uuid");
 const { getEventsService, EVENT_TYPES } = require("./events-service");
 
@@ -8,11 +28,32 @@ let witService = null;
 class WitService {
     constructor() {
         this.actions = {
+            // Date & time commands
             getDate,
             getTime,
+            
+            // Weather command
             getWeather,
+            
+            // Calendar commands
             checkCalendar,
             addCalendarEvent,
+            
+            // Spotify commands
+            skipTrack,
+            playPreviousTrack,
+            resumePlayback,
+            shufflePlayback,
+            pausePlayback,
+            increaseVolume,
+            decreaseVolume,
+            playSong,
+            
+            // App opening commands
+            open,
+            openSpotify,
+            
+            // Error handling
             handleError,
             handleEnd
         };
@@ -28,7 +69,11 @@ class WitService {
     resetConversation() {
         this.currentConversation = null;
         this.sessionId = uuidv4();
+        
+        // Clear the entire context map
         this.contextMap = {};
+        
+        console.log("Conversation reset, all context cleared");
     }
 
     async initialize() {
@@ -103,7 +148,15 @@ class WitService {
         }
 
         try {
-            console.log("Using old conversation", this.currentConversation != null);
+            // Check if we should reset the conversation
+            // If this is a new query and not a continuation, reset the conversation
+            if (!this.currentConversation) {
+                console.log("Starting new conversation, resetting context");
+                this.resetConversation();
+            } else {
+                console.log("Continuing existing conversation");
+            }
+            
             // Set correct content type for raw PCM audio
             const contentType =
                 "audio/raw;encoding=signed-integer;bits=16;rate=16000;endian=little";
@@ -120,8 +173,13 @@ class WitService {
 
             // Update context map
             if (result && result.context_map) {
+                // Store the new context map
                 this.contextMap = result.context_map;
             }
+
+            // After the conversation completes, set currentConversation to null
+            // This ensures the next call to startConversation will be treated as a new conversation
+            this.currentConversation = null;
 
             return result;
         } catch (error) {
