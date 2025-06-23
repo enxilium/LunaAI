@@ -4,6 +4,7 @@ const { getWitService } = require("./wit-service.js");
 const { getAudioService } = require("./audio-service.js");
 const { getEventsService } = require("./events-service.js");
 const { getErrorService } = require("./error-service.js");
+const { getNLGService } = require("./nlg-service.js");
 
 async function initializeServices() {
     // Initialize error service first so it's ready to receive errors
@@ -23,6 +24,7 @@ async function initializeServices() {
     
     const witService = await getWitService();
     const audioService = await getAudioService();
+    const nlgService = await getNLGService();
 }
 
 module.exports = {

@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { getNLGService } = require('../../services/nlg-service');
 
 /**
  * Parse datetime from context_map which can be in various formats
@@ -203,8 +204,9 @@ async function fetchWeatherData(lat, long, location) {
         const apiKey = process.env.WEATHERAPI_KEY;
         
         // Get current weather and forecast in a single call (3-day forecast included in free tier)
+        // Increased to 7 days for better time range support if needed
         const weatherResponse = await axios.get(
-            `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${long}&days=3&aqi=no&alerts=no`
+            `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${lat},${long}&days=7&aqi=no&alerts=no`
         );
         
         return weatherResponse.data;
@@ -236,18 +238,31 @@ function generateWeatherResponse(weatherData, datetime, location) {
     
     // Current weather
     if (datetime.type === 'current' || datetime.description === 'today') {
-        const temp = Math.round(current.temp_f);
-        const feelsLike = Math.round(current.feelslike_f);
+        const temp = Math.round(current.temp_c);
+        const feelsLike = Math.round(current.feelslike_c);
         const condition = current.condition.text.toLowerCase();
         const humidity = current.humidity;
-        const windSpeed = Math.round(current.wind_mph);
+        const windSpeed = Math.round(current.wind_kph);
         
         // Get today's forecast for additional details
         const todayForecast = forecast.forecastday[0];
-        const minTemp = Math.round(todayForecast.day.mintemp_f);
-        const maxTemp = Math.round(todayForecast.day.maxtemp_f);
+        const minTemp = Math.round(todayForecast.day.mintemp_c);
+        const maxTemp = Math.round(todayForecast.day.maxtemp_c);
         
-        return `The current weather in ${locationName} is ${condition} with a temperature of ${temp}°F (feels like ${feelsLike}°F). Today's forecast shows temperatures between ${minTemp}°F and ${maxTemp}°F with humidity at ${humidity}% and wind speeds of ${windSpeed} mph.`;
+        // Get time-of-day forecasts
+        const hourlyForecasts = todayForecast.hour;
+        const morningForecast = hourlyForecasts[9]; // 9 AM
+        const afternoonForecast = hourlyForecasts[15]; // 3 PM
+        const eveningForecast = hourlyForecasts[19]; // 7 PM
+        const nightForecast = hourlyForecasts[23]; // 11 PM
+        
+        const timeOfDayForecasts = `
+Morning: ${Math.round(morningForecast.temp_c)}°C, ${morningForecast.condition.text.toLowerCase()}
+Afternoon: ${Math.round(afternoonForecast.temp_c)}°C, ${afternoonForecast.condition.text.toLowerCase()}
+Evening: ${Math.round(eveningForecast.temp_c)}°C, ${eveningForecast.condition.text.toLowerCase()}
+Night: ${Math.round(nightForecast.temp_c)}°C, ${nightForecast.condition.text.toLowerCase()}`;
+        
+        return `The current weather in ${locationName} is ${condition} with a temperature of ${temp}°C (feels like ${feelsLike}°C). Today's forecast shows temperatures between ${minTemp}°C and ${maxTemp}°C with humidity at ${humidity}% and wind speeds of ${windSpeed} km/h.${timeOfDayForecasts}`;
     }
     
     // For future forecasts
@@ -288,8 +303,8 @@ function generateWeatherResponse(weatherData, datetime, location) {
         const day = relevantForecasts[0];
         const dayData = day.day;
         const condition = dayData.condition.text.toLowerCase();
-        const minTemp = Math.round(dayData.mintemp_f);
-        const maxTemp = Math.round(dayData.maxtemp_f);
+        const minTemp = Math.round(dayData.mintemp_c);
+        const maxTemp = Math.round(dayData.maxtemp_c);
         const chanceOfRain = dayData.daily_chance_of_rain;
         
         // Format the date in a readable format
@@ -299,15 +314,52 @@ function generateWeatherResponse(weatherData, datetime, location) {
         
         let dateText = isToday ? 'today' : isTomorrow ? 'tomorrow' : `on ${forecastDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`;
         
-        return `The forecast for ${locationName} ${dateText} is ${condition} with temperatures between ${minTemp}°F and ${maxTemp}°F${chanceOfRain > 0 ? ` and a ${chanceOfRain}% chance of rain` : ''}.`;
+        // Get time-of-day forecasts
+        const hourlyForecasts = day.hour;
+        const morningForecast = hourlyForecasts[9]; // 9 AM
+        const afternoonForecast = hourlyForecasts[15]; // 3 PM
+        const eveningForecast = hourlyForecasts[19]; // 7 PM
+        const nightForecast = hourlyForecasts[23]; // 11 PM
+        
+        const timeOfDayForecasts = `
+Morning: ${Math.round(morningForecast.temp_c)}°C, ${morningForecast.condition.text.toLowerCase()}
+Afternoon: ${Math.round(afternoonForecast.temp_c)}°C, ${afternoonForecast.condition.text.toLowerCase()}
+Evening: ${Math.round(eveningForecast.temp_c)}°C, ${eveningForecast.condition.text.toLowerCase()}
+Night: ${Math.round(nightForecast.temp_c)}°C, ${nightForecast.condition.text.toLowerCase()}`;
+        
+        return `The forecast for ${locationName} ${dateText} is ${condition} with temperatures between ${minTemp}°C and ${maxTemp}°C${chanceOfRain > 0 ? ` and a ${chanceOfRain}% chance of rain` : ''}.${timeOfDayForecasts}`;
     }
     
-    // Multiple days forecast
+    // Multiple days forecast (for week or weekend)
+    let forecastDetails = '';
+    
+    // Generate daily reports for each day in the range
+    relevantForecasts.forEach(day => {
+        const date = new Date(day.date);
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+        const condition = day.day.condition.text.toLowerCase();
+        const minTemp = Math.round(day.day.mintemp_c);
+        const maxTemp = Math.round(day.day.maxtemp_c);
+        const chanceOfRain = day.day.daily_chance_of_rain;
+        
+        forecastDetails += `
+${dayName}: ${condition}, ${minTemp}°C to ${maxTemp}°C${chanceOfRain > 0 ? `, ${chanceOfRain}% chance of rain` : ''}`;
+    });
+    
+    // Get date range description
+    let dateRangeText = datetime.description;
+    if (!dateRangeText || dateRangeText === 'undefined') {
+        const startDate = new Date(relevantForecasts[0].date);
+        const endDate = new Date(relevantForecasts[relevantForecasts.length - 1].date);
+        dateRangeText = `from ${startDate.toLocaleDateString('en-US', { weekday: 'long' })} to ${endDate.toLocaleDateString('en-US', { weekday: 'long' })}`;
+    }
+    
+    // Calculate overall min/max and conditions
     const conditions = relevantForecasts.map(day => day.day.condition.text.toLowerCase());
     const uniqueConditions = [...new Set(conditions)];
     
-    const minTemp = Math.min(...relevantForecasts.map(day => Math.round(day.day.mintemp_f)));
-    const maxTemp = Math.max(...relevantForecasts.map(day => Math.round(day.day.maxtemp_f)));
+    const minTemp = Math.min(...relevantForecasts.map(day => Math.round(day.day.mintemp_c)));
+    const maxTemp = Math.max(...relevantForecasts.map(day => Math.round(day.day.maxtemp_c)));
     
     let conditionText = '';
     if (uniqueConditions.length === 1) {
@@ -318,15 +370,7 @@ function generateWeatherResponse(weatherData, datetime, location) {
         conditionText = 'varying conditions';
     }
     
-    // Get date range description
-    let dateRangeText = datetime.description;
-    if (!dateRangeText || dateRangeText === 'undefined') {
-        const startDate = new Date(relevantForecasts[0].date);
-        const endDate = new Date(relevantForecasts[relevantForecasts.length - 1].date);
-        dateRangeText = `from ${startDate.toLocaleDateString('en-US', { weekday: 'long' })} to ${endDate.toLocaleDateString('en-US', { weekday: 'long' })}`;
-    }
-    
-    return `The forecast for ${locationName} ${dateRangeText} shows ${conditionText} with temperatures between ${minTemp}°F and ${maxTemp}°F.`;
+    return `The forecast for ${locationName} ${dateRangeText} shows ${conditionText} with temperatures between ${minTemp}°C and ${maxTemp}°C.${forecastDetails}`;
 }
 
 /**
@@ -396,11 +440,40 @@ async function getWeather(context_map) {
         // Fetch weather data from WeatherAPI
         const weatherData = await fetchWeatherData(lat, long, location);
         
-        // Generate natural language response
-        const response = generateWeatherResponse(weatherData, datetime, location);
-        
-        // Store response in context map
-        context_map.weather = response;
+        // Try to use NLG service for more natural response if available
+        try {
+            const nlgService = await getNLGService();
+            
+            // Get location name from API if available
+            const locationName = weatherData.location && weatherData.location.name ? weatherData.location.name : location;
+            
+            // Prepare weather data for NLG
+            const nlgWeatherData = {
+                location: locationName,
+                datetime: datetime,
+                current: weatherData.current,
+                forecast: weatherData.forecast.forecastday,
+            };
+            
+            // Generate natural language response using NLG service
+            const response = await nlgService.generateWeatherSummary(
+                nlgWeatherData, 
+                { 
+                    timeFrame: datetime.description,
+                    location: locationName 
+                }
+            );
+            
+            // Store response in context map
+            context_map.weather = response;
+            
+        } catch (nlgError) {
+            console.warn('NLG service unavailable, falling back to template-based response:', nlgError);
+            
+            // Fall back to the template-based response if NLG fails
+            const response = generateWeatherResponse(weatherData, datetime, location);
+            context_map.weather = response;
+        }
         
         return { context_map, stop: false };
     } catch (error) {

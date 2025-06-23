@@ -17,6 +17,7 @@ const EVENT_TYPES = {
     // Audio playback events
     AUDIO_CHUNK: "audio-chunk",
     AUDIO_STREAM_END: "audio-stream-end",
+    AUDIO_PLAYBACK_COMPLETE: "audio-playback-complete",
     AUDIO_DATA_RECEIVED: "audio-data-received",
 
     // Conversation events
@@ -50,7 +51,10 @@ class EventsService extends EventEmitter {
         this.orbWindow = null;
 
         this.listeningStatus = false;
-
+        
+        // Track audio streaming state
+        this.isAudioStreaming = false;
+        this.audioStreamTimeout = null;
         // Track audio data to prevent duplicates
         this.lastAudioDataCounter = 0;
 
@@ -117,6 +121,11 @@ class EventsService extends EventEmitter {
         // Handle commands from renderer
         ipcMain.on("command", (event, info) => {
             this.handleCommand(info);
+        });
+        
+        // Handle playback complete notification
+        ipcMain.on("audio-playback-complete", () => {
+            this.hideOrbWindow();
         });
 
         // Handle invokes from renderer
@@ -244,6 +253,15 @@ class EventsService extends EventEmitter {
             ? chunk.toString("base64")
             : chunk;
 
+        // Mark that we're streaming audio
+        this.isAudioStreaming = true;
+        
+        // Clear any existing timeout
+        if (this.audioStreamTimeout) {
+            clearTimeout(this.audioStreamTimeout);
+            this.audioStreamTimeout = null;
+        }
+
         this.sendToRenderer("audio-chunk-received", {
             chunk: base64Chunk,
         });
@@ -253,23 +271,30 @@ class EventsService extends EventEmitter {
      * Signal end of audio stream
      */
     audioStreamComplete(streamInfo) {
-        this.sendToRenderer("audio-stream-complete");
+        // Ensure streamInfo is valid
+        const safeStreamInfo = streamInfo || { totalBytes: 0 };
+        
+        // Set a timeout to mark streaming as complete after a delay
+        // This prevents the orb from flickering between chunks
+        this.audioStreamTimeout = setTimeout(() => {
+            this.isAudioStreaming = false;
+            this.audioStreamTimeout = null;
+        }, 1000); // 1 second delay
+        
+        this.sendToRenderer("audio-stream-complete", safeStreamInfo);
 
         if (this.debugMode) {
-            console.log("Audio stream complete. Total bytes:", streamInfo);
+            console.log("Audio stream complete. Total bytes:", safeStreamInfo.totalBytes || 0);
         }
     }
 
     /**
      * Signal end of current conversation
      */
-    endConversation() {
-        this.emit(EVENT_TYPES.CONVERSATION_END);
+    handleConversationEnd() {
+        this.stopListening();
         this.sendToRenderer("conversation-end");
-
-        if (this.debugMode) {
-            console.log("Conversation ended");
-        }
+        this.emit(EVENT_TYPES.RESET_CONVERSATION);
     }
 
     /**
@@ -290,7 +315,6 @@ class EventsService extends EventEmitter {
                 console.log("Hiding orb window");
                 if (this.orbWindow && !this.orbWindow.isDestroyed()) {
                     this.orbWindow.hide();
-                    this.emit(EVENT_TYPES.RESET_CONVERSATION);
                 }
             }, 1000); // 1 second delay to match fade-out animation
         }

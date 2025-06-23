@@ -5,11 +5,8 @@ async function handleEnd(context_map) {
     console.log("Handling conversation end.");
 
     const eventsService = await getEventsService();
-
-    let mainWindow = getMainWindow();
     
-    eventsService.stopListening(mainWindow);
-    eventsService.endConversation(mainWindow);
+    eventsService.handleConversationEnd();
 
     return { context_map, stop: true };
 }
