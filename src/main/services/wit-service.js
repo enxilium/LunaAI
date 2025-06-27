@@ -5,8 +5,7 @@ const {
     getWeather, 
     checkCalendar, 
     addCalendarEvent, 
-    handleError, 
-    handleEnd,
+
     // Import individual Spotify commands with updated names
     skipTrack,
     playPreviousTrack,
@@ -16,12 +15,21 @@ const {
     increaseVolume,
     decreaseVolume,
     playSong,
+
     // App opening commands
-    open,
-    openSpotify
+    openApplication,
+    openSpotify,
+
+    // General Inquiry
+    handleGeneralInquiry,
+    
+    // Error handling
+    handleError, 
+    handleEnd,
 } = require("../commands");
 const { v4: uuidv4 } = require("uuid");
 const { getEventsService, EVENT_TYPES } = require("./events-service");
+const { getErrorService } = require("./error-service");
 
 let witService = null;
 
@@ -50,8 +58,11 @@ class WitService {
             playSong,
             
             // App opening commands
-            open,
+            openApplication,
             openSpotify,
+
+            // General Inquiry
+            handleGeneralInquiry,
             
             // Error handling
             handleError,
@@ -64,6 +75,7 @@ class WitService {
         this.currentConversation = null;
 
         this.eventsService = null;
+        this.errorService = null;
     }
 
     resetConversation() {
@@ -79,9 +91,9 @@ class WitService {
     async initialize() {
         const ACCESS_KEY = process.env.WIT_ACCESS_KEY;
         this.eventsService = await getEventsService();
-
+        this.errorService = getErrorService();
         if (!ACCESS_KEY) {
-            throw new Error("WIT_ACCESS_KEY environment variable not set");
+            this.reportError(new Error("WIT_ACCESS_KEY environment variable not set"));
         }
 
         this.wit = new Wit({
@@ -111,25 +123,6 @@ class WitService {
             this.resetConversation();
         });
 
-        // Listen for error events
-        this.eventsService.on(EVENT_TYPES.ERROR, (error) => {
-            try {
-                const result = handleError({error: error, context_map: this.contextMap});
-                const solution = result && result.context_map && result.context_map.solution 
-                    ? result.context_map.solution 
-                    : "I'm sorry, an error occurred.";
-                
-                this.eventsService.showOrbWindow();
-                this.synthesizeSpeech(solution);
-                this.eventsService.sendToRenderer("error-handling");
-            } catch (innerError) {
-                console.error("Error in error handler:", innerError);
-                this.synthesizeSpeech("I'm sorry, an unexpected error occurred. Please try again.");
-            } finally {
-                handleEnd(this.contextMap);
-            }
-        });
-
         console.log("Wit initialized.");
     }
 
@@ -140,18 +133,18 @@ class WitService {
      */
     async startConversation(inputAudioStream) {
         if (!inputAudioStream) {
-            throw new Error("No audio stream provided");
+            this.reportError(new Error("No audio stream provided"));
         }
 
         if (!this.wit) {
-            throw new Error("Wit.ai service not initialized");
+            this.reportError(new Error("Wit.ai service not initialized"));
         }
 
         try {
             // Check if we should reset the conversation
             // If this is a new query and not a continuation, reset the conversation
             if (!this.currentConversation) {
-                console.log("Starting new conversation, resetting context");
+                console.log("Starting new conversation");
                 this.resetConversation();
             } else {
                 console.log("Continuing existing conversation");
@@ -183,7 +176,7 @@ class WitService {
 
             return result;
         } catch (error) {
-            this.eventsService.reportError(error);
+            this.reportError(error);
         }
     }
 
@@ -249,8 +242,7 @@ class WitService {
             
             return audioBuffer;
         } catch (error) {
-            console.error("Error in synthesizeSpeech:", error);
-            throw error;
+            this.reportError(error);
         }
     }
 
@@ -312,15 +304,20 @@ class WitService {
         
         return chunks;
     }
+
+    reportError(error) {
+        this.errorService.reportError(error, 'wit-service');
+    }
 }
 
 async function getWitService() {
+    const errorService = getErrorService();
     if (!witService) {
         try {
             witService = new WitService();
             await witService.initialize();
         } catch {
-            throw new Error("Failed to initialize Wit service. Please check your WIT_ACCESS_KEY environment variable.");
+            errorService.reportError(new Error("Failed to initialize Wit service. Please check your WIT_ACCESS_KEY environment variable."), 'wit-service');
         }
     }
     return witService;

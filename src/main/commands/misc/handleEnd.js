@@ -1,4 +1,3 @@
-const { getMainWindow } = require("../../windows/main-window");
 const { getEventsService } = require("../../services/events-service");
 
 async function handleEnd(context_map) {

@@ -12,8 +12,8 @@ const { getWeather } = require("./weather");
 const { getDate, getTime } = require("./date");
 const { checkCalendar, addCalendarEvent } = require("./calendar");
 const { handleError, handleEnd } = require("./misc");
-const { open, openSpotify } = require("./open");
-
+const { openApplication, openSpotify } = require("./open");
+const { handleGeneralInquiry } = require("./general");
 module.exports = {
     getDate,
     getTime,
@@ -30,8 +30,10 @@ module.exports = {
     decreaseVolume,
     playSong,
     // App opening commands
-    open,
+    openApplication,
     openSpotify,
+    // General Inquiry
+    handleGeneralInquiry,
     // Error handling
     handleError,
     handleEnd,

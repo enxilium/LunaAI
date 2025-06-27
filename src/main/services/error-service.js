@@ -1,10 +1,3 @@
-/**
- * error-service.js
- * 
- * A centralized service for error reporting that doesn't create circular dependencies.
- * This service emits events that the main events service can subscribe to.
- */
-
 const { EventEmitter } = require('events');
 
 // Singleton instance
@@ -26,9 +19,7 @@ class ErrorService extends EventEmitter {
     reportError(error, source = 'unknown') {
         const errorMessage = error instanceof Error ? error.message : error;
         
-        if (this.debugMode) {
-            console.error(`[${source}] Error:`, errorMessage);
-        }
+        console.error(`[${source}] Error:`, errorMessage);
         
         // Emit the error event with source information
         this.emit('error', {

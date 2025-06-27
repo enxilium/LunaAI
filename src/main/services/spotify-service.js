@@ -1,11 +1,11 @@
 const { getUserData } = require("./credentials-service");
-const { getEventsService } = require("./events-service");
 const { getErrorService } = require("./error-service");
 const http = require("http");
 const url = require("url");
 const { shell } = require("electron");
 const SpotifyWebApi = require('spotify-web-api-node');
-const { openApplication } = require("../commands/open")
+const { openSpotify } = require("../commands/open")
+const Fuse = require('fuse.js');
 
 const userData = getUserData();
 
@@ -22,6 +22,7 @@ class SpotifyService {
             "http://localhost:8888/callback";
         this.scopes = [
             "user-read-private",
+            "playlist-read-private",
             "user-read-email",
             "user-top-read",
             "user-read-playback-state",
@@ -38,8 +39,6 @@ class SpotifyService {
         this.accessToken = null;
         this.refreshToken = null;
         this.authorized = false;
-
-        this.eventsService = null;
         this.errorService = null;
     }
 
@@ -47,8 +46,7 @@ class SpotifyService {
 
     async initialize() {
         try {
-            this.eventsService = await getEventsService();
-            this.errorService = await getErrorService();
+            this.errorService = getErrorService();
             
             // Check for stored tokens
             const accessToken = await userData.getCredentials(
@@ -73,16 +71,13 @@ class SpotifyService {
 
                 if (Date.now() >= expiryTime) {
                     // Token expired, refresh it
-                    console.log("Spotify token expired, refreshing");
                     return await this.refreshAccessToken();
                 }
 
-                console.log("Using existing valid Spotify tokens");
                 this.authorized = true;
                 return true;
             }
 
-            console.log("No valid Spotify tokens found");
             return false;
         } catch (error) {
             this.reportError(error, "initialize");
@@ -97,8 +92,10 @@ class SpotifyService {
      * @returns {Object} - Error object with message and success flag
      */
     reportError(error, method) {
-        // Log the error for debugging
-        console.error(`Spotify service error in ${method}:`, error);
+        // Report to error service if available
+        if (this.errorService) {
+            this.errorService.reportError(error, `spotify-service.${method}`);
+        }
         
         // Return formatted error object
         return {
@@ -159,7 +156,6 @@ class SpotifyService {
                             String(Date.now() + data.body.expires_in * 1000)
                         );
 
-                        console.log("Spotify tokens stored successfully");
                         this.authorized = true;
 
                         server.close();
@@ -190,7 +186,6 @@ class SpotifyService {
                     );
 
                     // Open URL in user's default browser
-                    console.log(`Opening auth URL in browser: ${authUrl}`);
                     await shell.openExternal(authUrl);
                 } catch (error) {
                     server.close();
@@ -212,9 +207,6 @@ class SpotifyService {
     async refreshAccessToken() {
         try {
             if (!this.refreshToken) {
-                console.log(
-                    "No refresh token available, authorization required"
-                );
                 this.authorized = false;
                 return false;
             }
@@ -236,27 +228,16 @@ class SpotifyService {
                 String(Date.now() + data.body.expires_in * 1000)
             );
 
-            // If a new refresh token was provided, update it
-            if (data.body.refresh_token) {
-                this.refreshToken = data.body.refresh_token;
-                this.spotifyApi.setRefreshToken(data.body.refresh_token);
-                await userData.setCredentials(
-                    "spotify.refreshToken",
-                    data.body.refresh_token
-                );
-            }
-
-            console.log("Access token refreshed successfully");
             this.authorized = true;
-
             return true;
         } catch (error) {
             this.reportError(error, "refreshAccessToken");
+            this.authorized = false;
             return false;
         }
     }
 
-    async getPlaylists(limit = 50) {
+    async getPlaylists() {
         try {
             // Ensure we have valid tokens
             if (!this.accessToken) {
@@ -266,7 +247,8 @@ class SpotifyService {
                 }
             }
             
-            const response = await this.spotifyApi.getUserPlaylists({ limit });
+            const response = await this.spotifyApi.getUserPlaylists();
+
             return response.body;
         } catch (error) {
             // Return error message instead of throwing
@@ -325,6 +307,11 @@ class SpotifyService {
             // Check if we already have active playback
             const state = await this.getPlaybackState();
 
+            // Check if state has an error
+            if (state && state.error) {
+                return false;
+            }
+
             // If active playback exists, we're good to go
             if (state && state.device) {
                 return true;
@@ -332,41 +319,88 @@ class SpotifyService {
 
             // Otherwise, find available devices
             const devicesResponse = await this.spotifyApi.getMyDevices();
+            
+            // Check if devices response has an error
+            if (devicesResponse.error) {
+                return false;
+            }
+            
             let devices = devicesResponse.body;
             
             if (!devices || !devices.devices || devices.devices.length === 0) {
-                console.log("No Spotify devices available. Attempting to connect to a device.");
+                console.log("[SpotifyService] No Spotify devices available. Attempting to open Spotify application.");
 
-                let context_map = { application: "spotify" };
+                // Create an empty context map
+                let context_map = {};
                 
-                // Open Spotify application
-                await openApplication(context_map);
+                // Open Spotify application using the improved openSpotify function
+                const openResult = await openSpotify(context_map);
 
-                if (context_map.error) {
-                    this.reportError(new Error(context_map.error), "ensureActivePlayback");
-                    return false;
+                // Check if there was an error opening Spotify
+                if (openResult.context_map.error) {
+                    return this.reportError(new Error(openResult.context_map.error), "ensureActivePlayback");
                 }
 
-                devices = await this.spotifyApi.getMyDevices().body;
+                console.log(
+                    "[SpotifyService] Spotify opened successfully, waiting for it to initialize..."
+                );
+                
+                // Wait longer for Spotify to initialize (5 seconds instead of 3)
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
+                // Try to get devices with retries
+                const maxRetries = 5;
+                let retryCount = 0;
+                let deviceFound = false;
+                
+                while (retryCount < maxRetries && !deviceFound) {
+                    try {
+                        const newDevicesResponse = await this.spotifyApi.getMyDevices();
+                        devices = newDevicesResponse.body;
+                        
+                        if (devices && devices.devices && devices.devices.length > 0) {
+                            deviceFound = true;
+                        } else {
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            retryCount++;
+                        }
+                    } catch (deviceError) {
+                        console.log(`[SpotifyService] Error checking devices (attempt ${retryCount + 1}): ${deviceError.message}`);
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        retryCount++;
+                    }
+                }
+                
+                // If still no devices after all retries, return an error
+                if (!deviceFound) {
+                    return this.reportError(
+                        new Error("Spotify opened but no devices became available after multiple attempts"), 
+                        "ensureActivePlayback"
+                    );
+                }
             }
 
             // Pick the first available device
             const device = devices.devices.find((d) => d.is_active) || devices.devices[0];
-            console.log(`Activating Spotify device: ${device.name}`);
+            console.log(`[SpotifyService] Activating Spotify device: ${device.name}`);
 
-            // Transfer playback to this device
-            await this.transferPlayback(device.id, true);
+            // Transfer playback to this device WITHOUT starting playback automatically
+            const transferResult = await this.transferPlayback(device.id, false);
+            
+            // Check if transfer was successful
+            if (transferResult.error) {
+                return this.reportError(new Error(transferResult.error), "ensureActivePlayback");
+            }
 
             // Give Spotify a moment to register the change
             await new Promise((resolve) => setTimeout(resolve, 1000));
             return true;
         } catch (error) {
-            this.reportError(error, "ensureActivePlayback");
-            return false;
+            return this.reportError(error, "ensureActivePlayback");
         }
     }
 
-    async search(track, artist, type = "track") {
+    async search(track, artist = '', type = "track") {
         try {
             let response;
             let query = "";
@@ -551,6 +585,43 @@ class SpotifyService {
         }
     }
 
+    /**
+     * Find the best matching playlist from user's playlists using fuzzy matching
+     * @param {string} title - The title to search for
+     * @param {Array} playlists - List of user's playlists
+     * @returns {Object|null} - Best matching playlist or null if none found
+     */
+    findBestMatchingPlaylist(title, playlists) {
+        if (!title || !playlists || !playlists.items || playlists.items.length === 0) {
+            return null;
+        }
+
+        // If title is too short, it's too vague for matching
+        if (title.trim().length < 2) {
+            return null;
+        }
+        
+        // Configure Fuse with options for playlist search
+        const options = {
+            includeScore: true,     // Return score with results
+            threshold: 0.6,         // Higher threshold = less strict matching (0-1)
+            keys: [
+                { name: 'name', weight: 2 }  // Focus on playlist name
+            ],
+            minMatchCharLength: 1,  // Minimum characters that must match
+            shouldSort: true        // Sort results by score
+        };
+        
+        // Create a new Fuse instance with the playlists
+        const fuse = new Fuse(playlists.items, options);
+        
+        // Perform the search
+        const results = fuse.search(title);
+        
+        // Return the best match if any found, otherwise null
+        return results.length > 0 ? results[0].item : null;
+    }
+
     async play(title, artist = "", type = "track", personal = false) {
         try {
             // Ensure we have an active device first
@@ -584,13 +655,68 @@ class SpotifyService {
                     artistsText = `by "${itemToPlay.artists.map(a => a.name).join(', ')}"`;
                 }
             } else {
-                // Personal content
-                itemToPlay = {}; //TODO: Implement searching personal playlists
+                // For personal playlists, first get the current user's profile
+                try {
+                    // Get the current user's profile to identify their playlists
+                    const userProfile = await this.spotifyApi.getMe();
+                    const userId = userProfile.body.id;
+                    
+                    // Get user's playlists
+                    const playlists = await this.getPlaylists();
+                    
+                    // Check if playlists response has an error
+                    if (playlists.error) {
+                        return playlists; // Return the error
+                    }
+                    
+                    // Filter to only include the user's own playlists
+                    const personalPlaylists = {
+                        ...playlists,
+                        items: playlists.items.filter(playlist => 
+                            playlist && playlist.owner && playlist.owner.id === userId
+                        )
+                    };
+                    
+                    // Find best matching playlist from personal playlists
+                    let bestMatch = this.findBestMatchingPlaylist(title, personalPlaylists);
+                    
+                    if (bestMatch) {
+                        itemToPlay = {
+                            name: bestMatch.name,
+                            uri: bestMatch.uri
+                        };
+                    } else {
+                        // If no personal playlist matches, try searching Spotify for a playlist
+                        const searchResult = await this.search(title, artist, "playlist");
+                        
+                        if (!searchResult.success) {
+                            return searchResult; // Return the error from search
+                        }
+                        
+                        itemToPlay = searchResult.playlist;
+                        artistsText = `by ${itemToPlay.owner.display_name}`;
+                    }
+                } catch (userError) {
+                    // Fall back to regular playlist search
+                    const searchResult = await this.search(title, artist, "playlist");
+                    
+                    if (!searchResult.success) {
+                        return searchResult; // Return the error from search
+                    }
+                    
+                    itemToPlay = searchResult.playlist;
+                    artistsText = `by ${itemToPlay.owner.display_name}`;
+                }
+            }
+            
+            if (!itemToPlay) {
+                return {
+                    success: false,
+                    error: `Could not find a playlist matching "${title}"`
+                };
             }
             
             // Play the found content
-            console.log(`Playing ${type}: "${itemToPlay.name}" ${artistsText}`);
-
             // The context_uri is different from a track URI - for albums and playlists we need to use the context
             if (type === "track") {
                 await this.spotifyApi.play({ uris: [itemToPlay.uri] });
@@ -621,7 +747,6 @@ class SpotifyService {
 
             // If nothing is playing or no active device, nothing to pause
             if (!playbackState || !playbackState.is_playing) {
-                console.log("Nothing currently playing to pause");
                 return { success: true, already_paused: true };
             }
 

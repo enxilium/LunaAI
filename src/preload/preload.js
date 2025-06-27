@@ -21,12 +21,10 @@ let isProcessingAudio = false;  // Flag to prevent overlapping audio processing
 
 // Set up event listeners immediately
 ipcRenderer.on("start-listening", async () => {
-    preloadLog("Received start-listening event");
     await startAudioCapture();
 });
 
 ipcRenderer.on("stop-listening", async () => {
-    preloadLog("Received stop-listening event");
     await stopAudioCapture();
 });
 
@@ -165,7 +163,6 @@ async function startAudioCapture() {
                     const elapsedSeconds = Math.round(
                         (Date.now() - startTime) / 1000
                     );
-                    preloadLog(`Recording for ${elapsedSeconds}s, chunks: ${dataCounter}`);
                 }
     
                 // Send to main process - using a Uint8Array to preserve the binary data exactly

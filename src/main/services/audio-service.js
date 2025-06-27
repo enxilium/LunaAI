@@ -109,8 +109,6 @@ class AudioService {
 
             // End the audio stream properly
             if (this.audioStream) {
-                console.log(`Processed ${this.processedChunks} audio chunks before stopping`);
-                
                 // End the stream - our improved end() method will handle flushing the buffer
                 this.audioStream.end();
 
@@ -210,11 +208,6 @@ class AudioService {
             if (this.audioStream) {
                 this.audioStream.write(processedData);
                 this.processedChunks++;
-                
-                // Log every 50 chunks for debugging
-                if (this.processedChunks % 50 === 0) {
-                    console.log(`Processed ${this.processedChunks} audio chunks so far`);
-                }
             }
 
             // Store chunk for potential file saving

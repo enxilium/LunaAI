@@ -1,26 +1,4 @@
 const { getSpotifyService } = require("../../services/spotify-service");
-const { openSpotify } = require("../open");
-
-/**
- * Handler for when no Spotify devices are available
- * @param {Object} context_map - Context map with conversation state
- * @returns {Promise<Object>} - Result of attempt to open Spotify
- */
-async function handleNoDevicesAvailable(context_map) {
-    console.log("No Spotify devices available, attempting to open Spotify app");
-    
-    // Try to open the Spotify application
-    const openResult = await openSpotify(context_map);
-    
-    // Add a message to inform the user what happened
-    if (!openResult.context_map.error) {
-        context_map.spotify_message = "I've opened Spotify for you. Please try again in a moment when Spotify is running.";
-    } else {
-        context_map.spotify_message = "No Spotify devices are available. Please open Spotify and try again.";
-    }
-    
-    return openResult;
-}
 
 /**
  * Play a specific song on Spotify
@@ -54,9 +32,6 @@ async function playSong(context_map) {
             context_map.error = result.error;
             return { context_map, stop: false };
         }
-        
-        // Store the result in context map
-        context_map.spotify_response = result;
     } catch (error) {
         // Handle any unexpected errors
         console.error("Unexpected error in playSong:", error);

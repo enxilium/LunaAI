@@ -80,11 +80,9 @@ class EventsService extends EventEmitter {
         try { 
             // Subscribe to all errors reported to the error service
             this.errorService.on('error', (errorInfo) => {
-                this.reportError(errorInfo.error);
-                
-                // Optionally log additional information
-                if (this.debugMode) {
-                    console.log(`[EventsService] Received error from ${errorInfo.source} at ${errorInfo.timestamp}`);
+                if (errorInfo.error === "Empty transcription.") {
+                    this.stopListening();
+                    this.hideOrbWindow();
                 }
             });
         } catch (error) {
@@ -153,7 +151,7 @@ class EventsService extends EventEmitter {
                 case "error":
                     this.reportError(request.args[0]);
                 default:
-                    this.errorService.reportError(new Error(`Unknown invoke method: ${request.name}`), 'events-service');
+                    this.reportError(new Error(`Unknown invoke method: ${request.name}`));
             }
         });
 
@@ -182,21 +180,28 @@ class EventsService extends EventEmitter {
 
     /**
      * Send an event to the renderer process
+     * @param {string} window - Window name
      * @param {string} channel - Channel name
      * @param {any} data - Event data
      */
-    sendToRenderer(channel, data) {
-        // Send to all windows
+    sendToRenderer(window, channel, data) {
         try {
-            const allWindows = BrowserWindow.getAllWindows();
+            switch (window) {
+                case "main":
+                    window = this.mainWindow;
+                    break;
+                case "orb":
+                    window = this.orbWindow;
+                    break;
+                default:
+                    this.reportError(new Error(`Unknown window: ${window}`));
+            }
 
-            allWindows.forEach((window, index) => {
-                if (!window.isDestroyed()) {
-                    window.webContents.send(channel, data);
-                }
-            });
+            if (window && !window.isDestroyed()) {
+                window.webContents.send(channel, data);
+            }
         } catch (error) {
-            console.error(`[EVENT SERVICE] Error in sendToRenderer:`, error);
+            this.reportError(error);
         }
     }
 
@@ -224,7 +229,7 @@ class EventsService extends EventEmitter {
         this.emit(EVENT_TYPES.START_LISTENING);
         this.showOrbWindow();
         this.listeningStatus = true;
-        this.sendToRenderer("start-listening");
+        this.sendToRenderer("orb", "start-listening");
     }
 
     /**
@@ -232,7 +237,7 @@ class EventsService extends EventEmitter {
      */
     stopListening() {
         this.emit(EVENT_TYPES.STOP_LISTENING);
-        this.sendToRenderer("stop-listening");
+        this.sendToRenderer("orb", "stop-listening");
         this.listeningStatus = false;
     }
 
@@ -240,7 +245,7 @@ class EventsService extends EventEmitter {
      * Signal that processing has started
      */
     processingStarted() {
-        this.sendToRenderer("processing");
+        this.sendToRenderer("orb", "processing");
     }
 
     /**
@@ -262,7 +267,7 @@ class EventsService extends EventEmitter {
             this.audioStreamTimeout = null;
         }
 
-        this.sendToRenderer("audio-chunk-received", {
+        this.sendToRenderer("orb", "audio-chunk-received", {
             chunk: base64Chunk,
         });
     }
@@ -281,7 +286,7 @@ class EventsService extends EventEmitter {
             this.audioStreamTimeout = null;
         }, 1000); // 1 second delay
         
-        this.sendToRenderer("audio-stream-complete", safeStreamInfo);
+        this.sendToRenderer("orb","audio-stream-complete", safeStreamInfo);
 
         if (this.debugMode) {
             console.log("Audio stream complete. Total bytes:", safeStreamInfo.totalBytes || 0);
@@ -293,7 +298,7 @@ class EventsService extends EventEmitter {
      */
     handleConversationEnd() {
         this.stopListening();
-        this.sendToRenderer("conversation-end");
+        this.sendToRenderer("orb","conversation-end");
         this.emit(EVENT_TYPES.RESET_CONVERSATION);
     }
 
@@ -302,11 +307,7 @@ class EventsService extends EventEmitter {
      * @param {Error|string} error - Error object or message
      */
     reportError(error) {
-        const errorMessage = error instanceof Error ? error.message : error;
-        console.error("Error occurred:", errorMessage);
-
-        // Emit error event for other services to react
-        this.emit(EVENT_TYPES.ERROR, error);
+        this.errorService.reportError(error, 'events-service');
     }
 
     hideOrbWindow() {
