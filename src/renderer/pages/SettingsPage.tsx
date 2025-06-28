@@ -68,7 +68,7 @@ const SettingsPage: React.FC = () => {
     }
 
     async function updateSettings(name: string, value: any) {
-
+        // TODO: Implement this.
     }
 
     useEffect(() => {

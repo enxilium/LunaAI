@@ -4,16 +4,11 @@ interface AudioChunkData {
     chunk: string; // base64 encoded
 }
 
-interface StreamInfo {
-    totalBytes: number;
-    duration?: number;
-}
-
 export default function useAudioPlayback() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isInitialized, setIsInitialized] = useState(false);
     const [isFinished, setIsFinished] = useState(false);
-    const [conversationEnd, setConversationEnd] = useState(false);
+    const [nextAction, setNextAction] = useState<string | null>(null);
     const [playbackError, setPlaybackError] = useState<string | null>(null);
 
     // Audio context for streaming audio
@@ -400,15 +395,8 @@ export default function useAudioPlayback() {
 
     // Handle stream end
     const handleStreamEnd = useCallback(
-        (streamInfo: StreamInfo) => {
-            // Safely handle undefined streamInfo
-            if (!streamInfo) {
-                console.warn("Received undefined streamInfo in handleStreamEnd");
-                streamInfo = { totalBytes: 0 };
-            }
-            
-            if (isDebugMode) console.log("Audio stream ended, total bytes:", streamInfo.totalBytes || 0);
-            
+        (nextAction: string) => {
+            setNextAction(nextAction);
             // Process any remaining audio
             if (!isProcessingQueueRef.current && audioQueueRef.current.length > 0) {
                 processAudioQueue();
@@ -417,9 +405,6 @@ export default function useAudioPlayback() {
             // If there's no more audio to play and we're not playing anything, mark as finished
             if (audioQueueRef.current.length === 0 && !isProcessingQueueRef.current) {
                 setIsFinished(true);
-                
-                // Inform the main process this was the last chunk
-                window.electron.send({ name: "audio-playback-complete", args: [] });
             }
         },
         [processAudioQueue, isDebugMode]
@@ -437,12 +422,12 @@ export default function useAudioPlayback() {
         });
 
         // Stream end listener
-        window.electron.onAudioStreamEnd((streamInfo: StreamInfo) => {
-            handleStreamEnd(streamInfo);
+        window.electron.onAudioStreamEnd((nextAction: string) => {
+            handleStreamEnd(nextAction);
         });
 
         window.electron.receive("conversation-end", () => {
-            setConversationEnd(true);
+            setNextAction("conversation-end");
         });
 
         // Cleanup function
@@ -462,7 +447,7 @@ export default function useAudioPlayback() {
         initializeAudio();
         cleanupAudio();
         setIsFinished(false);
-        setConversationEnd(false);
+        setNextAction(null);
         setPlaybackError(null);
         
         // Resume audio context (needed due to browser autoplay policies)
@@ -474,7 +459,7 @@ export default function useAudioPlayback() {
     return {
         isPlaying,
         isFinished,
-        conversationEnd,
+        nextAction,
         startAudioContext,
         playbackError,
     };

@@ -34,7 +34,7 @@ async function initialize() {
 
         console.log("Initializing services...");
         await initializeServices();
-
+        
         // Log initialization complete
         console.log("Luna AI initialized and ready");
     } catch (error) {

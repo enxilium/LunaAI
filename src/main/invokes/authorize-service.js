@@ -1,5 +1,4 @@
 const { getUserData } = require("../services/credentials-service");
-const { getSpotifyService } = require("../services/spotify-service");
 const { getErrorService } = require("../services/error-service");
 
 /**
@@ -9,12 +8,22 @@ const { getErrorService } = require("../services/error-service");
  */
 async function authorizeService(service) {
     let authorizeSuccess = false;
+    const userData = getUserData();
 
     switch (service) {
         case "spotify":
+            // Lazy load the Spotify service
+            const { getSpotifyService } = require("../services/spotify-service");
             const spotifyService = await getSpotifyService();
             authorizeSuccess = await spotifyService.authorize();
-            getUserData().setConfig("spotifyAuth", authorizeSuccess);
+            userData.setConfig("spotifyAuth", authorizeSuccess);
+            break;
+        case "google":
+            // Lazy load the Google service
+            const { getGoogleService } = require("../services/google-service");
+            const googleService = await getGoogleService();
+            authorizeSuccess = await googleService.authorize();
+            userData.setConfig("googleAuth", authorizeSuccess);
             break;
         default:
             const errorService = getErrorService();

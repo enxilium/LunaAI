@@ -15,6 +15,11 @@ async function disconnectService(service) {
         await userData.deleteCredentials("spotify.refreshToken");
         await userData.deleteCredentials("spotify.expiresAt");
         await userData.deleteConfig("spotifyAuth");
+    } else if (service === "google") {
+        await userData.deleteCredentials("google.accessToken");
+        await userData.deleteCredentials("google.refreshToken");
+        await userData.deleteCredentials("google.tokenExpiry");
+        await userData.deleteConfig("googleAuth");
     }
 
     console.log("Disconnected from service:", service);

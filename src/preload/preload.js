@@ -49,6 +49,8 @@ contextBridge.exposeInMainWorld("electron", {
             "processing",
             "conversation-end",
             "start-listening",
+            "spotify-not-authorized",
+            "google-not-authorized"
         ];
 
         if (validChannels.includes(channel)) {
@@ -75,6 +77,34 @@ contextBridge.exposeInMainWorld("electron", {
         return Promise.reject(new Error(`Invalid invoke method: ${name}`));
     },
 
+    // Google API functions
+    google: {
+        checkAuth: () => ipcRenderer.invoke("google:check-auth"),
+        
+        authorize: () => ipcRenderer.invoke("google:auth"),
+        
+        getEmails: (maxResults = 10) => 
+            ipcRenderer.invoke("google:get-emails", maxResults),
+        
+        sendEmail: (to, subject, body) => 
+            ipcRenderer.invoke("google:send-email", { to, subject, body }),
+        
+        getCalendarEvents: (maxResults = 10) => 
+            ipcRenderer.invoke("google:get-calendar-events", maxResults),
+        
+        createCalendarEvent: (summary, description, startDateTime, endDateTime, timeZone) => 
+            ipcRenderer.invoke("google:create-calendar-event", {
+                summary,
+                description,
+                startDateTime,
+                endDateTime,
+                timeZone
+            }),
+        
+        listDriveFiles: (maxResults = 10) => 
+            ipcRenderer.invoke("google:list-drive-files", maxResults)
+    },
+
     onAudioChunk: (callback) => {
         ipcRenderer.on("audio-chunk-received", (event, chunkData) => {
             callback(chunkData);
@@ -82,8 +112,8 @@ contextBridge.exposeInMainWorld("electron", {
     },
 
     onAudioStreamEnd: (callback) => {
-        ipcRenderer.on("audio-stream-complete", (event, streamInfo) => {
-            callback(streamInfo);
+        ipcRenderer.on("audio-stream-complete", (event, nextAction) => {
+            callback(nextAction);
         });
     },
 

@@ -256,32 +256,40 @@ class NLGService extends EventEmitter {
             return "I'm sorry, I couldn't generate a weather summary at this time.";
         }
     }
-    
+
     /**
-     * Generate a natural language summary from any structured data
-     * @param {Object} data - Structured data to summarize
+     * Generate a natural language summary of calendar events
+     * @param {Array} calendarEvents - Array of calendar event objects
      * @param {Object} options - Options for generation
-     * @returns {Promise<string>} - Natural language summary
+     * @returns {Promise<string>} - Natural language calendar summary
      */
-    async generateStructuredDataSummary(data, options = {}) {
+    async generateCalendarSummary(calendarEvents, options = {}) {
         try {
             if (!this.initialized) {
                 await this.initialize();
             }
             
             const prompt = `
-                Convert the following structured data into a natural language summary.
+                You are a helpful personal assistant providing a summary of upcoming calendar events.
+                Convert the following structured calendar data into a conversational summary.
                 
-                Data: ${JSON.stringify(data)}
+                Calendar Events: ${JSON.stringify(calendarEvents)}
                 
-                Data Type: ${options.dataType || "general"}
-                Tone: ${options.tone || "friendly"}
+                Time Frame: ${options.timeFrame || "upcoming"}
+                Max Events to Highlight: ${options.maxEvents || 10}
                 
                 Guidelines:
-                - Be concise but informative
+                - Be concise but include all important information
+                - Organize events chronologically
+                - Group events happening on the same day
+                - Highlight important details like:
+                  * Meeting times and durations
+                  * Location information if available
+                  * Any special notes or descriptions
+                - For multiple events, prioritize events happening soonest
                 - Use natural, conversational language
-                - Highlight the most important information
-                - Don't mention that you're converting data
+                - Keep paragraphs short (2-3 sentences each)
+                - End off by telling the user to let you know if there's anything else you can do for them.
                 
                 CRITICAL SENTENCE LENGTH RULE:
                 - EVERY sentence must be LESS THAN 280 characters
@@ -289,7 +297,7 @@ class NLGService extends EventEmitter {
                 - This is an absolute requirement for proper audio synthesis
                 - Never exceed this limit for any sentence
                 
-                Respond with just the summary, nothing else.
+                Respond with just the calendar summary, nothing else.
             `;
             
             const result = await this.geminiModel.generateContent(prompt);
@@ -297,9 +305,117 @@ class NLGService extends EventEmitter {
             
             return response.trim();
         } catch (error) {
-            console.error("[NLGService] Error generating data summary:", error);
+            console.error("[NLGService] Error generating calendar summary:", error);
             this.errorService.reportError(error, "nlg-service");
-            return "I'm sorry, I couldn't generate a summary at this time.";
+            return "I'm sorry, I couldn't generate a calendar summary at this time.";
+        }
+    }
+
+    /**
+     * Generate an email response based on the original message
+     * @param {Object} originalEmail - Original email data
+     * @param {Object} options - Options for generation
+     * @returns {Promise<string>} - Generated email response
+     */
+    async generateEmailResponse(originalEmail, options = {}) {
+        try {
+            if (!this.initialized) {
+                await this.initialize();
+            }
+            
+            const prompt = `
+                You are a personal assistant helping to draft an email response.
+                Generate a professional and appropriate email reply based on the original message.
+                
+                Original Email:
+                From: ${originalEmail.from}
+                Subject: ${originalEmail.subject}
+                Content: ${originalEmail.body || originalEmail.snippet}
+                
+                Response Type: ${options.responseType || "general reply"}
+                Tone: ${options.tone || "professional"}
+                Include Original: ${options.includeOriginal ? "Yes" : "No"}
+                
+                Guidelines:
+                - Write a complete, well-structured email response
+                - Be concise but thorough in addressing the content of the original email
+                - Maintain a ${options.tone || "professional"} tone throughout
+                - Include a proper greeting and sign-off
+                - If the original email asks questions, make sure to address them
+                - Do not include any email headers (To, From, Subject) in your response
+                - If the original content is unclear, acknowledge this and ask for clarification
+                - Sign the email as "${options.signature || "Me"}"
+                
+                CRITICAL SENTENCE LENGTH RULE:
+                - EVERY sentence must be LESS THAN 280 characters
+                - Break any longer thoughts into multiple shorter sentences
+                - This is an absolute requirement for proper audio synthesis
+                - Never exceed this limit for any sentence
+                
+                Respond with just the email body, nothing else.
+            `;
+            
+            const result = await this.geminiModel.generateContent(prompt);
+            const response = result.response.text();
+            
+            return response.trim();
+        } catch (error) {
+            console.error("[NLGService] Error generating email response:", error);
+            this.errorService.reportError(error, "nlg-service");
+            return "I'm sorry, I couldn't generate an email response at this time.";
+        }
+    }
+
+    /**
+     * Generate a natural language summary of emails
+     * @param {Array} emails - Array of email objects
+     * @param {Object} options - Options for generation
+     * @returns {Promise<string>} - Natural language email summary
+     */
+    async generateEmailSummary(emails, options = {}) {
+        try {
+            if (!this.initialized) {
+                await this.initialize();
+            }
+            
+            const prompt = `
+                You are a helpful personal assistant providing a summary of unread emails.
+                Convert the following structured email data into a conversational summary.
+                
+                Emails: ${JSON.stringify(emails)}
+                
+                Max Emails to Highlight: ${options.maxEmails || 5}
+                Detail Level: ${options.detailLevel || "medium"}
+                
+                Guidelines:
+                - Be concise but include important information
+                - For each highlighted email, mention:
+                  * The sender's name
+                  * The subject line
+                  * A very brief indication of the content if available
+                - If there are many emails, group them by sender or topic when appropriate
+                - Prioritize emails that appear more important (from the subject and content)
+                - For a large number of emails, summarize the total and highlight only the most important ones
+                - Use natural, conversational language
+                - Keep paragraphs short (2-3 sentences each)
+                
+                CRITICAL SENTENCE LENGTH RULE:
+                - EVERY sentence must be LESS THAN 280 characters
+                - Break any longer thoughts into multiple shorter sentences
+                - This is an absolute requirement for proper audio synthesis
+                - Never exceed this limit for any sentence
+                
+                Respond with just the email summary, nothing else.
+            `;
+            
+            const result = await this.geminiModel.generateContent(prompt);
+            const response = result.response.text();
+            
+            return response.trim();
+        } catch (error) {
+            console.error("[NLGService] Error generating email summary:", error);
+            this.errorService.reportError(error, "nlg-service");
+            return "I'm sorry, I couldn't generate an email summary at this time.";
         }
     }
 }

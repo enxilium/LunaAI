@@ -8,7 +8,7 @@ export default function useOrb() {
     const [processing, setProcessing] = useState(false);
     const [errorHandling, setErrorHandling] = useState(false);
     const { keywordDetection } = useKeywordDetection();
-    const { isPlaying, isFinished, conversationEnd, startAudioContext } = useAudioPlayback();
+    const { isPlaying, isFinished, nextAction, startAudioContext } = useAudioPlayback();
     
     useEffect(() => {
         if (keywordDetection) {
@@ -63,13 +63,14 @@ export default function useOrb() {
 
     useEffect(() => {
         if (isFinished) {
-            console.log("Audio playback finished, conversationEnd:", conversationEnd);
+            console.log("Audio playback finished, next action:", nextAction);
 
-            if (conversationEnd) {
+            if (nextAction === "conversation-end") {
                 window.electron.invoke("hide-orb");
-            } else if (errorHandling) {
+            } else if (nextAction === "processing") {
                 setProcessing(true);
-            } else {
+            } else if (nextAction === "start-listening") {
+                console.log("Starting listening with next action:", nextAction);
                 window.electron.invoke("start-listening");
             }
         }

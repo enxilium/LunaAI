@@ -160,7 +160,7 @@ async function openApplication(context_map) {
             // Verify the saved path still exists
             try {
                 await fs.access(appPath);
-            } catch (e) {
+            } catch (error) {
                 console.log(
                     `Saved path for ${appName} no longer exists, will search for new path`
                 );
@@ -181,8 +181,8 @@ async function openApplication(context_map) {
         
         // Step 3: If still not found, return an error
         if (!appPath) {
-            const errorMsg = `Could not find ${appName} in common locations. Please set the path in settings.`;
-            context_map.error = errorMsg;
+            context_map.error = `Could not find ${appName} in common locations.`;
+            context_map.error_solution = `I'm sorry, I couldn't find ${appName}. Please set the path manually in my settings.`;
             return { context_map, stop: false };
         }
         
@@ -200,18 +200,16 @@ async function openApplication(context_map) {
             // Linux
             spawn(appPath, [], { detached: true, stdio: 'ignore' }).unref();
         } else {
-            throw new Error(`Unsupported platform: ${platform}`);
+            context_map.error = `Unsupported platform: ${platform}`;
+            context_map.error_solution = `I'm sorry, I don't know how to open applications on this platform.`;
+            return { context_map, stop: false };
         }
-        
-        context_map.application_opened = appName;
-        context_map.application_path = appPath;
-        context_map.open_result = 'Application opened successfully';
     } catch (error) {
         const errorService = getErrorService();
         errorService.reportError(error, 'open-command');
-        console.error(`Error opening application:`, error);
         
-        context_map.error = `Error opening application: ${error.message}`;
+        context_map.error = error.message;
+        context_map.error_solution = `I'm sorry, I couldn't open the application. Please try again.`;
     } finally {
         return { context_map, stop: false };
     }
@@ -229,10 +227,57 @@ async function openSpotify(context_map) {
 }
 
 async function openWorkspace(context_map) {
-    // TODO: Implement command.
+    try {
+        const workspaceName = context_map.workspace;
+        
+        if (!workspaceName) {
+            context_map.error = "No workspace name provided to open";
+            context_map.error_solution = "Please specify which workspace you'd like me to open.";
+            return { context_map, stop: false };
+        }
+        
+        // TODO: Implement workspace opening functionality
+        // Will need to get the workspace path from config/user settings
+        const userData = getUserData();
+        const workspacePath = userData.getConfig(`workspace_paths.${workspaceName.toLowerCase()}`);
+        
+        if (!workspacePath) {
+            context_map.error = `Workspace "${workspaceName}" not found`;
+            context_map.error_solution = `I don't have a workspace called "${workspaceName}" saved. Please go to settings to configure your workspaces.`;
+            return { context_map, stop: false };
+        }
+        
+        // Open the workspace with the default application
+        const platform = os.platform();
+        
+        if (platform === 'win32') {
+            // Windows - use start command
+            spawn('start', [workspacePath], { shell: true, detached: true }).unref();
+        } else if (platform === 'darwin') {
+            // macOS - use open command
+            spawn('open', [workspacePath], { detached: true }).unref();
+        } else if (platform === 'linux') {
+            // Linux - use xdg-open
+            spawn('xdg-open', [workspacePath], { detached: true }).unref();
+        } else {
+            context_map.error = `Unsupported platform: ${platform}`;
+            context_map.error_solution = `I'm sorry, I don't know how to open workspaces on this platform.`;
+            return { context_map, stop: false };
+        }
+        
+    } catch (error) {
+        const errorService = getErrorService();
+        errorService.reportError(error, 'open-command-workspace');
+        
+        context_map.error = error.message;
+        context_map.error_solution = `I'm sorry, I couldn't open the workspace. Please make sure it exists and try again.`;
+    } finally {
+        return { context_map, stop: false };
+    }
 }
 
 module.exports = {
     openApplication,
-    openSpotify
+    openSpotify,
+    openWorkspace
 }; 

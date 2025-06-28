@@ -17,7 +17,6 @@ const EVENT_TYPES = {
     // Audio playback events
     AUDIO_CHUNK: "audio-chunk",
     AUDIO_STREAM_END: "audio-stream-end",
-    AUDIO_PLAYBACK_COMPLETE: "audio-playback-complete",
     AUDIO_DATA_RECEIVED: "audio-data-received",
 
     // Conversation events
@@ -27,6 +26,10 @@ const EVENT_TYPES = {
 
     // MISC events
     UPDATE_ORB_SIZE: "update-orb-size",
+
+    // Service authentication events
+    SPOTIFY_NOT_AUTHORIZED: "spotify-not-authorized",
+    GOOGLE_NOT_AUTHORIZED: "google-not-authorized",
 
     // Error events
     ERROR: "error",
@@ -62,7 +65,7 @@ class EventsService extends EventEmitter {
     }
 
     /**
-     * Initializes the events service.
+     * Initialize the events service.
      */
     initialize() {
         this.mainWindow = getMainWindow();
@@ -70,6 +73,7 @@ class EventsService extends EventEmitter {
         this._setupIpcHandlers();
         this.errorService = getErrorService();
         this._subscribeToErrorService();
+        this._setupAuthEventForwarding();
     }
 
     /**
@@ -121,11 +125,6 @@ class EventsService extends EventEmitter {
             this.handleCommand(info);
         });
         
-        // Handle playback complete notification
-        ipcMain.on("audio-playback-complete", () => {
-            this.hideOrbWindow();
-        });
-
         // Handle invokes from renderer
         ipcMain.handle("invoke", async (event, request) => {
             switch (request.name) {
@@ -245,6 +244,7 @@ class EventsService extends EventEmitter {
      * Signal that processing has started
      */
     processingStarted() {
+        this.stopListening();
         this.sendToRenderer("orb", "processing");
     }
 
@@ -275,10 +275,7 @@ class EventsService extends EventEmitter {
     /**
      * Signal end of audio stream
      */
-    audioStreamComplete(streamInfo) {
-        // Ensure streamInfo is valid
-        const safeStreamInfo = streamInfo || { totalBytes: 0 };
-        
+    audioStreamComplete(nextAction) {
         // Set a timeout to mark streaming as complete after a delay
         // This prevents the orb from flickering between chunks
         this.audioStreamTimeout = setTimeout(() => {
@@ -286,10 +283,10 @@ class EventsService extends EventEmitter {
             this.audioStreamTimeout = null;
         }, 1000); // 1 second delay
         
-        this.sendToRenderer("orb","audio-stream-complete", safeStreamInfo);
+        this.sendToRenderer("orb","audio-stream-complete", nextAction);
 
         if (this.debugMode) {
-            console.log("Audio stream complete. Total bytes:", safeStreamInfo.totalBytes || 0);
+            console.log("[EventsService] Audio stream complete with next action:", nextAction);
         }
     }
 
@@ -312,12 +309,10 @@ class EventsService extends EventEmitter {
 
     hideOrbWindow() {
         if (this.orbWindow && this.orbWindow.isVisible()) {
-            setTimeout(() => {
-                console.log("Hiding orb window");
-                if (this.orbWindow && !this.orbWindow.isDestroyed()) {
-                    this.orbWindow.hide();
-                }
-            }, 1000); // 1 second delay to match fade-out animation
+            console.log("Hiding orb window");
+            if (this.orbWindow && !this.orbWindow.isDestroyed()) {
+                this.orbWindow.hide();
+            }
         }
     }
 
@@ -326,6 +321,22 @@ class EventsService extends EventEmitter {
             console.log("Showing orb window");
             this.orbWindow.show();
         }
+    }
+
+    /**
+     * Set up forwarding of authentication events to the renderer
+     * @private
+     */
+    _setupAuthEventForwarding() {
+        // Listen for Spotify authentication events
+        this.on('spotify-not-authorized', () => {
+            this.sendToRenderer('main', 'spotify-not-authorized');
+        });
+
+        // Listen for Google authentication events
+        this.on('google-not-authorized', () => {
+            this.sendToRenderer('main', 'google-not-authorized');
+        });
     }
 }
 

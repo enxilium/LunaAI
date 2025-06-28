@@ -3,8 +3,6 @@ const {
     getDate, 
     getTime, 
     getWeather, 
-    checkCalendar, 
-    addCalendarEvent, 
 
     // Import individual Spotify commands with updated names
     skipTrack,
@@ -23,8 +21,13 @@ const {
     // General Inquiry
     handleGeneralInquiry,
     
-    // Error handling
-    handleError, 
+    // Google commands
+    checkEmails,
+    draftEmails,
+    getCalendarEvents,
+    createCalendarEvent,
+    listDriveFiles,
+    
     handleEnd,
 } = require("../commands");
 const { v4: uuidv4 } = require("uuid");
@@ -43,10 +46,6 @@ class WitService {
             // Weather command
             getWeather,
             
-            // Calendar commands
-            checkCalendar,
-            addCalendarEvent,
-            
             // Spotify commands
             skipTrack,
             playPreviousTrack,
@@ -61,11 +60,17 @@ class WitService {
             openApplication,
             openSpotify,
 
+            // Google commands
+            checkEmails,
+            draftEmails,
+            getCalendarEvents,
+            createCalendarEvent,
+            listDriveFiles,
+
             // General Inquiry
             handleGeneralInquiry,
             
             // Error handling
-            handleError,
             handleEnd
         };
 
@@ -114,7 +119,10 @@ class WitService {
             console.log("Response from Wit:", data);
             
             if (data.speech) {
-                this.synthesizeSpeech(data.speech.q);
+                let nextAction = "start-listening";
+                if (data.text.includes("[PROCESSING]")) { nextAction = "processing"; }
+                else if (data.text.includes("[END]")) { nextAction = "conversation-end"; }
+                this.synthesizeSpeech(data.speech.q, nextAction);
             }
         });
 
@@ -170,21 +178,17 @@ class WitService {
                 this.contextMap = result.context_map;
             }
 
-            // After the conversation completes, set currentConversation to null
-            // This ensures the next call to startConversation will be treated as a new conversation
-            this.currentConversation = null;
-
             return result;
         } catch (error) {
             this.reportError(error);
         }
     }
 
-    async synthesizeSpeech(text) {
+    async synthesizeSpeech(text, nextAction) {
         try {
-            const voice = "wit$Rosie"; // Default voice
-            const style = "formal"; // Default style
-            const speed = 120;
+            const voice = "wit$Rubie"; // Default voice
+            const style = "default"; // Default style
+            const speed = 100;
             
             // Break text into chunks of no more than 280 characters
             const textChunks = this.breakTextIntoChunks(text, 280);
@@ -238,7 +242,7 @@ class WitService {
             const audioBuffer = Buffer.concat(allChunks);
             
             // Signal end of streaming
-            this.eventsService.audioStreamComplete(totalBytes);
+            this.eventsService.audioStreamComplete(nextAction);
             
             return audioBuffer;
         } catch (error) {

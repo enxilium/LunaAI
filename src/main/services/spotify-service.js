@@ -1,5 +1,7 @@
 const { getUserData } = require("./credentials-service");
 const { getErrorService } = require("./error-service");
+// Remove this import since we're requiring it lazily
+// const { getEventsService } = require("./events-service");
 const http = require("http");
 const url = require("url");
 const { shell } = require("electron");
@@ -40,6 +42,7 @@ class SpotifyService {
         this.refreshToken = null;
         this.authorized = false;
         this.errorService = null;
+        this.eventsService = null;
     }
 
     // Core authentication and token methods
@@ -294,10 +297,13 @@ class SpotifyService {
 
     async getPlaybackState() {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             const response = await this.spotifyApi.getMyCurrentPlaybackState();
             return response.body;
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "getPlaybackState");
         }
     }
@@ -624,6 +630,10 @@ class SpotifyService {
 
     async play(title, artist = "", type = "track", personal = false) {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             // Ensure we have an active device first
             if (!(await this.ensureActivePlayback())) {
                 return {
@@ -730,13 +740,16 @@ class SpotifyService {
                 item_details: itemToPlay
             };
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "play");
         }
     }
 
     async pause() {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             // First, check current playback state
             const playbackState = await this.getPlaybackState();
 
@@ -754,13 +767,16 @@ class SpotifyService {
             await this.spotifyApi.pause();
             return { success: true };
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "pause");
         }
     }
 
     async nextTrack() {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             // Ensure we have an active device first
             if (!(await this.ensureActivePlayback())) {
                 return {
@@ -772,13 +788,16 @@ class SpotifyService {
             await this.spotifyApi.skipToNext();
             return { success: true };
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "nextTrack");
         }
     }
 
     async previousTrack() {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             // Ensure we have an active device first
             if (!(await this.ensureActivePlayback())) {
                 return {
@@ -790,13 +809,16 @@ class SpotifyService {
             await this.spotifyApi.skipToPrevious();
             return { success: true };
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "previousTrack");
         }
     }
 
     async setVolume(volumePercent) {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             // Ensure we have an active device first
             if (!(await this.ensureActivePlayback())) {
                 return {
@@ -808,17 +830,19 @@ class SpotifyService {
             await this.spotifyApi.setVolume(volumePercent);
             return { success: true };
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "setVolume");
         }
     }
 
     async getDevices() {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             const response = await this.spotifyApi.getMyDevices();
             return response.body;
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "getDevices");
         }
     }
@@ -835,6 +859,10 @@ class SpotifyService {
 
     async setShuffle(state) {
         try {
+            if (!await this.checkAuthorization()) {
+                return { success: false, error: "Not authorized with Spotify" };
+            }
+
             // Ensure we have an active device first
             if (!(await this.ensureActivePlayback())) {
                 return {
@@ -846,7 +874,6 @@ class SpotifyService {
             await this.spotifyApi.setShuffle({ state });
             return { success: true };
         } catch (error) {
-            // Return error message instead of throwing
             return this.reportError(error, "setShuffle");
         }
     }
@@ -859,6 +886,31 @@ class SpotifyService {
         const service = new SpotifyService();
         await service.initialize();
         return service;
+    }
+
+    /**
+     * Check authorization and emit event if not authorized
+     * @returns {boolean} True if authorized, false otherwise
+     */
+    async checkAuthorization() {
+        if (!this.isAuthorized()) {
+            // Try to initialize in case tokens exist but weren't loaded
+            const initialized = await this.initialize();
+            if (!initialized) {
+                // If still not authorized, emit event
+                // Lazily initialize events service only when needed
+                if (!this.eventsService) {
+                    const { getEventsService } = require("./events-service");
+                    this.eventsService = await getEventsService();
+                }
+                
+                if (this.eventsService) {
+                    this.eventsService.emit("spotify-not-authorized");
+                }
+                return false;
+            }
+        }
+        return true;
     }
 }
 

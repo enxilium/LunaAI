@@ -10,16 +10,21 @@ const {
 } = require("./spotify");
 const { getWeather } = require("./weather");
 const { getDate, getTime } = require("./date");
-const { checkCalendar, addCalendarEvent } = require("./calendar");
-const { handleError, handleEnd } = require("./misc");
+const { handleEnd } = require("./misc");
 const { openApplication, openSpotify } = require("./open");
 const { handleGeneralInquiry } = require("./general");
+const { 
+    checkEmails,
+    draftEmails,
+    getCalendarEvents,
+    createCalendarEvent,
+    listDriveFiles
+} = require("./google");
+
 module.exports = {
     getDate,
     getTime,
     getWeather,
-    checkCalendar,
-    addCalendarEvent,
     // Spotify commands
     skipTrack,
     playPreviousTrack,
@@ -34,7 +39,12 @@ module.exports = {
     openSpotify,
     // General Inquiry
     handleGeneralInquiry,
+    // Google commands
+    checkEmails,
+    draftEmails,
+    getCalendarEvents,
+    createCalendarEvent,
+    listDriveFiles,
     // Error handling
-    handleError,
     handleEnd,
 };

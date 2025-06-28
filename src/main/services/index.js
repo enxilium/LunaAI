@@ -5,6 +5,7 @@ const { getAudioService } = require("./audio-service.js");
 const { getEventsService } = require("./events-service.js");
 const { getErrorService } = require("./error-service.js");
 const { getNLGService } = require("./nlg-service.js");
+const { getGoogleService } = require("./google-service.js");
 
 async function initializeServices() {
     // Initialize error service first so it's ready to receive errors
@@ -22,6 +23,15 @@ async function initializeServices() {
         userData.setConfig("spotifyAuth", false);
     }
     
+    // Initialize Google service
+    const googleService = await getGoogleService();
+    
+    if (googleService.isAuthorized()) {
+        userData.setConfig("googleAuth", true);
+    } else {
+        userData.setConfig("googleAuth", false);
+    }
+    
     const witService = await getWitService();
     const audioService = await getAudioService();
     const nlgService = await getNLGService();
@@ -35,4 +45,5 @@ module.exports = {
     getAudioService,
     getEventsService,
     getErrorService,
+    getGoogleService,
 };

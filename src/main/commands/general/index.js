@@ -12,7 +12,8 @@ async function handleGeneralInquiry(context_map) {
         const query = context_map.query || '';
         
         if (!query.trim()) {
-            context_map.error = "I didn't receive a query to respond to.";
+            context_map.error = "No query received";
+            context_map.error_solution = "Sorry, I didn't receive a query to respond to. Would you mind trying again?";
             return { context_map, stop: false };
         }
         
@@ -45,8 +46,10 @@ async function handleGeneralInquiry(context_map) {
                     clipboardContext = null;
                 }
             } catch (clipboardError) {
-                console.error('Error getting clipboard content:', clipboardError);
+                context_map.error = clipboardError.message;
+                context_map.error_solution = "Sorry, an unexpected error occurred while getting the clipboard content. Would you mind trying again?";
                 clipboardContext = null;
+                return { context_map, stop: false };
             }
         }
         
@@ -60,11 +63,10 @@ async function handleGeneralInquiry(context_map) {
         
         // Store response in context map
         context_map.answer = response;
-        
-        return { context_map, stop: false };
     } catch (error) {
-        console.error('Error in handleGeneralInquiry:', error);
-        context_map.error = `I'm sorry, I encountered an error while processing your inquiry: ${error.message}`;
+        context_map.error = error.message;
+        context_map.error_solution = "Sorry, an unexpected error occurred while processing your inquiry. Would you mind trying again?";
+    } finally {
         return { context_map, stop: false };
     }
 }

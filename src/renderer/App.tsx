@@ -3,6 +3,7 @@ import { theme } from "./styles/theme";
 import Orb from "./components/Orb";
 import OrbContainer from "./components/OrbContainer";
 import SettingsPage from "./pages/SettingsPage";
+import AuthListener from "./components/AuthListener";
 import "./styles/globals.css";
 import { useEffect, useState } from "react";
 import React from "react";
@@ -47,7 +48,13 @@ function App() {
             );
     }
 
-    return <ThemeProvider theme={theme}>{page}</ThemeProvider>;
+    return (
+        <ThemeProvider theme={theme}>
+            <AuthListener>
+                {page}
+            </AuthListener>
+        </ThemeProvider>
+    );
 }
 
 export default App;

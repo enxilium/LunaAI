@@ -1,4 +1,5 @@
 const { getSpotifyService } = require("../../services/spotify-service");
+const { getErrorService } = require("../../services/error-service");
 
 /**
  * Play a specific song on Spotify
@@ -30,12 +31,25 @@ async function playSong(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't play that song. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-playSong');
+            
             return { context_map, stop: false };
         }
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in playSong:", error);
-        context_map.error = `Error playing song: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-playSong');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue playing that song. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
@@ -54,6 +68,16 @@ async function resumePlayback(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't resume playback. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-resumePlayback');
+            
             return { context_map, stop: false };
         }
         
@@ -61,8 +85,11 @@ async function resumePlayback(context_map) {
         context_map.spotify_response = result;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in resumePlayback:", error);
-        context_map.error = `Error resuming playback: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-resumePlayback');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue resuming playback. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
@@ -81,6 +108,16 @@ async function pausePlayback(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't pause playback. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-pausePlayback');
+            
             return { context_map, stop: false };
         }
         
@@ -88,15 +125,18 @@ async function pausePlayback(context_map) {
         context_map.spotify_response = result;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in pausePlayback:", error);
-        context_map.error = `Error pausing playback: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-pausePlayback');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue pausing playback. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
 }
 
 /**
- * Skip to next track on Spotify
+ * Skip to the next track on Spotify
  * @param {Object} context_map - Context map with conversation state
  * @returns {Promise<Object>} - Updated context_map with response or error
  */
@@ -108,6 +148,16 @@ async function skipTrack(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't skip to the next track. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-skipTrack');
+            
             return { context_map, stop: false };
         }
         
@@ -115,8 +165,11 @@ async function skipTrack(context_map) {
         context_map.spotify_response = result;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in skipTrack:", error);
-        context_map.error = `Error skipping track: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-skipTrack');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue skipping to the next track. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
@@ -135,6 +188,16 @@ async function playPreviousTrack(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't go to the previous track. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-playPreviousTrack');
+            
             return { context_map, stop: false };
         }
         
@@ -142,8 +205,11 @@ async function playPreviousTrack(context_map) {
         context_map.spotify_response = result;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in playPreviousTrack:", error);
-        context_map.error = `Error playing previous track: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-playPreviousTrack');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue going to the previous track. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
@@ -167,6 +233,16 @@ async function shufflePlayback(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't ${state ? "enable" : "disable"} shuffle. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-shufflePlayback');
+            
             return { context_map, stop: false };
         }
         
@@ -174,8 +250,11 @@ async function shufflePlayback(context_map) {
         context_map.spotify_response = result;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in shufflePlayback:", error);
-        context_map.error = `Error setting shuffle: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-shufflePlayback');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue setting shuffle mode. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
@@ -195,6 +274,16 @@ async function increaseVolume(context_map) {
         // Check if there was an error getting playback state
         if (playbackState && playbackState.error) {
             context_map.error = playbackState.error;
+            context_map.error_solution = `I couldn't get the current volume. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(playbackState.error, 'spotify-command-increaseVolume-getState');
+            
             return { context_map, stop: false };
         }
         
@@ -208,6 +297,16 @@ async function increaseVolume(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't increase the volume. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-increaseVolume');
+            
             return { context_map, stop: false };
         }
         
@@ -216,8 +315,11 @@ async function increaseVolume(context_map) {
         context_map.new_volume = newVolume;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in increaseVolume:", error);
-        context_map.error = `Error increasing volume: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-increaseVolume');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue increasing the volume. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };
@@ -237,6 +339,16 @@ async function decreaseVolume(context_map) {
         // Check if there was an error getting playback state
         if (playbackState && playbackState.error) {
             context_map.error = playbackState.error;
+            context_map.error_solution = `I couldn't get the current volume. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(playbackState.error, 'spotify-command-decreaseVolume-getState');
+            
             return { context_map, stop: false };
         }
         
@@ -250,6 +362,16 @@ async function decreaseVolume(context_map) {
         // Check if there was an error
         if (!result.success && result.error) {
             context_map.error = result.error;
+            context_map.error_solution = `I couldn't decrease the volume. ${
+                !spotifyService.isAuthorized() 
+                    ? "Please connect your Spotify account in settings." 
+                    : "Please check that Spotify is running and try again."
+            }`;
+            
+            // Report the error
+            const errorService = getErrorService();
+            errorService.reportError(result.error, 'spotify-command-decreaseVolume');
+            
             return { context_map, stop: false };
         }
         
@@ -258,8 +380,11 @@ async function decreaseVolume(context_map) {
         context_map.new_volume = newVolume;
     } catch (error) {
         // Handle any unexpected errors
-        console.error("Unexpected error in decreaseVolume:", error);
-        context_map.error = `Error decreasing volume: ${error.message}`;
+        const errorService = getErrorService();
+        errorService.reportError(error, 'spotify-command-decreaseVolume');
+        
+        context_map.error = error.message;
+        context_map.error_solution = "I encountered an issue decreasing the volume. Please check that Spotify is running and try again.";
     }
     
     return { context_map, stop: false };

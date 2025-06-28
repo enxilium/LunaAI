@@ -21,11 +21,10 @@ async function getDate(context_map) {
         const speech = `Today is ${formattedDate}`;
 
         context_map.date = speech;
-
-        return { context_map, stop: false }
     } catch (error) {
-        console.error('Error getting date:', error);
-        context_map.error = error;
+        context_map.error = error.message;
+        context_map.error_solution = "Sorry, an unexpected error occurred while getting the date."
+    } finally {
         return { context_map, stop: false }
     }
 }
@@ -53,10 +52,10 @@ async function getTime(context_map) {
 
         context_map.time = speech;
 
-        return { context_map, stop: false }
     } catch (error) {
-        console.error('Error getting date:', error);
-        context_map.error = error;
+        context_map.error = error.message;
+        context_map.error_solution = "Sorry, an unexpected error occurred while getting the time."
+    } finally {
         return { context_map, stop: false }
     }
 }

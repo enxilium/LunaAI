@@ -33,6 +33,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.1.0",
     "fuse.js": "^7.1.0",
+    "googleapis": "^150.0.1",
     "keytar": "^7.9.0",
     "langchain": "^0.3.28",
     "mic": "^2.1.2",
