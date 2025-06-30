@@ -26,7 +26,7 @@ async function createOrbWindow() {
             roundedCorners: false,
             backgroundThrottling: false,
             webPreferences: {
-                preload: path.join(__dirname, "../../preload/preload.js"),
+                preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
                 contextIsolation: true,
                 nodeIntegration: false,
             },
@@ -53,7 +53,7 @@ async function createOrbWindow() {
 
         // Load the orb window
         if (process.env.NODE_ENV === "development") {
-            orbWindow.loadURL("http://localhost:3000?window=orb");
+            orbWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY + '?window=orb');
         } else {
             orbWindow.loadURL(
                 `file://${getResourcePath("app/index.html")}?window=orb`

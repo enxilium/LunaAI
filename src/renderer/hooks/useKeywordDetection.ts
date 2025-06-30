@@ -1,13 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { usePorcupine } from "@picovoice/porcupine-react";
 
-// Define model file names
-const KEYWORD_FILE_NAME = "assets/models/wakeWord.ppn";
-const MODEL_FILE_NAME = "assets/models/porcupine_params.pv";
 const KEYWORD_LABEL = "LUNA";
 
-export default function useKeywordDetection() {
-    const [accessKey, setAccessKey] = useState("");
+export default function useKeywordDetection(accessKey: string | null) {
+    const [keywordPath, setKeywordPath] = useState<string | null>(null);
+    const [modelPath, setModelPath] = useState<string | null>(null);
 
     const {
         keywordDetection,
@@ -20,70 +18,70 @@ export default function useKeywordDetection() {
         release,
     } = usePorcupine();
 
-    const checkFileExists = async (url: any) => {
-        try {
-            const response = await fetch(url, { method: "HEAD" });
-            return response.ok;
-        } catch (error) {
-            console.error(`File doesn't exist: ${url}`, error);
-            return false;
-        }
-    };
-
-    // Get Picovoice access key from main process
     useEffect(() => {
-        if (window.electron?.invoke) {
-            window.electron
-                .invoke("get-picovoice-key")
-                .then((key) => {
-                    setAccessKey(key);
-                    console.log("Received Picovoice access key");
-                })
-                .catch((err) =>
-                    console.error("Failed to get Picovoice access key:", err)
-                );
-        }
-    }, []);
+        const fetchPaths = async () => {
+            if (accessKey && window.electron?.getAssetPath) {
+                try {
+                    console.log("Fetching Porcupine asset paths...");
+                    const [fetchedKeywordPath, fetchedModelPath] =
+                        await Promise.all([
+                            window.electron.getAssetPath(
+                                "models",
+                                "wakeWord.ppn"
+                            ),
+                            window.electron.getAssetPath(
+                                "models",
+                                "porcupine_params.pv"
+                            ),
+                        ]);
 
-    // Initialize Porcupine when access key is available
+                    console.log(
+                        "Porcupine paths fetched:",
+                        fetchedKeywordPath,
+                        fetchedModelPath
+                    );
+
+                    setKeywordPath(fetchedKeywordPath);
+                    setModelPath(fetchedModelPath);
+                } catch (error) {
+                    console.error(
+                        "Failed to get Porcupine asset paths:",
+                        error
+                    );
+                }
+            } else if (accessKey) {
+                console.warn("window.electron.getAssetPath not available yet.");
+            }
+        };
+
+        fetchPaths();
+    }, [accessKey]);
+
+    // Initialize Porcupine when access key and paths are available
     useEffect(() => {
-        // Only proceed if we have the access key
-        if (!accessKey) return;
+        if (!accessKey || !keywordPath || !modelPath) {
+            return;
+        }
 
         const initPorcupine = async () => {
             try {
-                console.log("Loading model files from:", {
-                    keyword: KEYWORD_FILE_NAME,
-                    model: MODEL_FILE_NAME,
-                });
-
-                // In your initPorcupine function
-                const keywordFileExists = await checkFileExists(
-                    KEYWORD_FILE_NAME
-                );
-                const modelFileExists = await checkFileExists(MODEL_FILE_NAME);
-
-                if (!keywordFileExists || !modelFileExists) {
-                    console.error("Required model files not found!");
-                    return;
+                if (isLoaded) {
+                    await release();
                 }
 
+                console.log("Initializing Porcupine...");
                 const porcupineKeyword = {
-                    publicPath: KEYWORD_FILE_NAME,
+                    publicPath: keywordPath,
                     label: KEYWORD_LABEL,
                 };
 
                 const porcupineModel = {
-                    publicPath: MODEL_FILE_NAME,
+                    publicPath: modelPath,
                 };
 
-                await init(accessKey, porcupineKeyword, porcupineModel).then(
-                    () => {
-                        console.log("Porcupine initialized successfully");
-                        start();
-                    }
-                );
-                console.log("Wake word detection initialized and started");
+                await init(accessKey, porcupineKeyword, porcupineModel);
+                console.log("Porcupine initialized, starting...");
+                start();
             } catch (err) {
                 console.error("Failed to initialize Porcupine:", err);
             }
@@ -100,7 +98,7 @@ export default function useKeywordDetection() {
                 release();
             }
         };
-    }, [accessKey, KEYWORD_FILE_NAME, MODEL_FILE_NAME]);
+    }, [accessKey, keywordPath, modelPath]);
 
     // If porcupine encounters errors, log them
     useEffect(() => {
@@ -109,7 +107,17 @@ export default function useKeywordDetection() {
         }
     }, [error]);
 
+    useEffect(() => {
+        console.log("Porcupine isListening status:", isListening);
+    }, [isListening]);
+
+    useEffect(() => {
+        if (keywordDetection) {
+            console.log("Keyword detected in hook:", keywordDetection);
+        }
+    }, [keywordDetection]);
+
     return {
-        keywordDetection
+        keywordDetection,
     };
 }

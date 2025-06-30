@@ -135,16 +135,14 @@ async function findApplicationPath(appName, platform) {
 
 /**
  * Open an application on the user's system
- * @param {Object} context_map - Context map containing application info
- * @returns {Promise<Object>} - Updated context_map with response or error
+ * @param {Object} args - Arguments from the tool call.
+ * @param {string} args.appName - The name of the application to open.
+ * @returns {Promise<Object>} - A success or error object.
  */
-async function openApplication(context_map) {
+async function openApplication({ appName }) {
     try {
-        const appName = context_map.application;
-        
         if (!appName) {
-            context_map.error = "No application name provided to open";
-            return { context_map, stop: false };
+            throw new Error("No application name was provided to open.");
         }
         
         const platform = os.platform();
@@ -156,14 +154,10 @@ async function openApplication(context_map) {
         
         if (appPath) {
             console.log(`Found saved path for ${appName}: ${appPath}`);
-
-            // Verify the saved path still exists
             try {
                 await fs.access(appPath);
             } catch (error) {
-                console.log(
-                    `Saved path for ${appName} no longer exists, will search for new path`
-                );
+                console.log(`Saved path for ${appName} no longer exists, searching again.`);
                 appPath = null;
             }
         }
@@ -171,108 +165,86 @@ async function openApplication(context_map) {
         // Step 2: If no saved path or it's invalid, search common locations
         if (!appPath) {
             appPath = await findApplicationPath(appName, platform);
-            
-            // If found, save the path for future use
             if (appPath) {
                 userData.setConfig(`app_paths.${appName.toLowerCase()}`, appPath);
-                console.log(`Saved path for ${appName}: ${appPath}`);
+                console.log(`Saved new path for ${appName}: ${appPath}`);
             }
         }
         
         // Step 3: If still not found, return an error
         if (!appPath) {
-            context_map.error = `Could not find ${appName} in common locations.`;
-            context_map.error_solution = `I'm sorry, I couldn't find ${appName}. Please set the path manually in my settings.`;
-            return { context_map, stop: false };
+            throw new Error(`Could not find ${appName}. Please set the path manually in settings.`);
         }
         
-        // Step 4: Open the application using the found path
-        console.log(`Executing command: ${appPath}`);
-        
-        // Use spawn instead of exec to avoid waiting for the process to complete
+        // Step 4: Open the application
+        console.log(`Opening application at: ${appPath}`);
         if (platform === 'win32') {
-            // Windows
             spawn(appPath, [], { detached: true, stdio: 'ignore' }).unref();
         } else if (platform === 'darwin') {
-            // macOS
             spawn('open', [appPath], { detached: true, stdio: 'ignore' }).unref();
         } else if (platform === 'linux') {
-            // Linux
             spawn(appPath, [], { detached: true, stdio: 'ignore' }).unref();
         } else {
-            context_map.error = `Unsupported platform: ${platform}`;
-            context_map.error_solution = `I'm sorry, I don't know how to open applications on this platform.`;
-            return { context_map, stop: false };
+            throw new Error(`Unsupported platform: ${platform}`);
         }
+
+        return { success: true, message: `${appName} opened successfully.` };
+
     } catch (error) {
-        const errorService = getErrorService();
-        errorService.reportError(error, 'open-command');
-        
-        context_map.error = error.message;
-        context_map.error_solution = `I'm sorry, I couldn't open the application. Please try again.`;
-    } finally {
-        return { context_map, stop: false };
+        getErrorService().reportError(error, 'open-command');
+        return { 
+            error: error.message,
+            error_solution: `I'm sorry, I couldn't open ${appName || 'the application'}. Please try again.`
+        };
     }
 }
 
 /**
  * Open Spotify specifically
- * @param {Object} context_map - Context map
- * @returns {Promise<Object>} - Updated context map
+ * @returns {Promise<Object>} - A success or error object.
  */
-async function openSpotify(context_map) {
-    // Set the application name to spotify
-    context_map.application = "spotify";
-    return await openApplication(context_map);
+async function openSpotify() {
+    return await openApplication({ appName: "spotify" });
 }
 
-async function openWorkspace(context_map) {
+/**
+ * Open a specified workspace
+ * @param {Object} args - Arguments from the tool call.
+ * @param {string} args.workspaceName - The name of the workspace to open.
+ * @returns {Promise<Object>} - A success or error object.
+ */
+async function openWorkspace({ workspaceName }) {
     try {
-        const workspaceName = context_map.workspace;
-        
         if (!workspaceName) {
-            context_map.error = "No workspace name provided to open";
-            context_map.error_solution = "Please specify which workspace you'd like me to open.";
-            return { context_map, stop: false };
+            throw new Error("No workspace name provided to open.");
         }
         
         // TODO: Implement workspace opening functionality
-        // Will need to get the workspace path from config/user settings
         const userData = getUserData();
         const workspacePath = userData.getConfig(`workspace_paths.${workspaceName.toLowerCase()}`);
         
         if (!workspacePath) {
-            context_map.error = `Workspace "${workspaceName}" not found`;
-            context_map.error_solution = `I don't have a workspace called "${workspaceName}" saved. Please go to settings to configure your workspaces.`;
-            return { context_map, stop: false };
+            throw new Error(`Workspace '${workspaceName}' not found in settings.`);
         }
         
         // Open the workspace with the default application
-        const platform = os.platform();
-        
-        if (platform === 'win32') {
-            // Windows - use start command
-            spawn('start', [workspacePath], { shell: true, detached: true }).unref();
-        } else if (platform === 'darwin') {
-            // macOS - use open command
-            spawn('open', [workspacePath], { detached: true }).unref();
-        } else if (platform === 'linux') {
-            // Linux - use xdg-open
-            spawn('xdg-open', [workspacePath], { detached: true }).unref();
+        console.log(`Opening workspace: ${workspacePath}`);
+        if (os.platform() === 'win32') {
+            exec(`start "" "${workspacePath}"`);
+        } else if (os.platform() === 'darwin') {
+            exec(`open "${workspacePath}"`);
         } else {
-            context_map.error = `Unsupported platform: ${platform}`;
-            context_map.error_solution = `I'm sorry, I don't know how to open workspaces on this platform.`;
-            return { context_map, stop: false };
+            exec(`xdg-open "${workspacePath}"`);
         }
-        
+
+        return { success: true, message: `Workspace '${workspaceName}' opened.` };
+
     } catch (error) {
-        const errorService = getErrorService();
-        errorService.reportError(error, 'open-command-workspace');
-        
-        context_map.error = error.message;
-        context_map.error_solution = `I'm sorry, I couldn't open the workspace. Please make sure it exists and try again.`;
-    } finally {
-        return { context_map, stop: false };
+        getErrorService().reportError(error, 'open-workspace-command');
+        return {
+            error: error.message,
+            error_solution: `I couldn't open the workspace '${workspaceName}'. Please check your settings.`
+        };
     }
 }
 

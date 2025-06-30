@@ -1,8 +1,15 @@
 const { EventEmitter } = require("events");
-const { BrowserWindow, ipcMain } = require("electron");
+const { BrowserWindow, ipcMain, app } = require("electron");
 const { getMainWindow, getOrbWindow, setOrbWindow } = require("../windows");
-const { getSettings, updateSettings, authorizeService, disconnectService, getPicovoiceKey } = require("../invokes");
+const {
+    getSettings,
+    updateSettings,
+    authorizeService,
+    disconnectService,
+    getGeminiKey,
+} = require("../invokes");
 const { getErrorService } = require("./error-service");
+const path = require("path");
 
 /**
  * Event types enumeration
@@ -50,11 +57,8 @@ class EventsService extends EventEmitter {
         // Debug mode for logging events
         this.debugMode = process.env.NODE_ENV === "development";
 
-        this.mainWindow = null;
-        this.orbWindow = null;
-
         this.listeningStatus = false;
-        
+
         // Track audio streaming state
         this.isAudioStreaming = false;
         this.audioStreamTimeout = null;
@@ -68,8 +72,6 @@ class EventsService extends EventEmitter {
      * Initialize the events service.
      */
     initialize() {
-        this.mainWindow = getMainWindow();
-        this.orbWindow = getOrbWindow();
         this._setupIpcHandlers();
         this.errorService = getErrorService();
         this._subscribeToErrorService();
@@ -81,16 +83,19 @@ class EventsService extends EventEmitter {
      * @private
      */
     _subscribeToErrorService() {
-        try { 
+        try {
             // Subscribe to all errors reported to the error service
-            this.errorService.on('error', (errorInfo) => {
+            this.errorService.on("error", (errorInfo) => {
                 if (errorInfo.error === "Empty transcription.") {
                     this.stopListening();
                     this.hideOrbWindow();
                 }
             });
         } catch (error) {
-            console.error("Error setting up error service subscription:", error);
+            console.error(
+                "Error setting up error service subscription:",
+                error
+            );
         }
     }
 
@@ -105,32 +110,14 @@ class EventsService extends EventEmitter {
             return;
         }
 
-        // Handle audio data from renderer
-        ipcMain.on("audio-data", (event, data) => {
-            // Check for duplicate or out-of-order audio data
-            if (data.counter && data.counter <= this.lastAudioDataCounter) {
-                return;
-            }
-
-            // Update counter
-            if (data.counter) {
-                this.lastAudioDataCounter = data.counter;
-            }
-
-            this.emit(EVENT_TYPES.AUDIO_DATA_RECEIVED, data);
-        });
-
         // Handle commands from renderer
         ipcMain.on("command", (event, info) => {
             this.handleCommand(info);
         });
-        
+
         // Handle invokes from renderer
         ipcMain.handle("invoke", async (event, request) => {
             switch (request.name) {
-                case "start-listening":
-                    this.startListening();
-                    break;
                 case "get-settings":
                     return await getSettings(request.args[0]);
                 case "update-settings":
@@ -142,15 +129,26 @@ class EventsService extends EventEmitter {
                     return await authorizeService(request.args[0]);
                 case "disconnect-service":
                     return await disconnectService(request.args[0]);
-                case "get-picovoice-key":
-                    return await getPicovoiceKey();
+                case "get-gemini-key":
+                    return await getGeminiKey();
+                case "get-asset-path":
+                    return path.join(
+                        app.getAppPath(),
+                        "assets",
+                        ...request.args
+                    );
+                case "start-listening":
+                    this.startListening();
+                    break;
                 case "hide-orb":
                     this.hideOrbWindow();
                     break;
                 case "error":
                     this.reportError(request.args[0]);
                 default:
-                    this.reportError(new Error(`Unknown invoke method: ${request.name}`));
+                    this.reportError(
+                        new Error(`Unknown invoke method: ${request.name}`)
+                    );
             }
         });
 
@@ -179,21 +177,20 @@ class EventsService extends EventEmitter {
 
     /**
      * Send an event to the renderer process
-     * @param {string} window - Window name
+     * @param {string} windowName - Window name ('main' or 'orb')
      * @param {string} channel - Channel name
      * @param {any} data - Event data
      */
-    sendToRenderer(window, channel, data) {
+    sendToRenderer(windowName, channel, data) {
         try {
-            switch (window) {
-                case "main":
-                    window = this.mainWindow;
-                    break;
-                case "orb":
-                    window = this.orbWindow;
-                    break;
-                default:
-                    this.reportError(new Error(`Unknown window: ${window}`));
+            let window;
+            if (windowName === "main") {
+                window = getMainWindow();
+            } else if (windowName === "orb") {
+                window = getOrbWindow();
+            } else {
+                this.reportError(new Error(`Unknown window: ${windowName}`));
+                return;
             }
 
             if (window && !window.isDestroyed()) {
@@ -221,7 +218,7 @@ class EventsService extends EventEmitter {
     /**
      * Start listening for audio
      */
-    startListening() {
+    async startListening() {
         // Reset audio counter when starting a new recording
         this.lastAudioDataCounter = 0;
 
@@ -244,8 +241,7 @@ class EventsService extends EventEmitter {
      * Signal that processing has started
      */
     processingStarted() {
-        this.stopListening();
-        this.sendToRenderer("orb", "processing");
+        this.emit(EVENT_TYPES.PROCESSING_REQUEST);
     }
 
     /**
@@ -260,7 +256,7 @@ class EventsService extends EventEmitter {
 
         // Mark that we're streaming audio
         this.isAudioStreaming = true;
-        
+
         // Clear any existing timeout
         if (this.audioStreamTimeout) {
             clearTimeout(this.audioStreamTimeout);
@@ -282,11 +278,14 @@ class EventsService extends EventEmitter {
             this.isAudioStreaming = false;
             this.audioStreamTimeout = null;
         }, 1000); // 1 second delay
-        
-        this.sendToRenderer("orb","audio-stream-complete", nextAction);
+
+        this.sendToRenderer("orb", "audio-stream-complete", nextAction);
 
         if (this.debugMode) {
-            console.log("[EventsService] Audio stream complete with next action:", nextAction);
+            console.log(
+                "[EventsService] Audio stream complete with next action:",
+                nextAction
+            );
         }
     }
 
@@ -294,9 +293,8 @@ class EventsService extends EventEmitter {
      * Signal end of current conversation
      */
     handleConversationEnd() {
-        this.stopListening();
-        this.sendToRenderer("orb","conversation-end");
-        this.emit(EVENT_TYPES.RESET_CONVERSATION);
+        this.lastAudioDataCounter = 0;
+        this.emit(EVENT_TYPES.CONVERSATION_END);
     }
 
     /**
@@ -304,22 +302,24 @@ class EventsService extends EventEmitter {
      * @param {Error|string} error - Error object or message
      */
     reportError(error) {
-        this.errorService.reportError(error, 'events-service');
+        this.errorService.reportError(error, "events-service");
     }
 
     hideOrbWindow() {
-        if (this.orbWindow && this.orbWindow.isVisible()) {
+        const orbWindow = getOrbWindow();
+        if (orbWindow && orbWindow.isVisible()) {
             console.log("Hiding orb window");
-            if (this.orbWindow && !this.orbWindow.isDestroyed()) {
-                this.orbWindow.hide();
+            if (orbWindow && !orbWindow.isDestroyed()) {
+                orbWindow.hide();
             }
         }
     }
 
     showOrbWindow() {
-        if (this.orbWindow && !this.orbWindow.isVisible()) {
+        const orbWindow = getOrbWindow();
+        if (orbWindow && !orbWindow.isVisible()) {
             console.log("Showing orb window");
-            this.orbWindow.show();
+            orbWindow.show();
         }
     }
 
@@ -329,13 +329,13 @@ class EventsService extends EventEmitter {
      */
     _setupAuthEventForwarding() {
         // Listen for Spotify authentication events
-        this.on('spotify-not-authorized', () => {
-            this.sendToRenderer('main', 'spotify-not-authorized');
+        this.on("spotify-not-authorized", () => {
+            this.sendToRenderer("main", "spotify-not-authorized");
         });
 
         // Listen for Google authentication events
-        this.on('google-not-authorized', () => {
-            this.sendToRenderer('main', 'google-not-authorized');
+        this.on("google-not-authorized", () => {
+            this.sendToRenderer("main", "google-not-authorized");
         });
     }
 }

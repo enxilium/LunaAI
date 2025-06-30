@@ -1,13 +1,16 @@
 const { getEventsService } = require("../../services/events-service");
 
-async function handleEnd(context_map) {
+/**
+ * Handles the end of a conversation, triggering cleanup and state reset.
+ * @returns {Promise<Object>} - A success object.
+ */
+async function handleEnd() {
     console.log("Handling conversation end.");
 
     const eventsService = await getEventsService();
-    
     eventsService.handleConversationEnd();
 
-    return { context_map, stop: true };
+    return { success: true, message: "Conversation ended." };
 }
 
 module.exports = { handleEnd };

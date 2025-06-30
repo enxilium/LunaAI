@@ -12,10 +12,9 @@ const { getWeather } = require("./weather");
 const { getDate, getTime } = require("./date");
 const { handleEnd } = require("./misc");
 const { openApplication, openSpotify } = require("./open");
-const { handleGeneralInquiry } = require("./general");
 const { 
     checkEmails,
-    draftEmails,
+    draftEmail,
     getCalendarEvents,
     createCalendarEvent,
     listDriveFiles
@@ -37,11 +36,9 @@ module.exports = {
     // App opening commands
     openApplication,
     openSpotify,
-    // General Inquiry
-    handleGeneralInquiry,
     // Google commands
     checkEmails,
-    draftEmails,
+    draftEmail,
     getCalendarEvents,
     createCalendarEvent,
     listDriveFiles,

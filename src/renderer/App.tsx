@@ -50,9 +50,7 @@ function App() {
 
     return (
         <ThemeProvider theme={theme}>
-            <AuthListener>
-                {page}
-            </AuthListener>
+            <AuthListener>{page}</AuthListener>
         </ThemeProvider>
     );
 }

@@ -18,67 +18,84 @@ export default function useAudioPlayback() {
     const isProcessingQueueRef = useRef<boolean>(false);
     const audioElementRef = useRef<HTMLAudioElement | null>(null);
     const combinedChunksRef = useRef<Uint8Array>(new Uint8Array());
-    
+
     // Track which method is working best
     const useAudioElementFallbackRef = useRef<boolean>(false);
-    
+
     // Debug mode
-    const isDebugMode = process.env.NODE_ENV === 'development';
+    const isDebugMode = process.env.NODE_ENV === "development";
 
     // Initialize audio context
     const initializeAudio = useCallback(() => {
         if (!audioContextRef.current) {
             try {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-                
+                audioContextRef.current = new (window.AudioContext ||
+                    (window as any).webkitAudioContext)();
+
                 // Create audio element only when we're actually going to use it
                 // This prevents the initial error at startup
                 if (!audioElementRef.current) {
                     if (isDebugMode) console.log("Creating new Audio element");
                     audioElementRef.current = new Audio();
                     audioElementRef.current.preload = "auto"; // Ensure audio preloads
-                    
+
                     // Only set up event handlers after we have actual audio to play
                     // This prevents errors when the audio element is initialized without a source
                     const setupAudioElementHandlers = () => {
                         if (!audioElementRef.current) return;
-                        
-                        if (isDebugMode) console.log("Setting up audio element handlers");
-                        
+
+                        if (isDebugMode)
+                            console.log("Setting up audio element handlers");
+
                         audioElementRef.current.onplay = () => {
-                            if (isDebugMode) console.log("Audio element: onplay");
+                            if (isDebugMode)
+                                console.log("Audio element: onplay");
                             setIsPlaying(true);
                             setIsFinished(false);
                         };
-                        
+
                         audioElementRef.current.onpause = () => {
-                            if (isDebugMode) console.log("Audio element: onpause");
+                            if (isDebugMode)
+                                console.log("Audio element: onpause");
                             setIsPlaying(false);
                         };
-                        
+
                         audioElementRef.current.onended = () => {
-                            if (isDebugMode) console.log("Audio element: onended");
+                            if (isDebugMode)
+                                console.log("Audio element: onended");
                             setIsPlaying(false);
                             setIsFinished(true);
                         };
-                        
+
                         audioElementRef.current.onerror = (e) => {
                             // Only log real errors, not initialization errors
                             if (audioElementRef.current?.src) {
-                                const errorCode = audioElementRef.current.error ? audioElementRef.current.error.code : "unknown";
-                                const errorMessage = audioElementRef.current.error ? audioElementRef.current.error.message : "unknown";
-                                console.error(`Audio element error (${errorCode}): ${errorMessage}`, e);
-                                setPlaybackError(`Audio playback error: ${errorMessage}`);
+                                const errorCode = audioElementRef.current.error
+                                    ? audioElementRef.current.error.code
+                                    : "unknown";
+                                const errorMessage = audioElementRef.current
+                                    .error
+                                    ? audioElementRef.current.error.message
+                                    : "unknown";
+                                console.error(
+                                    `Audio element error (${errorCode}): ${errorMessage}`,
+                                    e
+                                );
+                                setPlaybackError(
+                                    `Audio playback error: ${errorMessage}`
+                                );
                             } else if (isDebugMode) {
-                                console.log("Audio element initialization error (can be ignored)");
+                                console.log(
+                                    "Audio element initialization error (can be ignored)"
+                                );
                             }
                         };
                     };
-                    
+
                     // Set up handlers
                     setupAudioElementHandlers();
                 }
-                
+
                 setIsInitialized(true);
             } catch (error) {
                 console.error("Failed to initialize AudioContext:", error);
@@ -103,7 +120,7 @@ export default function useAudioPlayback() {
                 // Ignore errors during cleanup
             }
         }
-        
+
         if (audioElementRef.current) {
             try {
                 audioElementRef.current.pause();
@@ -116,23 +133,26 @@ export default function useAudioPlayback() {
                 console.error("Error cleaning up audio element:", e);
             }
         }
-        
+
         // Reset queue and processing state
         audioQueueRef.current = [];
         combinedChunksRef.current = new Uint8Array();
         isProcessingQueueRef.current = false;
     }, []);
-    
+
     // Validate that chunk contains valid audio data
     const validateChunk = (chunk: Uint8Array): boolean => {
-        // Basic validation - check if chunk has some minimum size 
+        // Basic validation - check if chunk has some minimum size
         // and contains some data
         return chunk.length > 0;
     };
 
-    // Process the audio queue 
+    // Process the audio queue
     const processAudioQueue = useCallback(async () => {
-        if (isProcessingQueueRef.current || audioQueueRef.current.length === 0) {
+        if (
+            isProcessingQueueRef.current ||
+            audioQueueRef.current.length === 0
+        ) {
             return;
         }
 
@@ -146,57 +166,69 @@ export default function useAudioPlayback() {
             }
 
             // Try to use Web Audio API for streaming
-            if (audioContextRef.current && !useAudioElementFallbackRef.current) {
+            if (
+                audioContextRef.current &&
+                !useAudioElementFallbackRef.current
+            ) {
                 try {
                     // Process all chunks at once for better decoding
                     const allChunks = audioQueueRef.current.slice();
                     audioQueueRef.current = [];
-                    
+
                     // Combine all chunks
                     let totalLength = 0;
-                    allChunks.forEach(chunk => totalLength += chunk.length);
-                    
+                    allChunks.forEach((chunk) => (totalLength += chunk.length));
+
                     const combinedChunk = new Uint8Array(totalLength);
                     let offset = 0;
-                    
-                    allChunks.forEach(chunk => {
+
+                    allChunks.forEach((chunk) => {
                         combinedChunk.set(chunk, offset);
                         offset += chunk.length;
                     });
-                    
+
                     // Add to our running combined chunks
-                    const newCombined = new Uint8Array(combinedChunksRef.current.length + combinedChunk.length);
+                    const newCombined = new Uint8Array(
+                        combinedChunksRef.current.length + combinedChunk.length
+                    );
                     newCombined.set(combinedChunksRef.current);
-                    newCombined.set(combinedChunk, combinedChunksRef.current.length);
+                    newCombined.set(
+                        combinedChunk,
+                        combinedChunksRef.current.length
+                    );
                     combinedChunksRef.current = newCombined;
-                    
+
                     // Only try to decode if we have enough data (at least 1KB)
                     if (combinedChunksRef.current.length < 1024) {
                         isProcessingQueueRef.current = false;
                         return;
                     }
-                    
+
                     // Decode the audio data
-                    const audioBuffer = await audioContextRef.current.decodeAudioData(
-                        combinedChunksRef.current.buffer.slice(0) as ArrayBuffer
-                    );
-                    
+                    const audioBuffer =
+                        await audioContextRef.current.decodeAudioData(
+                            combinedChunksRef.current.buffer.slice(
+                                0
+                            ) as ArrayBuffer
+                        );
+
                     // Reset combined chunks after successful decode
                     combinedChunksRef.current = new Uint8Array();
-                    
+
                     // Create source node
-                    const sourceNode = audioContextRef.current.createBufferSource();
+                    const sourceNode =
+                        audioContextRef.current.createBufferSource();
                     sourceNode.buffer = audioBuffer;
                     sourceNode.connect(audioContextRef.current.destination);
-                    
+
                     // Set up event handlers
                     sourceNode.onended = () => {
                         if (audioBufferSourceRef.current === sourceNode) {
                             audioBufferSourceRef.current = null;
                         }
-                        
+
                         setIsPlaying(false);
-                        
+
                         // Process more audio if available
                         isProcessingQueueRef.current = false;
                         if (audioQueueRef.current.length > 0) {
@@ -205,26 +237,29 @@ export default function useAudioPlayback() {
                             setIsFinished(true);
                         }
                     };
-                    
+
                     // If we already have an audio source playing, stop it
                     if (audioBufferSourceRef.current) {
                         audioBufferSourceRef.current.stop();
                         audioBufferSourceRef.current.disconnect();
                     }
-                    
+
                     // Start playing
                     sourceNode.start();
                     setIsPlaying(true);
                     setIsFinished(false);
-                    
+
                     // Store reference to current source
                     audioBufferSourceRef.current = sourceNode;
                     return;
                 } catch (error) {
-                    console.warn("Error decoding audio with Web Audio API, falling back to Audio element:", error);
+                    console.warn(
+                        "Error decoding audio with Web Audio API, falling back to Audio element:",
+                        error
+                    );
                     // Mark that we should use the fallback going forward
                     useAudioElementFallbackRef.current = true;
-                    
+
                     // Try fallback
                     processCombinedAudio();
                     return;
@@ -239,71 +274,77 @@ export default function useAudioPlayback() {
             isProcessingQueueRef.current = false;
         }
     }, []);
-    
+
     // Process combined audio using audio element as fallback
     const processCombinedAudio = () => {
         try {
             // Process all chunks at once
             const allChunks = audioQueueRef.current.slice();
             audioQueueRef.current = [];
-            
+
             // Skip if no chunks
             if (allChunks.length === 0) {
                 isProcessingQueueRef.current = false;
                 return;
             }
-            
+
             // Combine all chunks
             let totalLength = 0;
-            allChunks.forEach(chunk => totalLength += chunk.length);
-            
+            allChunks.forEach((chunk) => (totalLength += chunk.length));
+
             const combinedChunk = new Uint8Array(totalLength);
             let offset = 0;
-            
-            allChunks.forEach(chunk => {
+
+            allChunks.forEach((chunk) => {
                 combinedChunk.set(chunk, offset);
                 offset += chunk.length;
             });
-            
+
             // Add to our running combined chunks
-            const newCombined = new Uint8Array(combinedChunksRef.current.length + combinedChunk.length);
+            const newCombined = new Uint8Array(
+                combinedChunksRef.current.length + combinedChunk.length
+            );
             newCombined.set(combinedChunksRef.current);
             newCombined.set(combinedChunk, combinedChunksRef.current.length);
             combinedChunksRef.current = newCombined;
-            
+
             // Only try to play if we have enough data
             if (combinedChunksRef.current.length < 1024) {
                 isProcessingQueueRef.current = false;
                 return;
             }
-            
+
             if (audioElementRef.current) {
                 try {
                     // Create blob with proper MIME type
-                    const audioBlob = new Blob([combinedChunksRef.current], { 
-                        type: "audio/mpeg" 
+                    const audioBlob = new Blob([combinedChunksRef.current], {
+                        type: "audio/mpeg",
                     });
-                    
+
                     // Create object URL and play
                     const url = URL.createObjectURL(audioBlob);
-                    
+
                     // Clean up previous URL if exists
                     if (audioElementRef.current.src) {
                         URL.revokeObjectURL(audioElementRef.current.src);
                     }
-                    
+
                     // Set up handlers
                     audioElementRef.current.onended = () => {
-                        if (isDebugMode) console.log("Audio chunk playback ended");
+                        if (isDebugMode)
+                            console.log("Audio chunk playback ended");
                         // Clean up URL
-                        if (audioElementRef.current && audioElementRef.current.src) {
+                        if (
+                            audioElementRef.current &&
+                            audioElementRef.current.src
+                        ) {
                             URL.revokeObjectURL(audioElementRef.current.src);
                         }
-                        
+
                         // Reset for next audio chunks
                         combinedChunksRef.current = new Uint8Array();
                         isProcessingQueueRef.current = false;
-                        
+
                         // Check if more audio is available
                         if (audioQueueRef.current.length > 0) {
                             setTimeout(() => processAudioQueue(), 50);
@@ -311,28 +352,37 @@ export default function useAudioPlayback() {
                             setIsFinished(true);
                         }
                     };
-                    
+
                     // Set source and play
                     audioElementRef.current.src = url;
                     audioElementRef.current.load(); // Force load before playing
-                    
-                    if (isDebugMode) console.log("Attempting to play audio chunk");
+
+                    if (isDebugMode)
+                        console.log("Attempting to play audio chunk");
                     const playPromise = audioElementRef.current.play();
-                    
+
                     if (playPromise !== undefined) {
                         playPromise
                             .then(() => {
-                                if (isDebugMode) console.log("Audio chunk playing successfully");
+                                if (isDebugMode)
+                                    console.log(
+                                        "Audio chunk playing successfully"
+                                    );
                                 setIsPlaying(true);
                                 setIsFinished(false);
                             })
                             .catch((error) => {
                                 console.error("Error playing audio:", error);
                                 // Clean up URL
-                                if (audioElementRef.current && audioElementRef.current.src) {
-                                    URL.revokeObjectURL(audioElementRef.current.src);
+                                if (
+                                    audioElementRef.current &&
+                                    audioElementRef.current.src
+                                ) {
+                                    URL.revokeObjectURL(
+                                        audioElementRef.current.src
+                                    );
                                 }
-                                
+
                                 // Reset for retry
                                 combinedChunksRef.current = new Uint8Array();
                                 isProcessingQueueRef.current = false;
@@ -358,89 +408,78 @@ export default function useAudioPlayback() {
     };
 
     // Handle incoming audio chunks
-    const playChunk = useCallback((chunkData: AudioChunkData) => {
-        try {
-            // Validate base64 string
-            if (!chunkData.chunk || typeof chunkData.chunk !== 'string') {
-                console.error("Invalid audio chunk received", chunkData);
-                return;
-            }
-            
-            // Convert base64 to binary
-            const binaryString = atob(chunkData.chunk);
-            const chunk = new Uint8Array(binaryString.length);
+    const playChunk = useCallback(
+        (chunkData: AudioChunkData) => {
+            try {
+                // Validate base64 string
+                if (!chunkData.chunk || typeof chunkData.chunk !== "string") {
+                    console.error("Invalid audio chunk received", chunkData);
+                    return;
+                }
 
-            for (let i = 0; i < binaryString.length; i++) {
-                chunk[i] = binaryString.charCodeAt(i);
-            }
-            
-            // Skip empty chunks
-            if (!validateChunk(chunk)) {
-                console.warn("Skipping invalid audio chunk");
-                return;
-            }
+                // Convert base64 to binary
+                const binaryString = atob(chunkData.chunk);
+                const chunk = new Uint8Array(binaryString.length);
 
-            // Add to queue
-            audioQueueRef.current.push(chunk);
-            
-            // Start processing if not already
-            if (!isProcessingQueueRef.current) {
-                processAudioQueue();
+                for (let i = 0; i < binaryString.length; i++) {
+                    chunk[i] = binaryString.charCodeAt(i);
+                }
+
+                // Skip empty chunks
+                if (!validateChunk(chunk)) {
+                    console.warn("Skipping invalid audio chunk");
+                    return;
+                }
+
+                // Add to queue
+                audioQueueRef.current.push(chunk);
+
+                // Start processing if not already
+                if (!isProcessingQueueRef.current) {
+                    processAudioQueue();
+                }
+            } catch (error) {
+                console.error("Error processing audio chunk:", error);
+                setPlaybackError("Error processing audio chunk");
             }
-        } catch (error) {
-            console.error("Error processing audio chunk:", error);
-            setPlaybackError("Error processing audio chunk");
-        }
-    }, [processAudioQueue]);
+        },
+        [processAudioQueue]
+    );
 
     // Handle stream end
     const handleStreamEnd = useCallback(
         (nextAction: string) => {
             setNextAction(nextAction);
             // Process any remaining audio
-            if (!isProcessingQueueRef.current && audioQueueRef.current.length > 0) {
+            if (
+                !isProcessingQueueRef.current &&
+                audioQueueRef.current.length > 0
+            ) {
                 processAudioQueue();
             }
-            
+
             // If there's no more audio to play and we're not playing anything, mark as finished
-            if (audioQueueRef.current.length === 0 && !isProcessingQueueRef.current) {
+            if (
+                audioQueueRef.current.length === 0 &&
+                !isProcessingQueueRef.current
+            ) {
                 setIsFinished(true);
             }
         },
         [processAudioQueue, isDebugMode]
     );
 
-    // Set up IPC listeners
+    // Dequeue and play audio chunks
     useEffect(() => {
-        // Initialize audio
+        // This effect will be triggered when the component using this hook mounts
+        // It initializes the audio playback functionality
         initializeAudio();
 
-        // Audio chunk listener
-        window.electron.onAudioChunk((chunkData: AudioChunkData) => {
-            if (isDebugMode) console.log("Audio chunk received");
-            playChunk(chunkData);
-        });
-
-        // Stream end listener
-        window.electron.onAudioStreamEnd((nextAction: string) => {
-            handleStreamEnd(nextAction);
-        });
-
-        window.electron.receive("conversation-end", () => {
-            setNextAction("conversation-end");
-        });
-
-        // Cleanup function
+        // Cleanup function to be called when the component unmounts
         return () => {
-            if (window.electron) {
-                window.electron.removeListener("audio-chunk-received");
-                window.electron.removeListener("audio-stream-complete");
-                window.electron.removeListener("conversation-end");
-            }
-
             cleanupAudio();
         };
-    }, [playChunk, handleStreamEnd, initializeAudio, cleanupAudio, isDebugMode]);
+    }, [initializeAudio, cleanupAudio]);
 
     // Manual method to ensure audio is ready
     const startAudioContext = useCallback(() => {
@@ -449,18 +488,65 @@ export default function useAudioPlayback() {
         setIsFinished(false);
         setNextAction(null);
         setPlaybackError(null);
-        
+
         // Resume audio context (needed due to browser autoplay policies)
-        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        if (
+            audioContextRef.current &&
+            audioContextRef.current.state === "suspended"
+        ) {
             audioContextRef.current.resume();
         }
     }, [initializeAudio, cleanupAudio]);
 
+    // Set up a listener for incoming audio chunks from the main process
+    useEffect(() => {
+        if (!isInitialized) return;
+
+        const handleAudioChunk = (data: AudioChunkData) => {
+            if (isDebugMode) {
+                console.log("Received audio chunk from main process");
+            }
+
+            try {
+                // Decode base64 string to Uint8Array
+                const binaryString = window.atob(data.chunk);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                // Validate and add to queue
+                if (validateChunk(bytes)) {
+                    audioQueueRef.current.push(bytes);
+                    if (!isProcessingQueueRef.current) {
+                        processAudioQueue();
+                    }
+                }
+            } catch (error) {
+                console.error("Error processing received audio chunk:", error);
+                setPlaybackError("Failed to process audio chunk.");
+            }
+        };
+
+        // Subscribe to the 'audio-output' channel
+        window.electron.receive("audio-output", handleAudioChunk);
+
+        // Clean up the listener when the component unmounts
+        return () => {
+            if (window.electron.removeListener) {
+                window.electron.removeListener("audio-output");
+            }
+        };
+    }, [isInitialized, isDebugMode, processAudioQueue, validateChunk]);
+
     return {
         isPlaying,
+        isInitialized,
         isFinished,
         nextAction,
         startAudioContext,
         playbackError,
+        playChunk,
     };
 }

@@ -1,8 +1,9 @@
-const { app, ipcMain, protocol, BrowserWindow } = require("electron");
+const { app, ipcMain, protocol, BrowserWindow, session } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
 const { getErrorService } = require("./services/error-service");
+const { createOrbWindow } = require("./windows/orb-window");
 
 require("dotenv").config();
 
@@ -21,33 +22,63 @@ async function initialize() {
             return callback(decodeURIComponent(url));
         } catch (error) {
             const errorService = getErrorService();
-            errorService.reportError(error, 'protocol-handler');
+            errorService.reportError(error, "protocol-handler");
         }
     });
 
     try {
+        // Initialize services BEFORE creating windows
+        await initializeServices();
+
         await createWindows();
         console.log("All windows created and loaded");
 
         console.log("Creating tray...");
-        createTray();
+        const tray = createTray();
 
-        console.log("Initializing services...");
-        await initializeServices();
-        
         // Log initialization complete
         console.log("Luna AI initialized and ready");
     } catch (error) {
         const errorService = getErrorService();
-        errorService.reportError(error, 'main-initialization');
+        errorService.reportError(error, "main-initialization");
     }
 }
 
 // Entry point
 app.whenReady().then(() => {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        callback({
+            responseHeaders: {
+                ...details.responseHeaders,
+                "Content-Security-Policy": [
+                    "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000 blob:; connect-src 'self' ws://localhost:3000 wss://generativelanguage.googleapis.com; worker-src 'self' blob:;",
+                ],
+            },
+        });
+    });
     initialize();
 });
 
 app.on("quit", () => {
     app.quit();
+});
+
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if (require("electron-squirrel-startup")) {
+    app.quit();
+}
+
+// Quit when all windows are closed, except on macOS.
+app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+        app.quit();
+    }
+});
+
+app.on("activate", () => {
+    // On OS X it's common to re-create a window in the app when the
+    // dock icon is clicked and there are no other windows open.
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createOrbWindow();
+    }
 });

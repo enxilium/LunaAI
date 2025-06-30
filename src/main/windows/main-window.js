@@ -11,7 +11,7 @@ function createMainWindow() {
             width: 800,
             height: 600,
             webPreferences: {
-                preload: path.join(__dirname, "../../preload/preload.js"),
+                preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
                 contextIsolation: true,
                 nodeIntegration: false,
             },
@@ -32,7 +32,7 @@ function createMainWindow() {
         });
 
         if (process.env.NODE_ENV === 'development') {
-            mainWindow.loadURL('http://localhost:3000');
+            mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
         }
         else {
             mainWindow.loadFile(getResourcePath('app/index.html'));
