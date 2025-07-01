@@ -266,7 +266,9 @@ function getTools() {
                 },
                 {
                     name: "handleEnd",
-                    description: "Handles the end of a conversation.",
+                    behavior: "NON_BLOCKING",
+                    description:
+                        "Handles the end of a conversation. Should be called to end the current session after user is done with requests for the time being.",
                 },
                 {
                     name: "authorizeService",

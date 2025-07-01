@@ -258,9 +258,15 @@ class SpotifyService extends EventEmitter {
      */
     async disconnect() {
         return new Promise(async (resolve, reject) => {
-            await this.credentialsService.deleteCredentials("spotify.accessToken");
-            await this.credentialsService.deleteCredentials("spotify.refreshToken");
-            await this.credentialsService.deleteCredentials("spotify.expiresAt");
+            await this.credentialsService.deleteCredentials(
+                "spotify.accessToken"
+            );
+            await this.credentialsService.deleteCredentials(
+                "spotify.refreshToken"
+            );
+            await this.credentialsService.deleteCredentials(
+                "spotify.expiresAt"
+            );
             this.settingsService.setConfig("spotifyAuth", false);
             this.spotifyApi.setAccessToken(null);
             this.spotifyApi.setRefreshToken(null);
@@ -360,20 +366,21 @@ class SpotifyService extends EventEmitter {
 
     /**
      * @description Ensures there is an active device for playback, opening Spotify if necessary.
-     * @returns {Promise<boolean>} True if playback is active, false otherwise.
+     * @returns {Promise<string|null>} The ID of an available device, or null.
      */
     async ensureActivePlayback() {
         try {
-            const stateResult = await this.getPlaybackState();
-            if (stateResult.success && stateResult.data?.device) {
-                return true;
+            // 1. Check current playback state for an active device
+            let stateResult = await this.getPlaybackState();
+            if (stateResult.success && stateResult.data?.device?.id) {
+                return stateResult.data.device.id;
             }
 
-            const devicesResult = await this.getDevices();
-            if (!devicesResult.success) return false;
-
+            // 2. If no device in state, get list of all available devices
+            let devicesResult = await this.getDevices();
             let devices = devicesResult.data?.devices || [];
 
+            // 3. If no devices available, open Spotify and wait.
             if (devices.length === 0) {
                 console.log(
                     "[SpotifyService] No devices found. Opening Spotify."
@@ -382,28 +389,24 @@ class SpotifyService extends EventEmitter {
                 await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for Spotify to open
 
                 // Retry getting devices
-                const newDevicesResult = await this.getDevices();
-                if (!newDevicesResult.success) return false;
-                devices = newDevicesResult.data?.devices || [];
+                devicesResult = await this.getDevices();
+                devices = devicesResult.data?.devices || [];
 
                 if (devices.length === 0) {
                     this.reportError(
                         new Error("No devices found after opening Spotify."),
                         "ensureActivePlayback"
                     );
-                    return false;
+                    return null;
                 }
             }
 
-            const activeDevice = devices.find((d) => d.is_active);
-            const deviceToUse = activeDevice || devices[0];
-
-            await this.transferPlayback(deviceToUse.id, false);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            return true;
+            // 4. Return the ID of the first available device
+            const deviceToUse = devices.find((d) => d.is_active) || devices[0];
+            return deviceToUse.id;
         } catch (error) {
             this.reportError(error, "ensureActivePlayback");
-            return false;
+            return null;
         }
     }
 
@@ -499,7 +502,8 @@ class SpotifyService extends EventEmitter {
                 error: "Not authorized with Spotify. Try first calling the authorize service tool for Spotify.",
             };
         }
-        if (!(await this.ensureActivePlayback())) {
+        const deviceId = await this.ensureActivePlayback();
+        if (!deviceId) {
             return { success: false, error: "No Spotify devices available" };
         }
 
@@ -534,11 +538,13 @@ class SpotifyService extends EventEmitter {
                 };
             }
 
+            const playOptions = { device_id: deviceId };
             if (type === "track") {
-                await this.spotifyApi.play({ uris: [itemToPlay.uri] });
+                playOptions.uris = [itemToPlay.uri];
             } else {
-                await this.spotifyApi.play({ context_uri: itemToPlay.uri });
+                playOptions.context_uri = itemToPlay.uri;
             }
+            await this.spotifyApi.play(playOptions);
 
             return {
                 success: true,
@@ -555,13 +561,17 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<Object>} A confirmation message.
      */
     async pause() {
+        const deviceId = await this.ensureActivePlayback();
+        if (!deviceId) {
+            return { success: false, error: "No Spotify devices available" };
+        }
         return this.makeRequest(async () => {
             try {
                 const state = await this.getPlaybackState();
                 if (state.success && !state.data?.is_playing) {
                     return { success: true, message: "Already paused." };
                 }
-                await this.spotifyApi.pause();
+                await this.spotifyApi.pause({ device_id: deviceId });
                 return { success: true, message: "Playback paused." };
             } catch (error) {
                 return this.reportError(error, "pause");
@@ -574,6 +584,10 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<Object>} A confirmation message.
      */
     async nextTrack() {
+        const deviceId = await this.ensureActivePlayback();
+        if (!deviceId) {
+            return { success: false, error: "No Spotify devices available" };
+        }
         return this.makeRequest(async () => {
             try {
                 if (!(await this.ensureActivePlayback())) {
@@ -582,7 +596,7 @@ class SpotifyService extends EventEmitter {
                         error: "No Spotify devices available",
                     };
                 }
-                await this.spotifyApi.skipToNext();
+                await this.spotifyApi.skipToNext({ device_id: deviceId });
                 return { success: true, message: "Skipped to next track." };
             } catch (error) {
                 return this.reportError(error, "nextTrack");
@@ -595,6 +609,10 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<Object>} A confirmation message.
      */
     async previousTrack() {
+        const deviceId = await this.ensureActivePlayback();
+        if (!deviceId) {
+            return { success: false, error: "No Spotify devices available" };
+        }
         return this.makeRequest(async () => {
             try {
                 if (!(await this.ensureActivePlayback())) {
@@ -603,7 +621,7 @@ class SpotifyService extends EventEmitter {
                         error: "No Spotify devices available",
                     };
                 }
-                await this.spotifyApi.skipToPrevious();
+                await this.spotifyApi.skipToPrevious({ device_id: deviceId });
                 return { success: true, message: "Skipped to previous track." };
             } catch (error) {
                 return this.reportError(error, "previousTrack");
@@ -617,6 +635,10 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<Object>} A confirmation message.
      */
     async setVolume(volumePercent) {
+        const deviceId = await this.ensureActivePlayback();
+        if (!deviceId) {
+            return { success: false, error: "No Spotify devices available" };
+        }
         return this.makeRequest(async () => {
             try {
                 if (!(await this.ensureActivePlayback())) {
@@ -625,7 +647,9 @@ class SpotifyService extends EventEmitter {
                         error: "No Spotify devices available",
                     };
                 }
-                await this.spotifyApi.setVolume(volumePercent);
+                await this.spotifyApi.setVolume(volumePercent, {
+                    device_id: deviceId,
+                });
                 return {
                     success: true,
                     message: `Volume set to ${volumePercent}%`,
@@ -674,6 +698,10 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<Object>} A confirmation message.
      */
     async setShuffle(state) {
+        const deviceId = await this.ensureActivePlayback();
+        if (!deviceId) {
+            return { success: false, error: "No Spotify devices available" };
+        }
         return this.makeRequest(async () => {
             try {
                 if (!(await this.ensureActivePlayback())) {
@@ -682,7 +710,10 @@ class SpotifyService extends EventEmitter {
                         error: "No Spotify devices available",
                     };
                 }
-                await this.spotifyApi.setShuffle({ state });
+                await this.spotifyApi.setShuffle({
+                    state,
+                    device_id: deviceId,
+                });
                 return { success: true, message: `Shuffle set to ${state}.` };
             } catch (error) {
                 return this.reportError(error, "setShuffle");
