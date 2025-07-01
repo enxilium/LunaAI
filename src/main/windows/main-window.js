@@ -1,7 +1,6 @@
-const { BrowserWindow } = require('electron');
-const path = require('path');
-const { getResourcePath } = require('../utils/paths');
-const { getErrorService } = require('../services/error-service');
+const { BrowserWindow } = require("electron");
+const { getResourcePath } = require("../utils/paths");
+const { getErrorService } = require("../services/error-service");
 
 let mainWindow = null;
 
@@ -18,27 +17,31 @@ function createMainWindow() {
         });
 
         // Resolve promise when window is ready
-        mainWindow.webContents.once('did-finish-load', () => {
-            console.log('Main window loaded successfully');
+        mainWindow.webContents.once("did-finish-load", () => {
+            console.log("Main window loaded successfully");
             resolve(mainWindow);
         });
 
         // Reject promise if there's an error
-        mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
-            const error = new Error(`Failed to load main window: ${errorDescription} (${errorCode})`);
-            const errorService = getErrorService();
-            errorService.reportError(error, 'main-window');
-            reject(error);
-        });
+        mainWindow.webContents.on(
+            "did-fail-load",
+            (_, errorCode, errorDescription) => {
+                const error = new Error(
+                    `Failed to load main window: ${errorDescription} (${errorCode})`
+                );
+                const errorService = getErrorService();
+                errorService.reportError(error, "main-window");
+                reject(error);
+            }
+        );
 
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NODE_ENV === "development") {
             mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-        }
-        else {
-            mainWindow.loadFile(getResourcePath('app/index.html'));
+        } else {
+            mainWindow.loadFile(getResourcePath("app/index.html"));
         }
 
-        mainWindow.on('closed', () => {
+        mainWindow.on("closed", () => {
             mainWindow = null;
         });
     });

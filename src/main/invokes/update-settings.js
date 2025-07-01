@@ -1,26 +1,15 @@
-const { getUserData } = require("../services/credentials-service");
+const { getSettingsService } = require("../services/user/settings-service");
 const { getErrorService } = require("../services/error-service");
 
 /**
- * Updates a user setting
- * @param {string} setting - The setting to update
- * @param {any} value - The new value for the setting
- * @returns {Object} - The updated setting
+ * @description Update an application setting.
+ * @param {string} key - The key of the setting to update.
+ * @param {any} value - The new value for the setting.
+ * @returns {Promise<void>}
  */
-async function updateSettings(setting, value) {
-    try {
-        const userData = getUserData();
-        userData.setConfig(setting, value);
-        
-        return {
-            field: setting,
-            value: userData.getConfig(setting)
-        };
-    } catch (error) {
-        // Use the error service to report the error
-        const errorService = getErrorService();
-        errorService.reportError(error, 'update-settings');
-    }
+async function updateSettings(key, value) {
+    const settingsService = getSettingsService();
+    settingsService.setConfig(key, value);
 }
 
 module.exports = { updateSettings };

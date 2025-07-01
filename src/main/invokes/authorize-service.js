@@ -1,36 +1,35 @@
-const { getUserData } = require("../services/credentials-service");
+const {
+    getSpotifyService,
+} = require("../services/integrations/spotify-service");
+const { getGoogleService } = require("../services/integrations/google-service");
 const { getErrorService } = require("../services/error-service");
 
 /**
- * Handles the authorize-service invoke call
- * @param {string} service - Service to authorize
- * @returns {Object} - Authorization result
+ * @description Authorize a service.
+ * @param {string} serviceName - The name of the service to authorize.
+ * @returns {Promise<void>}
  */
-async function authorizeService(service) {
-    let authorizeSuccess = false;
-    const userData = getUserData();
+async function authorizeService({ serviceName }) {
+    serviceName = serviceName.toLowerCase();
 
-    switch (service) {
-        case "spotify":
-            // Lazy load the Spotify service
-            const { getSpotifyService } = require("../services/spotify-service");
-            const spotifyService = await getSpotifyService();
-            authorizeSuccess = await spotifyService.authorize();
-            userData.setConfig("spotifyAuth", authorizeSuccess);
-            break;
-        case "google":
-            // Lazy load the Google service
-            const { getGoogleService } = require("../services/google-service");
-            const googleService = await getGoogleService();
-            authorizeSuccess = await googleService.authorize();
-            userData.setConfig("googleAuth", authorizeSuccess);
-            break;
-        default:
-            const errorService = getErrorService();
-            errorService.reportError(new Error("Authorization not supported for this service"), 'authorize-service');
+    try {
+        switch (serviceName) {
+            case "spotify": {
+                const spotifyService = await getSpotifyService();
+                return await spotifyService.authorize();
+            }
+            case "google": {
+                const googleService = await getGoogleService();
+                return await googleService.authorize();
+            }
+            default:
+                throw new Error(`Service not recognized: ${serviceName}`);
+        }
+    
+    } catch (error) {
+        const errorService = getErrorService();
+        errorService.reportError(error, "authorize-service");
     }
-
-    return authorizeSuccess;
 }
 
 module.exports = { authorizeService };

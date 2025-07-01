@@ -1,4 +1,4 @@
-const { 
+const {
     skipTrack,
     playPreviousTrack,
     resumePlayback,
@@ -6,18 +6,22 @@ const {
     pausePlayback,
     increaseVolume,
     decreaseVolume,
-    playSong
+    playSong,
 } = require("./spotify");
+
 const { getWeather } = require("./weather");
 const { getDate, getTime } = require("./date");
 const { handleEnd } = require("./misc");
 const { openApplication, openSpotify } = require("./open");
-const { 
+const downloadFile = require("./downloadFile");
+const { authorizeService } = require("../invokes/authorize-service");
+
+const {
     checkEmails,
     draftEmail,
     getCalendarEvents,
     createCalendarEvent,
-    listDriveFiles
+    listDriveFiles,
 } = require("./google");
 
 module.exports = {
@@ -44,4 +48,8 @@ module.exports = {
     listDriveFiles,
     // Error handling
     handleEnd,
+    // File handling
+    downloadFile,
+    // Authorization
+    authorizeService,
 };

@@ -7,11 +7,9 @@ const { createOrbWindow } = require("./windows/orb-window");
 
 require("dotenv").config();
 
-// Set up the preload log handler EARLY, before window creation
-ipcMain.on("preload-log", (event, ...args) => {
-    console.log("[PRELOAD]", ...args);
-});
-
+/**
+ * @description Initializes the application, including services, windows, and tray.
+ */
 async function initialize() {
     console.log("Starting Luna AI initialization...");
 
@@ -28,13 +26,15 @@ async function initialize() {
 
     try {
         // Initialize services BEFORE creating windows
-        await initializeServices();
-
-        await createWindows();
-        console.log("All windows created and loaded");
-
-        console.log("Creating tray...");
-        const tray = createTray();
+        await initializeServices().then(async () => {
+            console.log("All services initialized");
+            await createWindows().then(async () => {
+                console.log("All windows created and loaded");
+                const tray = await createTray().then(() => {
+                    console.log("Tray created");
+                });
+            });
+        });
 
         // Log initialization complete
         console.log("Luna AI initialized and ready");
@@ -50,6 +50,8 @@ app.whenReady().then(() => {
         callback({
             responseHeaders: {
                 ...details.responseHeaders,
+                // WARNING: The current Content-Security-Policy is permissive and should be
+                // tightened for production.
                 "Content-Security-Policy": [
                     "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:3000 blob:; connect-src 'self' ws://localhost:3000 wss://generativelanguage.googleapis.com; worker-src 'self' blob:;",
                 ],

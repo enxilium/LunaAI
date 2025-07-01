@@ -1,6 +1,7 @@
-const { getGoogleService } = require("../../services/google-service");
+const {
+    getGoogleService,
+} = require("../../services/integrations/google-service");
 const { getErrorService } = require("../../services/error-service");
-const { toTitleCase } = require("../../utils/string-formatting");
 
 /**
  * Get unread emails from Gmail.
@@ -10,19 +11,30 @@ async function checkEmails() {
     try {
         console.log("Checking unread emails");
         const googleService = await getGoogleService();
+        if (!googleService.isAuthorized()) {
+            throw new Error("SERVICE NOT AUTHORIZED");
+        }
         const result = await googleService.getEmails(15); // Fetch up to 15 emails
 
         if (!result.success) {
             throw new Error(result.error);
         }
-        
+
         // The LLM will be responsible for summarizing this data.
         return result.data;
     } catch (error) {
-        getErrorService().reportError(error, 'google-command-checkEmails');
-        return { 
+        getErrorService().reportError(error, "google-command-checkEmails");
+        if (error.message === "SERVICE NOT AUTHORIZED") {
+            return {
+                error: "Google account not connected.",
+                error_solution:
+                    "I can't do that because you haven't connected your Google account. Please connect your account in the settings.",
+            };
+        }
+        return {
             error: error.message,
-            error_solution: "I couldn't check your emails. Please ensure your Google account is connected and try again."
+            error_solution:
+                "I couldn't check your emails. Please ensure your Google account is connected and try again.",
         };
     }
 }
@@ -38,23 +50,43 @@ async function checkEmails() {
 async function draftEmail({ recipient, subject, body }) {
     try {
         if (!recipient || !subject || !body) {
-            throw new Error("Recipient, subject, and body are required to draft an email.");
+            throw new Error(
+                "Recipient, subject, and body are required to draft an email."
+            );
         }
 
         console.log(`Creating email draft to: ${recipient}`);
         const googleService = await getGoogleService();
-        const result = await googleService.createDraft(recipient, subject, body);
+        if (!googleService.isAuthorized()) {
+            throw new Error("SERVICE NOT AUTHORIZED");
+        }
+        const result = await googleService.createDraft(
+            recipient,
+            subject,
+            body
+        );
 
         if (!result.success) {
             throw new Error(result.error);
         }
 
-        return { success: true, message: `Email draft to ${recipient} created successfully.` };
+        return {
+            success: true,
+            message: `Email draft to ${recipient} created successfully.`,
+        };
     } catch (error) {
-        getErrorService().reportError(error, 'google-command-draftEmail');
-        return { 
+        getErrorService().reportError(error, "google-command-draftEmail");
+        if (error.message === "SERVICE NOT AUTHORIZED") {
+            return {
+                error: "Google account not connected.",
+                error_solution:
+                    "I can't do that because you haven't connected your Google account. Please connect your account in the settings.",
+            };
+        }
+        return {
             error: error.message,
-            error_solution: "I encountered an issue creating your email draft. Please check the details and try again."
+            error_solution:
+                "I encountered an issue creating your email draft. Please check the details and try again.",
         };
     }
 }
@@ -67,7 +99,10 @@ async function getCalendarEvents() {
     try {
         console.log("Getting calendar events");
         const googleService = await getGoogleService();
-        const result = await googleService.getCalendarEvents(10); // Fetch up to 10 events
+        if (!googleService.isAuthorized()) {
+            throw new Error("SERVICE NOT AUTHORIZED");
+        }
+        const result = await googleService.getCalendarEvents(null, null);
 
         if (!result.success) {
             throw new Error(result.error);
@@ -76,10 +111,21 @@ async function getCalendarEvents() {
         // The LLM will summarize this data.
         return result.data;
     } catch (error) {
-        getErrorService().reportError(error, 'google-command-getCalendarEvents');
+        getErrorService().reportError(
+            error,
+            "google-command-getCalendarEvents"
+        );
+        if (error.message === "SERVICE NOT AUTHORIZED") {
+            return {
+                error: "Google account not connected.",
+                error_solution:
+                    "I can't do that because you haven't connected your Google account. Please connect your account in the settings.",
+            };
+        }
         return {
             error: error.message,
-            error_solution: "I had trouble getting your calendar events. Please ensure your Google account is connected."
+            error_solution:
+                "I had trouble getting your calendar events. Please ensure your Google account is connected.",
         };
     }
 }
@@ -96,16 +142,21 @@ async function getCalendarEvents() {
 async function createCalendarEvent({ title, startTime, endTime, location }) {
     try {
         if (!title || !startTime || !endTime) {
-            throw new Error("Title, start time, and end time are required to create a calendar event.");
+            throw new Error(
+                "Title, start time, and end time are required to create a calendar event."
+            );
         }
 
         console.log(`Creating calendar event: ${title}`);
         const googleService = await getGoogleService();
+        if (!googleService.isAuthorized()) {
+            throw new Error("SERVICE NOT AUTHORIZED");
+        }
         const result = await googleService.createCalendarEvent({
             summary: title,
             description: `Event created by Luna AI`,
-            start: { dateTime: startTime, timeZone: 'America/Toronto' }, // Assuming a default timezone
-            end: { dateTime: endTime, timeZone: 'America/Toronto' },
+            start: { dateTime: startTime, timeZone: "America/Toronto" }, // Assuming a default timezone
+            end: { dateTime: endTime, timeZone: "America/Toronto" },
             location: location,
         });
 
@@ -115,10 +166,21 @@ async function createCalendarEvent({ title, startTime, endTime, location }) {
 
         return result.data;
     } catch (error) {
-        getErrorService().reportError(error, 'google-command-createCalendarEvent');
+        getErrorService().reportError(
+            error,
+            "google-command-createCalendarEvent"
+        );
+        if (error.message === "SERVICE NOT AUTHORIZED") {
+            return {
+                error: "Google account not connected.",
+                error_solution:
+                    "I can't do that because you haven't connected your Google account. Please connect your account in the settings.",
+            };
+        }
         return {
             error: error.message,
-            error_solution: "I couldn't create the calendar event. Please check the event details and that your Google account is connected."
+            error_solution:
+                "I couldn't create the calendar event. Please check the event details and that your Google account is connected.",
         };
     }
 }
@@ -131,28 +193,38 @@ async function listDriveFiles() {
     try {
         console.log("Listing drive files");
         const googleService = await getGoogleService();
+        if (!googleService.isAuthorized()) {
+            throw new Error("SERVICE NOT AUTHORIZED");
+        }
         const result = await googleService.listDriveFiles(15); // Fetch up to 15 files
 
         if (!result.success) {
             throw new Error(result.error);
         }
-        
+
         // The LLM will summarize this.
         return result.data;
     } catch (error) {
-        getErrorService().reportError(error, 'google-command-listDriveFiles');
+        getErrorService().reportError(error, "google-command-listDriveFiles");
+        if (error.message === "SERVICE NOT AUTHORIZED") {
+            return {
+                error: "Google account not connected.",
+                error_solution:
+                    "I can't do that because you haven't connected your Google account. Please connect your account in the settings.",
+            };
+        }
         return {
             error: error.message,
-            error_solution: "I had trouble listing your Google Drive files. Please ensure your Google account is connected."
+            error_solution:
+                "I had trouble listing your Google Drive files. Please ensure your Google account is connected.",
         };
     }
 }
-
 
 module.exports = {
     checkEmails,
     draftEmail,
     getCalendarEvents,
     createCalendarEvent,
-    listDriveFiles
-}; 
+    listDriveFiles,
+};

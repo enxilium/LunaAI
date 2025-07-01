@@ -1,9 +1,5 @@
 const { getErrorService } = require('../../services/error-service');
-const { 
-    getCoordinates, 
-    fetchWeatherData,
-    getDefaultLocation 
-} = require('../../utils/weather-utils');
+const { getCoordinates, fetchWeatherData, getDefaultLocation } = require('../../utils/weather-utils');
 
 /**
  * Fetches weather data based on the provided arguments

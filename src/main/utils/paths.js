@@ -20,21 +20,26 @@ function getAssetPath(assetType, assetName) {
 }
 
 /**
+ * Get path for a resource within the application bundle.
+ * In development, it points to the 'app' directory.
+ * In production, it points to the 'resources/app' directory.
+ * @param {string} resourcePath - The relative path to the resource.
+ * @returns {string} The absolute path to the resource.
+ */
+function getResourcePath(resourcePath) {
+    if (isDev) {
+        return path.join(process.cwd(), "app", resourcePath);
+    }
+    return path.join(process.resourcesPath, "app", resourcePath);
+}
+
+/**
  * Get path for image assets
  * @param {string} imageName - Image filename
  * @returns {string} Absolute path to the image file
  */
 function getImagePath(imageName) {
     return getAssetPath("images", imageName);
-}
-
-/**
- * Get path for audio assets
- * @param {string} audioName - Audio filename
- * @returns {string} Absolute path to the audio file
- */
-function getAudioPath(audioName) {
-    return getAssetPath("audio", audioName);
 }
 
 /**
@@ -46,19 +51,9 @@ function getModelPath(modelName) {
     return getAssetPath("models", modelName);
 }
 
-/**
- * Get path for user data like settings, cache, etc.
- * @param {string} dataPath - Path relative to user data directory
- * @returns {string} Absolute path to the user data file
- */
-function getUserDataPath(dataPath) {
-    return path.join(app.getPath("userData"), dataPath);
-}
-
 module.exports = {
     getAssetPath,
     getImagePath,
-    getAudioPath,
     getModelPath,
-    getUserDataPath,
+    getResourcePath,
 };

@@ -250,12 +250,12 @@ export class GdmLiveAudio extends LitElement {
             this.sourceNode.disconnect();
         }
 
-        this.scriptProcessorNode = null;
-        this.sourceNode = null;
+        this.scriptProcessorNode = null as any;
+        this.sourceNode = null as any;
 
         if (this.mediaStream) {
             this.mediaStream.getTracks().forEach((track) => track.stop());
-            this.mediaStream = null;
+            this.mediaStream = null as any;
         }
 
         this.updateStatus("Recording stopped. Click Start to begin again.");

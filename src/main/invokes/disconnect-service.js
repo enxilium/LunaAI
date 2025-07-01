@@ -1,32 +1,31 @@
-const { getUserData } = require("../services/credentials-service");
+const {
+    getSpotifyService,
+} = require("../services/integrations/spotify-service");
+const { getGoogleService } = require("../services/integrations/google-service");
+const { getErrorService } = require("../services/error-service");
 
 /**
- * Handles the disconnect-service invoke call
- * @param {string} service - Service to disconnect
- * @returns {Object} - Disconnect result
+ * @description Disconnect a service.
+ * @param {string} serviceName - The name of the service to disconnect.
+ * @returns {Promise<any>} A promise that resolves with the result of the disconnection.
  */
-async function disconnectService(service) {
-    const userData = getUserData();
+async function disconnectService({serviceName}) {
+    serviceName = serviceName.toLowerCase();
 
-    // TODO: Implement disconnect for all services
+    console.log("Disconnecting service:", serviceName);
 
-    if (service === "spotify") {
-        await userData.deleteCredentials("spotify.accessToken");
-        await userData.deleteCredentials("spotify.refreshToken");
-        await userData.deleteCredentials("spotify.expiresAt");
-        await userData.deleteConfig("spotifyAuth");
-    } else if (service === "google") {
-        await userData.deleteCredentials("google.accessToken");
-        await userData.deleteCredentials("google.refreshToken");
-        await userData.deleteCredentials("google.tokenExpiry");
-        await userData.deleteConfig("googleAuth");
+    try {
+        if (serviceName === "spotify") {
+            const spotifyService = await getSpotifyService();
+            return await spotifyService.disconnect();
+        } else if (serviceName === "google") {
+            const googleService = await getGoogleService();
+            return await googleService.disconnect();
+        }
+    } catch (error) {
+        const errorService = getErrorService();
+        errorService.reportError(error, "disconnect-service");
     }
-
-    console.log("Disconnected from service:", service);
-
-    return {
-        value: true,
-    };
 }
 
 module.exports = { disconnectService };

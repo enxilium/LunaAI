@@ -25,7 +25,7 @@ const Integration: React.FC<IntegrationProps> = ({name, icon, isConnected}) => {
             try {
                 setLoading(true);
 
-                await window.electron.invoke('authorize-service', name)
+                await window.electron.invoke('authorize-service', { serviceName: name })
                 .then(result => {if (result) {setAuth(true)}})
 
                 console.log(`${name} authorization successful`);
@@ -41,7 +41,7 @@ const Integration: React.FC<IntegrationProps> = ({name, icon, isConnected}) => {
         console.log(`Disconnecting ${service}`);
 
         try {
-            await window.electron.invoke('disconnect-service', service)
+            await window.electron.invoke('disconnect-service', { serviceName: service })
             .then(result => {if (result) {setAuth(false)}})
 
             console.log(`${service} disconnected successfully`);

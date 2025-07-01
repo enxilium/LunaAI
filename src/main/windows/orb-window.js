@@ -36,24 +36,29 @@ async function createOrbWindow() {
         orbWindow.setAlwaysOnTop(true, "floating");
 
         orbWindow.webContents.openDevTools({ mode: "detach" });
-        
+
         // Resolve promise when window is ready
-        orbWindow.webContents.once('did-finish-load', () => {
-            console.log('Orb window loaded successfully');
+        orbWindow.webContents.once("did-finish-load", () => {
+            console.log("Orb window loaded successfully");
             resolve(orbWindow);
         });
 
         // Reject promise if there's an error
-        orbWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription) => {
-            const error = new Error(`Failed to load orb window: ${errorDescription} (${errorCode})`);
-            const errorService = getErrorService();
-            errorService.reportError(error, 'orb-window');
-            reject(error);
-        });
+        orbWindow.webContents.on(
+            "did-fail-load",
+            (_, errorCode, errorDescription) => {
+                const error = new Error(
+                    `Failed to load orb window: ${errorDescription} (${errorCode})`
+                );
+                const errorService = getErrorService();
+                errorService.reportError(error, "orb-window");
+                reject(error);
+            }
+        );
 
         // Load the orb window
         if (process.env.NODE_ENV === "development") {
-            orbWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY + '?window=orb');
+            orbWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY + "?window=orb");
         } else {
             orbWindow.loadURL(
                 `file://${getResourcePath("app/index.html")}?window=orb`

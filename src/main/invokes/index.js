@@ -1,13 +1,15 @@
-const { authorizeService } = require("./authorize-service");
-const { getSettings } = require("./get-settings");
-const { disconnectService } = require("./disconnect-service");
 const { updateSettings } = require("./update-settings");
-const { getGeminiKey } = require("./get-gemini-key");
+const { authorizeService } = require("./authorize-service");
+const { disconnectService } = require("./disconnect-service");
+const { reportError } = require("./error");
+const { executeCommand } = require("./execute-command");
+const { getAsset } = require("./get-asset");
 
 module.exports = {
-    authorizeService,
-    getSettings,
-    disconnectService,
-    updateSettings,
-    getGeminiKey,
+    "get-asset": getAsset,
+    "update-settings": updateSettings,
+    "authorize-service": authorizeService,
+    "disconnect-service": disconnectService,
+    "execute-command": executeCommand,
+    error: reportError,
 };

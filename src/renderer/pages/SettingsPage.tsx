@@ -20,8 +20,8 @@ const INTEGRATIONS = [
     {
         name: "notion",
         icon: RiNotionFill,
-    }
-]
+    },
+];
 
 const PREFERENCES = [
     {
@@ -47,10 +47,10 @@ const PREFERENCES = [
     {
         name: "learningMode",
         title: "Learning Mode (Experimental)",
-        description: "Enable learning mode for personalized content. NOTE: This feature involves saving your user data. See our privacy policy for more information.",
-    }
-]
-
+        description:
+            "Enable learning mode for personalized content. NOTE: This feature involves saving your user data. See our privacy policy for more information.",
+    },
+];
 
 const SettingsPage: React.FC = () => {
     const [settings, setSettings] = useState({
@@ -62,19 +62,20 @@ const SettingsPage: React.FC = () => {
     });
 
     async function fetchSettings() {
-        const newSettings = await window.electron.invoke('get-settings');
-        console.log('Fetched settings:', newSettings);
+        const newSettings = await window.electron.getAsset("allSettings");
+        console.log("Fetched settings:", newSettings);
         setSettings(newSettings);
     }
 
     async function updateSettings(name: string, value: any) {
-        // TODO: Implement this.
+        await window.electron.invoke("update-settings", name, value);
+        fetchSettings();
     }
 
     useEffect(() => {
         fetchSettings();
     }, []);
-
+// TODO: Voice settings; language settings.
     return (
         <div className="bg-stone-950 min-h-screen text-white p-8">
             <h1 className="text-3xl font-bold mb-8">Settings</h1>
@@ -86,7 +87,12 @@ const SettingsPage: React.FC = () => {
                         <Integration
                             name={integration.name}
                             icon={integration.icon}
-                            isConnected={settings[integration.name + 'Auth' as keyof typeof settings]}
+                            isConnected={
+                                settings[
+                                    (integration.name +
+                                        "Auth") as keyof typeof settings
+                                ]
+                            }
                         />
                     </div>
                 ))}
@@ -100,7 +106,9 @@ const SettingsPage: React.FC = () => {
                             title={pref.title}
                             description={pref.description}
                             value={settings[pref.name as keyof typeof settings]}
-                            onChange={(value: boolean) => updateSettings(pref.name, value)}
+                            onChange={(value: boolean) =>
+                                updateSettings(pref.name, value)
+                            }
                         />
                     </div>
                 ))}

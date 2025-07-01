@@ -1,11 +1,11 @@
-const { exec } = require('child_process');
-const { spawn } = require('child_process');
-const { promisify } = require('util');
-const os = require('os');
-const path = require('path');
-const fs = require('fs').promises;
-const { getErrorService } = require('../../services/error-service');
-const { getUserData } = require('../../services/credentials-service');
+const { exec } = require("child_process");
+const { spawn } = require("child_process");
+const { promisify } = require("util");
+const os = require("os");
+const path = require("path");
+const fs = require("fs").promises;
+const { getErrorService } = require("../../services/error-service");
+const { getSettingsService } = require("../../services/user/settings-service");
 
 // Convert exec to promise-based
 const execPromise = promisify(exec);
@@ -16,55 +16,49 @@ const execPromise = promisify(exec);
 const COMMON_INSTALLATION_PATHS = {
     win32: {
         spotify: [
-            'C:\\Program Files\\WindowsApps\\SpotifyAB.SpotifyMusic_*\\Spotify.exe',
-            'C:\\Program Files\\Spotify\\Spotify.exe',
-            'C:\\Program Files (x86)\\Spotify\\Spotify.exe',
-            '%APPDATA%\\Spotify\\Spotify.exe',
-            '%LOCALAPPDATA%\\Microsoft\\WindowsApps\\Spotify.exe'
+            "C:\\Program Files\\WindowsApps\\SpotifyAB.SpotifyMusic_*\\Spotify.exe",
+            "C:\\Program Files\\Spotify\\Spotify.exe",
+            "C:\\Program Files (x86)\\Spotify\\Spotify.exe",
+            "%APPDATA%\\Spotify\\Spotify.exe",
+            "%LOCALAPPDATA%\\Microsoft\\WindowsApps\\Spotify.exe",
         ],
         chrome: [
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
         ],
         firefox: [
-            'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
-            'C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe'
+            "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+            "C:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe",
         ],
         // Add more applications as needed
     },
     darwin: {
-        spotify: [
-            '/Applications/Spotify.app',
-            '~/Applications/Spotify.app'
-        ],
+        spotify: ["/Applications/Spotify.app", "~/Applications/Spotify.app"],
         chrome: [
-            '/Applications/Google Chrome.app',
-            '~/Applications/Google Chrome.app'
+            "/Applications/Google Chrome.app",
+            "~/Applications/Google Chrome.app",
         ],
-        firefox: [
-            '/Applications/Firefox.app',
-            '~/Applications/Firefox.app'
-        ],
+        firefox: ["/Applications/Firefox.app", "~/Applications/Firefox.app"],
         // Add more applications as needed
     },
     linux: {
         spotify: [
-            '/usr/bin/spotify',
-            '/usr/local/bin/spotify',
-            '/snap/bin/spotify'
+            "/usr/bin/spotify",
+            "/usr/local/bin/spotify",
+            "/snap/bin/spotify",
         ],
         chrome: [
-            '/usr/bin/google-chrome',
-            '/usr/local/bin/google-chrome',
-            '/snap/bin/google-chrome'
+            "/usr/bin/google-chrome",
+            "/usr/local/bin/google-chrome",
+            "/snap/bin/google-chrome",
         ],
         firefox: [
-            '/usr/bin/firefox',
-            '/usr/local/bin/firefox',
-            '/snap/bin/firefox'
+            "/usr/bin/firefox",
+            "/usr/local/bin/firefox",
+            "/snap/bin/firefox",
         ],
         // Add more applications as needed
-    }
+    },
 };
 
 /**
@@ -75,37 +69,42 @@ const COMMON_INSTALLATION_PATHS = {
  */
 async function findApplicationPath(appName, platform) {
     // Check if we have common paths for this app on this platform
-    const commonPaths = COMMON_INSTALLATION_PATHS[platform]?.[appName.toLowerCase()];
-    
+    const commonPaths =
+        COMMON_INSTALLATION_PATHS[platform]?.[appName.toLowerCase()];
+
     if (!commonPaths) {
         console.log(`No common paths defined for ${appName} on ${platform}`);
         return null;
     }
-    
+
     console.log(`Searching for ${appName} in common locations...`);
-    
+
     // Check each common path
     for (const commonPath of commonPaths) {
         try {
             // Expand environment variables if present
             let expandedPath = commonPath;
-            if (platform === 'win32' && commonPath.includes('%')) {
+            if (platform === "win32" && commonPath.includes("%")) {
                 // Handle Windows environment variables
                 expandedPath = commonPath.replace(/%([^%]+)%/g, (_, envVar) => {
-                    return process.env[envVar] || '';
+                    return process.env[envVar] || "";
                 });
             }
-            
+
             // Handle glob patterns in Windows paths (e.g., for Windows Store apps)
-            if (platform === 'win32' && expandedPath.includes('*')) {
+            if (platform === "win32" && expandedPath.includes("*")) {
                 // For simplicity, we'll use a direct approach rather than glob
                 // This is a basic implementation - a more robust solution might use glob or readdir
-                const baseDir = path.dirname(expandedPath.split('*')[0]);
-                
+                const baseDir = path.dirname(expandedPath.split("*")[0]);
+
                 try {
                     const entries = await fs.readdir(baseDir);
                     for (const entry of entries) {
-                        const fullPath = path.join(baseDir, entry, path.basename(expandedPath.split('*')[1] || ''));
+                        const fullPath = path.join(
+                            baseDir,
+                            entry,
+                            path.basename(expandedPath.split("*")[1] || "")
+                        );
                         try {
                             await fs.access(fullPath);
                             console.log(`Found ${appName} at ${fullPath}`);
@@ -116,7 +115,9 @@ async function findApplicationPath(appName, platform) {
                     }
                 } catch (e) {
                     // Can't read directory, continue to next path
-                    console.log(`Could not read directory ${baseDir}: ${e.message}`);
+                    console.log(
+                        `Could not read directory ${baseDir}: ${e.message}`
+                    );
                 }
             } else {
                 // For non-glob paths, just check if they exist
@@ -128,7 +129,7 @@ async function findApplicationPath(appName, platform) {
             // Path doesn't exist, continue to next
         }
     }
-    
+
     console.log(`Could not find ${appName} in any common locations`);
     return null;
 }
@@ -144,57 +145,70 @@ async function openApplication({ appName }) {
         if (!appName) {
             throw new Error("No application name was provided to open.");
         }
-        
+
         const platform = os.platform();
         let appPath = null;
-        
+
         // Step 1: Check if we have a saved path for this application
-        const userData = getUserData();
-        appPath = userData.getConfig(`app_paths.${appName.toLowerCase()}`);
-        
+        const settingsService = getSettingsService();
+        appPath = settingsService.getConfig(
+            `app_paths.${appName.toLowerCase()}`
+        );
+
         if (appPath) {
             console.log(`Found saved path for ${appName}: ${appPath}`);
             try {
                 await fs.access(appPath);
             } catch (error) {
-                console.log(`Saved path for ${appName} no longer exists, searching again.`);
+                console.log(
+                    `Saved path for ${appName} no longer exists, searching again.`
+                );
                 appPath = null;
             }
         }
-        
+
         // Step 2: If no saved path or it's invalid, search common locations
         if (!appPath) {
             appPath = await findApplicationPath(appName, platform);
             if (appPath) {
-                userData.setConfig(`app_paths.${appName.toLowerCase()}`, appPath);
+                settingsService.setConfig(
+                    `app_paths.${appName.toLowerCase()}`,
+                    appPath
+                );
                 console.log(`Saved new path for ${appName}: ${appPath}`);
             }
         }
-        
+
         // Step 3: If still not found, return an error
         if (!appPath) {
-            throw new Error(`Could not find ${appName}. Please set the path manually in settings.`);
+            throw new Error(
+                `Could not find ${appName}. Please set the path manually in settings.`
+            );
         }
-        
+
         // Step 4: Open the application
         console.log(`Opening application at: ${appPath}`);
-        if (platform === 'win32') {
-            spawn(appPath, [], { detached: true, stdio: 'ignore' }).unref();
-        } else if (platform === 'darwin') {
-            spawn('open', [appPath], { detached: true, stdio: 'ignore' }).unref();
-        } else if (platform === 'linux') {
-            spawn(appPath, [], { detached: true, stdio: 'ignore' }).unref();
+        if (platform === "win32") {
+            spawn(appPath, [], { detached: true, stdio: "ignore" }).unref();
+        } else if (platform === "darwin") {
+            spawn("open", [appPath], {
+                detached: true,
+                stdio: "ignore",
+            }).unref();
+        } else if (platform === "linux") {
+            spawn(appPath, [], { detached: true, stdio: "ignore" }).unref();
         } else {
             throw new Error(`Unsupported platform: ${platform}`);
         }
 
         return { success: true, message: `${appName} opened successfully.` };
-
     } catch (error) {
-        getErrorService().reportError(error, 'open-command');
-        return { 
+        getErrorService().reportError(error, "open-command");
+        return {
             error: error.message,
-            error_solution: `I'm sorry, I couldn't open ${appName || 'the application'}. Please try again.`
+            error_solution: `I'm sorry, I couldn't open ${
+                appName || "the application"
+            }. Please try again.`,
         };
     }
 }
@@ -218,32 +232,38 @@ async function openWorkspace({ workspaceName }) {
         if (!workspaceName) {
             throw new Error("No workspace name provided to open.");
         }
-        
+
         // TODO: Implement workspace opening functionality
-        const userData = getUserData();
-        const workspacePath = userData.getConfig(`workspace_paths.${workspaceName.toLowerCase()}`);
-        
+        const settingsService = getSettingsService();
+        const workspacePath = settingsService.getConfig(
+            `workspace_paths.${workspaceName.toLowerCase()}`
+        );
+
         if (!workspacePath) {
-            throw new Error(`Workspace '${workspaceName}' not found in settings.`);
+            throw new Error(
+                `Workspace '${workspaceName}' not found in settings.`
+            );
         }
-        
+
         // Open the workspace with the default application
         console.log(`Opening workspace: ${workspacePath}`);
-        if (os.platform() === 'win32') {
+        if (os.platform() === "win32") {
             exec(`start "" "${workspacePath}"`);
-        } else if (os.platform() === 'darwin') {
+        } else if (os.platform() === "darwin") {
             exec(`open "${workspacePath}"`);
         } else {
             exec(`xdg-open "${workspacePath}"`);
         }
 
-        return { success: true, message: `Workspace '${workspaceName}' opened.` };
-
+        return {
+            success: true,
+            message: `Workspace '${workspaceName}' opened.`,
+        };
     } catch (error) {
-        getErrorService().reportError(error, 'open-workspace-command');
+        getErrorService().reportError(error, "open-workspace-command");
         return {
             error: error.message,
-            error_solution: `I couldn't open the workspace '${workspaceName}'. Please check your settings.`
+            error_solution: `I couldn't open the workspace '${workspaceName}'. Please check your settings.`,
         };
     }
 }
@@ -251,5 +271,5 @@ async function openWorkspace({ workspaceName }) {
 module.exports = {
     openApplication,
     openSpotify,
-    openWorkspace
-}; 
+    openWorkspace,
+};

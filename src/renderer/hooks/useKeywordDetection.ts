@@ -20,16 +20,16 @@ export default function useKeywordDetection(accessKey: string | null) {
 
     useEffect(() => {
         const fetchPaths = async () => {
-            if (accessKey && window.electron?.getAssetPath) {
+            if (accessKey && window.electron?.getAsset) {
                 try {
                     console.log("Fetching Porcupine asset paths...");
                     const [fetchedKeywordPath, fetchedModelPath] =
                         await Promise.all([
-                            window.electron.getAssetPath(
+                            window.electron.getAsset(
                                 "models",
                                 "wakeWord.ppn"
                             ),
-                            window.electron.getAssetPath(
+                            window.electron.getAsset(
                                 "models",
                                 "porcupine_params.pv"
                             ),
