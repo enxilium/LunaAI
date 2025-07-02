@@ -5,7 +5,7 @@ import { Buffer } from "buffer";
  * @description Custom hook for managing audio recording and playback.
  * @returns {{
  *  isRecording: boolean;
- *  startRecording: (onProcess: (audioData: string) => void) => Promise<void>;
+ *  startRecording: () => Promise<void>;
  *  stopRecording: () => void;
  *  playAudio: (audioData: string) => Promise<void>;
  *  stopAudio: () => void;
@@ -24,68 +24,60 @@ export default function useAudio() {
     );
     const nextStartTimeRef = useRef(0);
     const pendingAudioCountRef = useRef(0);
+    const playbackEndTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const startRecording = useCallback(
-        async (onProcess: (audioData: string) => void) => {
-            console.log("useAudio: Starting recording...");
-            setIsRecording(true);
-            try {
-                if (!audioContextRef.current) {
-                    audioContextRef.current = new AudioContext({
-                        sampleRate: 16000,
-                    });
-                }
-                if (audioContextRef.current.state === "suspended") {
-                    await audioContextRef.current.resume();
-                }
-
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
+    const startRecording = useCallback(async () => {
+        console.log("useAudio: Starting recording...");
+        setIsRecording(true);
+        try {
+            if (!audioContextRef.current) {
+                audioContextRef.current = new AudioContext({
+                    sampleRate: 16000,
                 });
-                mediaStreamRef.current = stream;
-
-                mediaStreamSourceRef.current =
-                    audioContextRef.current.createMediaStreamSource(stream);
-
-                const bufferSize = 4096;
-                scriptProcessorNodeRef.current =
-                    audioContextRef.current.createScriptProcessor(
-                        bufferSize,
-                        1,
-                        1
-                    );
-
-                scriptProcessorNodeRef.current.onaudioprocess = (
-                    event: AudioProcessingEvent
-                ) => {
-                    const float32Data = event.inputBuffer.getChannelData(0);
-
-                    // Convert Float32 to Int16
-                    const int16Data = new Int16Array(float32Data.length);
-                    for (let i = 0; i < float32Data.length; i++) {
-                        int16Data[i] =
-                            Math.max(-1, Math.min(1, float32Data[i])) * 32767;
-                    }
-
-                    const base64 = Buffer.from(int16Data.buffer).toString(
-                        "base64"
-                    );
-                    onProcess(base64);
-                };
-
-                mediaStreamSourceRef.current.connect(
-                    scriptProcessorNodeRef.current
-                );
-                scriptProcessorNodeRef.current.connect(
-                    audioContextRef.current.destination
-                );
-            } catch (error) {
-                console.error("useAudio: Error starting recording:", error);
-                setIsRecording(false);
             }
-        },
-        []
-    );
+            if (audioContextRef.current.state === "suspended") {
+                await audioContextRef.current.resume();
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+            });
+            mediaStreamRef.current = stream;
+
+            mediaStreamSourceRef.current =
+                audioContextRef.current.createMediaStreamSource(stream);
+
+            const bufferSize = 4096;
+            scriptProcessorNodeRef.current =
+                audioContextRef.current.createScriptProcessor(bufferSize, 1, 1);
+
+            scriptProcessorNodeRef.current.onaudioprocess = (
+                event: AudioProcessingEvent
+            ) => {
+                const float32Data = event.inputBuffer.getChannelData(0);
+
+                // Convert Float32 to Int16
+                const int16Data = new Int16Array(float32Data.length);
+                for (let i = 0; i < float32Data.length; i++) {
+                    int16Data[i] =
+                        Math.max(-1, Math.min(1, float32Data[i])) * 32767;
+                }
+
+                const base64 = Buffer.from(int16Data.buffer).toString("base64");
+                window.electron.send("gemini:audio-data" as any, base64);
+            };
+
+            mediaStreamSourceRef.current.connect(
+                scriptProcessorNodeRef.current
+            );
+            scriptProcessorNodeRef.current.connect(
+                audioContextRef.current.destination
+            );
+        } catch (error) {
+            console.error("useAudio: Error starting recording:", error);
+            setIsRecording(false);
+        }
+    }, []);
 
     const stopRecording = useCallback(() => {
         console.log("useAudio: Stopping recording.");
@@ -112,6 +104,10 @@ export default function useAudio() {
 
     const stopAudio = useCallback(() => {
         console.log("useAudio: Stopping audio.");
+        if (playbackEndTimerRef.current) {
+            clearTimeout(playbackEndTimerRef.current);
+            playbackEndTimerRef.current = null;
+        }
         if (outputAudioContextRef.current) {
             outputAudioContextRef.current.close();
             outputAudioContextRef.current = null;
@@ -122,7 +118,11 @@ export default function useAudio() {
 
     const playAudio = useCallback(
         (audioData: string) =>
-            new Promise<void>((resolve, reject) => {
+            new Promise<void>(async (resolve, reject) => {
+                if (playbackEndTimerRef.current) {
+                    clearTimeout(playbackEndTimerRef.current);
+                    playbackEndTimerRef.current = null;
+                }
                 pendingAudioCountRef.current++;
                 setIsPlaying(true);
 
@@ -132,6 +132,10 @@ export default function useAudio() {
                     });
                     nextStartTimeRef.current =
                         outputAudioContextRef.current.currentTime;
+                }
+
+                if (outputAudioContextRef.current.state === "suspended") {
+                    await outputAudioContextRef.current.resume();
                 }
 
                 try {
@@ -179,7 +183,9 @@ export default function useAudio() {
                             hasResolved = true;
                             pendingAudioCountRef.current--;
                             if (pendingAudioCountRef.current === 0) {
-                                setIsPlaying(false);
+                                playbackEndTimerRef.current = setTimeout(() => {
+                                    setIsPlaying(false);
+                                }, 250);
                             }
                             resolve();
                         }
@@ -199,7 +205,10 @@ export default function useAudio() {
                     nextStartTimeRef.current = endTime;
                 } catch (e) {
                     console.error("Error playing audio chunk:", e);
-                    setIsPlaying(false);
+                    pendingAudioCountRef.current--;
+                    if (pendingAudioCountRef.current === 0) {
+                        setIsPlaying(false);
+                    }
                     reject(e);
                 }
             }),

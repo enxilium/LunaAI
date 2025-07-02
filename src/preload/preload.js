@@ -10,9 +10,17 @@ const { contextBridge, ipcRenderer } = require("electron");
  * @type {{send: string[], receive: string[], invoke: string[]}}
  */
 const validChannels = {
-    send: ["show-orb", "audio-stream-end"],
+    send: ["show-orb", "audio-stream-end", "gemini:audio-data"],
 
-    receive: ["end-conversation", "processing"],
+    receive: [
+        "end-conversation",
+        "processing",
+        "gemini:audio-chunk",
+        "gemini:interrupted",
+        "gemini:session-opened",
+        "gemini:error",
+        "gemini:closed",
+    ],
 
     invoke: [
         "error",
@@ -20,6 +28,9 @@ const validChannels = {
         "disconnect-service",
         "execute-command",
         "update-settings",
+        "gemini:start-session",
+        "gemini:close-session",
+        "get-asset",
     ],
 };
 
@@ -34,7 +45,7 @@ contextBridge.exposeInMainWorld("electron", {
         if (validChannels.send.includes(channel)) {
             ipcRenderer.send(channel, ...args);
         } else {
-            reportError(`Invalid send channel: ${channel}`, "preload");
+            console.error(`Invalid send channel: ${channel}`, "preload");
         }
     },
 
@@ -45,9 +56,9 @@ contextBridge.exposeInMainWorld("electron", {
      */
     receive: (channel, func) => {
         if (validChannels.receive.includes(channel)) {
-            ipcRenderer.on(channel, (event, ...args) => {
-                func(...args);
-            });
+            const listener = (event, ...args) => func(...args);
+            ipcRenderer.on(channel, listener);
+            return () => ipcRenderer.removeListener(channel, listener);
         }
     },
 
@@ -62,7 +73,8 @@ contextBridge.exposeInMainWorld("electron", {
             return ipcRenderer.invoke(name, ...args);
         }
 
-        return reportError(`Invalid invoke method: ${name}`, "preload");
+        console.error(`Invalid invoke method: ${name}`, "preload");
+        return Promise.reject(new Error(`Invalid invoke method: ${name}`));
     },
 
     /**

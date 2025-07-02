@@ -5,18 +5,21 @@ const { getSettingsService } = require("./user/settings-service.js");
 const { getCredentialsService } = require("./user/credentials-service.js");
 const { getDataService } = require("./user/data-service.js");
 const { getEventsService } = require("./events-service.js");
+const { getGeminiService } = require("./agent/gemini-service.js");
 const commands = require("../commands");
 
 async function initializeServices() {
     console.log("Initializing services...");
     const errorService = getErrorService();
-    const eventsService = getEventsService();
+    const eventsService = await getEventsService();
     const credentialsService = getCredentialsService();
 
     await initializeCredentialsFromEnv();
 
     const settingsService = getSettingsService();
     const dataService = getDataService();
+
+    const geminiService = await getGeminiService();
 
     const spotifyService = await getSpotifyService();
     const googleService = await getGoogleService();
@@ -30,6 +33,7 @@ async function initializeServices() {
         dataService,
         commands,
         eventsService,
+        geminiService,
     };
 }
 
@@ -78,4 +82,5 @@ module.exports = {
     getSettingsService,
     getDataService,
     getEventsService,
+    getGeminiService,
 };

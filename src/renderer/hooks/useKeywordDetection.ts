@@ -108,12 +108,6 @@ export default function useKeywordDetection(accessKey: string | null) {
         console.log("Porcupine isListening status:", isListening);
     }, [isListening]);
 
-    useEffect(() => {
-        if (keywordDetection) {
-            console.log("Keyword detected in hook:", keywordDetection);
-        }
-    }, [keywordDetection]);
-
     return {
         keywordDetection,
         startKeywordDetection: start,

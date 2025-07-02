@@ -208,7 +208,7 @@ async function checkAuthorization() {
     const spotifyService = await getSpotifyService();
     if (!spotifyService.isAuthorized()) {
         throw new Error(
-            "Spotify service not authorized. Please connect your account in the settings."
+            "Spotify service not authorized. Try using the authorize tool to help the user connect their Spotify account first."
         );
     }
 }

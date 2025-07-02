@@ -4,9 +4,7 @@ declare global {
     interface Window {
         electron: {
             send: (
-                channel:
-                    | "show-orb"
-                    | "audio-stream-end",
+                channel: "show-orb" | "audio-stream-end",
                 ...args: any[]
             ) => void;
             receive: (
@@ -14,7 +12,12 @@ declare global {
                     | "end-conversation"
                     | "processing"
                     | "audio-chunk-received"
-                    | "audio-stream-complete",
+                    | "audio-stream-complete"
+                    | "gemini:audio-chunk"
+                    | "gemini:interrupted"
+                    | "gemini:session-opened"
+                    | "gemini:error"
+                    | "gemini:closed",
                 func: (...args: any[]) => void
             ) => void;
             removeListener: (channel: string) => void;
@@ -24,7 +27,9 @@ declare global {
                     | "authorize-service"
                     | "disconnect-service"
                     | "execute-command"
-                    | "update-settings",
+                    | "update-settings"
+                    | "gemini:start-session"
+                    | "gemini:close-session",
                 ...args: any[]
             ) => Promise<any>;
             getAsset: (type: string, ...args: any[]) => Promise<any>;
