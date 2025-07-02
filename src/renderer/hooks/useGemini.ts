@@ -22,6 +22,8 @@ import useError from "./useError";
  *  sendToolResponse: (functionResponses: FunctionResponse[]) => void;
  *  isSpeaking: boolean;
  *  isInterrupted: boolean;
+ *  pendingAudioCount: number;
+ *  isProcessingToolResponse: boolean;
  * }}
  */
 export default function useGemini(apiKey: string | null) {
@@ -29,28 +31,42 @@ export default function useGemini(apiKey: string | null) {
     const sessionRef = useRef<Session | null>(null);
     const [isInterrupted, setIsInterrupted] = useState(false);
     const [tools, setTools] = useState<any[]>([]);
+    const [systemInstruction, setSystemInstruction] = useState<string>("");
     const clientRef = useRef<GoogleGenAI | null>(null);
+    const [isProcessingToolResponse, setIsProcessingToolResponse] =
+        useState(false);
 
     const { playAudio, isPlaying: isSpeaking, stopAudio } = useAudio();
     const { reportError } = useError();
 
-    const SYSTEM_INSTRUCTION =
-        "You are a capable and helpful desktop assistant named Luna. \
-        Your primary objective is to fulfill the user's original request, no matter the obstacle. \
-        If you encounter an issue (like a failed command or missing authorization), you must treat it as a temporary sub-problem. \
-        Use your available tools to solve this sub-problem, and then you MUST return to and retry the user's original request. \
-        Do not consider the request complete until the final goal is met (e.g., the song is playing, the email is sent). \
-        Only after you have successfully completed the user's initial request should you ASK if there is anything else you can help with, \
-        ensuring it is phrased as a question. If they say no, then call the `handleEnd` tool.";
+    const closeSession = useCallback(() => {
+        if (sessionRef.current) {
+            sessionRef.current.close();
+            sessionRef.current = null;
+            setSession(null);
+            stopAudio();
+            setIsProcessingToolResponse(false);
+        }
+    }, [stopAudio]);
+
+    //TODO: Bring in dedicated gemini live agents for more advanced functionality, for example streaming video.
 
     useEffect(() => {
-        try {
-            window.electron.getAsset("tools").then((tools: any[]) => {
-                setTools(tools);
-            });
-        } catch (e: any) {
-            reportError(`Failed to get tools: ${e.message}`, "useGemini");
-        }
+        const fetchAssets = async () => {
+            try {
+                const [fetchedTools, fetchedSystemInstruction] =
+                    await Promise.all([
+                        window.electron.getAsset("tools"),
+                        window.electron.getAsset("systemInstruction"),
+                    ]);
+                setTools(fetchedTools);
+                setSystemInstruction(fetchedSystemInstruction);
+            } catch (e: any) {
+                reportError(`Failed to get assets: ${e.message}`, "useGemini");
+            }
+        };
+
+        fetchAssets();
     }, [reportError]);
 
     const sendToolResponse = useCallback(
@@ -61,6 +77,10 @@ export default function useGemini(apiKey: string | null) {
                     functionResponses
                 );
 
+                // Set processing flag to prevent premature session closure
+                setIsProcessingToolResponse(true);
+
+                // Send the response to Gemini
                 sessionRef.current.sendToolResponse({
                     functionResponses: functionResponses,
                 });
@@ -74,6 +94,8 @@ export default function useGemini(apiKey: string | null) {
             if (message.toolCall) {
                 const { functionCalls } = message.toolCall;
 
+                console.log("RECEIVED TOOL CALL:", functionCalls);
+
                 const promises = functionCalls.map(
                     async (functionCall: FunctionCall) => {
                         const result = await window.electron.invoke(
@@ -83,8 +105,6 @@ export default function useGemini(apiKey: string | null) {
                                 args: functionCall.args,
                             }
                         );
-
-                        console.log("Result:", result);
 
                         return {
                             id: functionCall.id,
@@ -107,8 +127,13 @@ export default function useGemini(apiKey: string | null) {
                 const audio =
                     message.serverContent?.modelTurn?.parts?.[0]?.inlineData;
                 if (audio?.data) {
-                    console.log("Received audio chunk from Gemini.");
-                    await playAudio(audio.data);
+                    // Play audio and handle completion
+                    playAudio(audio.data)
+                        .catch((err) =>
+                            console.error("Audio playback error:", err)
+                        )
+                        .finally(() => {
+                        });
                 }
             }
         },
@@ -152,7 +177,7 @@ export default function useGemini(apiKey: string | null) {
                 },
                 config: {
                     responseModalities: [Modality.AUDIO],
-                    systemInstruction: SYSTEM_INSTRUCTION,
+                    systemInstruction: systemInstruction,
                     tools: tools,
                 },
             });
@@ -166,15 +191,14 @@ export default function useGemini(apiKey: string | null) {
             );
             return null;
         }
-    }, [apiKey, tools, handleGeminiMessage, stopAudio, reportError]);
-
-    const closeSession = useCallback(() => {
-        if (sessionRef.current) {
-            sessionRef.current.close();
-            sessionRef.current = null;
-            setSession(null);
-        }
-    }, []);
+    }, [
+        apiKey,
+        tools,
+        systemInstruction,
+        handleGeminiMessage,
+        stopAudio,
+        reportError,
+    ]);
 
     return {
         session,
@@ -183,5 +207,6 @@ export default function useGemini(apiKey: string | null) {
         sendToolResponse,
         isSpeaking,
         isInterrupted,
+        isProcessingToolResponse,
     };
 }

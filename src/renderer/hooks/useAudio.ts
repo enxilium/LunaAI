@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Buffer } from "buffer";
 
 /**
@@ -23,6 +23,7 @@ export default function useAudio() {
         null
     );
     const nextStartTimeRef = useRef(0);
+    const pendingAudioCountRef = useRef(0);
 
     const startRecording = useCallback(
         async (onProcess: (audioData: string) => void) => {
@@ -116,59 +117,94 @@ export default function useAudio() {
             outputAudioContextRef.current = null;
         }
         setIsPlaying(false);
+        pendingAudioCountRef.current = 0;
     }, []);
 
-    const playAudio = useCallback(async (audioData: string) => {
-        console.log("useAudio: Playing audio chunk");
-        setIsPlaying(true);
+    const playAudio = useCallback(
+        (audioData: string) =>
+            new Promise<void>((resolve, reject) => {
+                pendingAudioCountRef.current++;
+                setIsPlaying(true);
 
-        if (!outputAudioContextRef.current) {
-            outputAudioContextRef.current = new AudioContext({
-                sampleRate: 24000,
-            });
-            nextStartTimeRef.current =
-                outputAudioContextRef.current.currentTime;
-        }
+                if (!outputAudioContextRef.current) {
+                    outputAudioContextRef.current = new AudioContext({
+                        sampleRate: 24000,
+                    });
+                    nextStartTimeRef.current =
+                        outputAudioContextRef.current.currentTime;
+                }
 
-        try {
-            const audioContext = outputAudioContextRef.current;
-            const buffer = Buffer.from(audioData, "base64");
-            const pcm16Data = new Int16Array(
-                buffer.buffer,
-                buffer.byteOffset,
-                buffer.byteLength / Int16Array.BYTES_PER_ELEMENT
-            );
+                try {
+                    const audioContext = outputAudioContextRef.current;
+                    const buffer = Buffer.from(audioData, "base64");
+                    const pcm16Data = new Int16Array(
+                        buffer.buffer,
+                        buffer.byteOffset,
+                        buffer.byteLength / Int16Array.BYTES_PER_ELEMENT
+                    );
 
-            const pcm32Data = new Float32Array(pcm16Data.length);
-            for (let i = 0; i < pcm16Data.length; i++) {
-                pcm32Data[i] = pcm16Data[i] / 32768;
-            }
+                    const pcm32Data = new Float32Array(pcm16Data.length);
+                    for (let i = 0; i < pcm16Data.length; i++) {
+                        pcm32Data[i] = pcm16Data[i] / 32768;
+                    }
 
-            const audioBuffer = audioContext.createBuffer(
-                1,
-                pcm32Data.length,
-                24000
-            );
-            audioBuffer.getChannelData(0).set(pcm32Data);
+                    const audioBuffer = audioContext.createBuffer(
+                        1,
+                        pcm32Data.length,
+                        24000
+                    );
+                    audioBuffer.getChannelData(0).set(pcm32Data);
 
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.connect(audioContext.destination);
 
-            source.onended = () => {
-                setIsPlaying(false);
-            };
+                    const currentTime = audioContext.currentTime;
+                    const startTime = Math.max(
+                        currentTime,
+                        nextStartTimeRef.current
+                    );
+                    const duration = audioBuffer.duration;
+                    const endTime = startTime + duration;
 
-            const currentTime = audioContext.currentTime;
-            const startTime = Math.max(currentTime, nextStartTimeRef.current);
+                    // Calculate when this audio chunk will finish playing
+                    const timeUntilEnd = (endTime - currentTime) * 1000;
 
-            source.start(startTime);
-            nextStartTimeRef.current = startTime + audioBuffer.duration;
-        } catch (e) {
-            console.error("Error playing audio chunk:", e);
-            setIsPlaying(false);
-        }
-    }, []);
+                    // Flag to ensure we only resolve once
+                    let hasResolved = false;
+
+                    // Function to handle completion
+                    const completePlayback = () => {
+                        if (!hasResolved) {
+                            hasResolved = true;
+                            pendingAudioCountRef.current--;
+                            if (pendingAudioCountRef.current === 0) {
+                                setIsPlaying(false);
+                            }
+                            resolve();
+                        }
+                    };
+
+                    source.onended = completePlayback;
+
+                    // Backup resolution in case onended doesn't fire
+                    const timer = setTimeout(
+                        completePlayback,
+                        timeUntilEnd + 100
+                    ); // Add small buffer
+
+                    source.addEventListener("ended", () => clearTimeout(timer));
+
+                    source.start(startTime);
+                    nextStartTimeRef.current = endTime;
+                } catch (e) {
+                    console.error("Error playing audio chunk:", e);
+                    setIsPlaying(false);
+                    reject(e);
+                }
+            }),
+        []
+    );
 
     return {
         isRecording,

@@ -10,14 +10,9 @@ const { contextBridge, ipcRenderer } = require("electron");
  * @type {{send: string[], receive: string[], invoke: string[]}}
  */
 const validChannels = {
-    send: ["show-orb"],
+    send: ["show-orb", "audio-stream-end"],
 
-    receive: [
-        "end-conversation",
-        "processing",
-        "audio-chunk-received",
-        "audio-stream-complete",
-    ],
+    receive: ["end-conversation", "processing"],
 
     invoke: [
         "error",

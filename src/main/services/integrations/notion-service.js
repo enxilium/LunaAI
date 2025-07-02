@@ -1,8 +1,17 @@
-
 class NotionService {
-    constructor() {
-        this.clientId = process.env.NOTION_CLIENT_ID;
-        this.clientSecret = process.env.NOTION_CLIENT_SECRET;
+    constructor(credentialsService) {
+        this.credentialsService = credentialsService;
+        this.clientId = null;
+        this.clientSecret = null;
+    }
+
+    async initialize() {
+        this.clientId = await this.credentialsService.getCredentials(
+            "notion-client-id"
+        );
+        this.clientSecret = await this.credentialsService.getCredentials(
+            "notion-client-secret"
+        );
     }
 }
 

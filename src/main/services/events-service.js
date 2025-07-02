@@ -17,7 +17,7 @@ const invokeHandlers = {
     "authorize-service": authorizeService,
     "disconnect-service": disconnectService,
     "execute-command": executeCommand,
-    "error": reportError,
+    error: reportError,
 };
 
 /**
@@ -81,6 +81,11 @@ class EventsService extends EventEmitter {
         // Handle show-orb from renderer.
         ipcMain.on("show-orb", (event, info) => {
             this.showOrbWindow();
+        });
+
+        // Handle conversation-end from renderer.
+        ipcMain.on("audio-stream-end", (event, info) => {
+            this.hideOrbWindow();
         });
 
         this._registerInvokeHandlers();
@@ -162,62 +167,22 @@ class EventsService extends EventEmitter {
     }
 
     /**
-     * Signal that processing has started
+     * Signal that processing has started. //TODO: Modify for asynchronous function calls.
      */
     processingStarted() {
         this.emit("processing-started");
     }
 
     /**
-     * Send audio chunk to renderer
-     * @param {Buffer|string} chunk - Audio chunk data (Buffer or base64 string)
-     */
-    sendAudioChunk(chunk) {
-        // Convert Buffer to base64 if needed
-        const base64Chunk = Buffer.isBuffer(chunk)
-            ? chunk.toString("base64")
-            : chunk;
-
-        // Mark that we're streaming audio
-        this.isAudioStreaming = true;
-
-        // Clear any existing timeout
-        if (this.audioStreamTimeout) {
-            clearTimeout(this.audioStreamTimeout);
-            this.audioStreamTimeout = null;
-        }
-
-        this.sendToRenderer("orb", "audio-chunk-received", {
-            chunk: base64Chunk,
-        });
-    }
-
-    /**
-     * Signal end of audio stream
-     */
-    audioStreamComplete(nextAction) {
-        // Set a timeout to mark streaming as complete after a delay
-        // This prevents the orb from flickering between chunks
-        this.audioStreamTimeout = setTimeout(() => {
-            this.isAudioStreaming = false;
-            this.audioStreamTimeout = null;
-        }, 1000); // 1 second delay
-
-        this.sendToRenderer("orb", "audio-stream-complete", nextAction);
-
-        if (this.debugMode) {
-            console.log(
-                "[EventsService] Audio stream complete with next action:",
-                nextAction
-            );
-        }
-    }
-
-    /**
      * Signal end of current conversation
      */
-    handleConversationEnd() {
-        this.emit("conversation-end");
+    async handleConversationEnd() {
+        this.sendToRenderer("orb", "end-conversation");
+
+        return {
+            success: true,
+            message: "Conversation ended successfully.",
+        };
     }
 
     /**

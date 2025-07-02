@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import useKeywordDetection from "./useKeywordDetection";
 import useGemini from "./useGemini";
 import useAudio from "./useAudio";
@@ -7,19 +7,39 @@ import useError from "./useError";
 export default function useOrb() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
-    const [picovoiceAccessKey, setPicovoiceAccessKey] = useState<string | null>(null);
+    const [picovoiceAccessKey, setPicovoiceAccessKey] = useState<string | null>(
+        null
+    );
     const [visible, setVisible] = useState(false);
+    const [isPendingClose, setIsPendingClose] = useState(false);
+    const [finalMessageStarted, setFinalMessageStarted] = useState(false);
+    const closeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    const { startSession, closeSession, isSpeaking } = useGemini(geminiApiKey);
+    const {
+        startSession,
+        closeSession,
+        isSpeaking,
+    } = useGemini(geminiApiKey);
 
     const { isRecording, startRecording, stopRecording } = useAudio();
     const { reportError } = useError();
     const { keywordDetection } = useKeywordDetection(picovoiceAccessKey);
 
+    // Reset function to prepare for a new session
+    const resetState = useCallback(() => {
+        setIsPendingClose(false);
+        setFinalMessageStarted(false);
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
+    }, []);
+
     const endConversation = useCallback(() => {
+        console.log("Ending conversation...");
         stopRecording();
-        closeSession();
-    }, [stopRecording, closeSession]);
+        setIsPendingClose(true);
+    }, [stopRecording]);
 
     // Get API keys
     useEffect(() => {
@@ -53,6 +73,26 @@ export default function useOrb() {
     }, [reportError]);
 
     useEffect(() => {
+        console.log("isSpeaking state", isSpeaking);
+        if (isPendingClose && isSpeaking) {
+            setFinalMessageStarted(true);
+        }
+
+    }, [isSpeaking])
+
+    useEffect(() => {
+        if (finalMessageStarted && !isSpeaking) {
+            closeSession();
+            setVisible(false);
+
+            setTimeout(() => {
+                window.electron.send("audio-stream-end");
+                resetState();
+            }, 1000);
+        }
+    }, [isSpeaking, closeSession, resetState]);
+
+    useEffect(() => {
         if (keywordDetection && !isRecording) {
             console.log("Keyword detected!");
 
@@ -70,7 +110,7 @@ export default function useOrb() {
                 });
             });
         }
-    }, [keywordDetection, startSession, startRecording, isRecording]);
+    }, [keywordDetection, startSession, startRecording]);
 
     useEffect(() => {
         window.electron.receive("end-conversation", endConversation);

@@ -7,6 +7,7 @@ const {
     increaseVolume,
     decreaseVolume,
     playSong,
+    addSongToQueue,
 } = require("./spotify");
 
 const { getWeather } = require("./weather");
@@ -37,6 +38,7 @@ module.exports = {
     increaseVolume,
     decreaseVolume,
     playSong,
+    addSongToQueue,
     // App opening commands
     openApplication,
     openSpotify,

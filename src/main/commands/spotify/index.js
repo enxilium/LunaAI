@@ -8,38 +8,24 @@ const { getErrorService } = require("../../services/error-service");
  * @param {Object} args - Arguments from the tool call.
  * @param {string} args.songName - The name of the song to play.
  * @param {string} [args.artistName] - The name of the artist.
+ * @param {string} [args.genre] - The genre of music to play.
  * @returns {Promise<Object>} - A success or error object.
  */
-async function playSong({ songName, artistName }) {
+async function playSong({ songName, artistName, genre }) {
     try {
-        if (!songName) {
-            throw new Error("A song name is required to play a song.");
-        }
-        const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
-        const result = await spotifyService.play(songName, artistName, "track");
+        await checkAuthorization();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
-        console.log("result", result);
+        const spotifyService = await getSpotifyService();
+
+        const result = await spotifyService.play(songName, artistName, genre);
+
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-playSong");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "Use the authorize service tool to help the user connect their Spotify account.",
-            };
-        }
 
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't play that song. Please ensure Spotify is running and your account is connected.",
         };
     }
 }
@@ -50,29 +36,18 @@ async function playSong({ songName, artistName }) {
  */
 async function resumePlayback() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
+
         const result = await spotifyService.play();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-resumePlayback");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't resume playback. Please ensure Spotify is running and your account is connected.",
         };
     }
 }
@@ -83,29 +58,17 @@ async function resumePlayback() {
  */
 async function pausePlayback() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
         const result = await spotifyService.pause();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-pausePlayback");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't pause playback. Please ensure Spotify is running and your account is connected.",
         };
     }
 }
@@ -116,29 +79,17 @@ async function pausePlayback() {
  */
 async function skipTrack() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
         const result = await spotifyService.nextTrack();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-skipTrack");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't skip to the next track. Please ensure Spotify is running.",
         };
     }
 }
@@ -149,32 +100,20 @@ async function skipTrack() {
  */
 async function playPreviousTrack() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
         const result = await spotifyService.previousTrack();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(
             error,
             "spotify-command-playPreviousTrack"
         );
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't go to the previous track. Please ensure Spotify is running.",
         };
     }
 }
@@ -185,30 +124,18 @@ async function playPreviousTrack() {
  */
 async function shufflePlayback() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
         // This will toggle shuffle on.
         const result = await spotifyService.setShuffle(true);
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-shufflePlayback");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't enable shuffle. Please ensure Spotify is running.",
         };
     }
 }
@@ -219,29 +146,17 @@ async function shufflePlayback() {
  */
 async function increaseVolume() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
         const result = await spotifyService.increaseVolume();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-increaseVolume");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't increase the volume. Please ensure Spotify is running.",
         };
     }
 }
@@ -252,30 +167,49 @@ async function increaseVolume() {
  */
 async function decreaseVolume() {
     try {
+        await checkAuthorization();
+
         const spotifyService = await getSpotifyService();
-        if (!spotifyService.isAuthorized()) {
-            throw new Error("SERVICE NOT AUTHORIZED");
-        }
         const result = await spotifyService.decreaseVolume();
 
-        if (!result.success) {
-            throw new Error(result.error);
-        }
         return result;
     } catch (error) {
         getErrorService().reportError(error, "spotify-command-decreaseVolume");
-        if (error.message === "SERVICE NOT AUTHORIZED") {
-            return {
-                error: "Spotify account not connected.",
-                error_solution:
-                    "I can't do that because you haven't connected your Spotify account. Please connect your account in the settings.",
-            };
-        }
         return {
+            success: false,
             error: error.message,
-            error_solution:
-                "I couldn't decrease the volume. Please ensure Spotify is running.",
         };
+    }
+}
+
+/**
+ * Adds a song to the Spotify queue.
+ * @param {Object} args - Arguments from the tool call.
+ * @param {string} args.songName - The name of the song to add.
+ * @param {string} [args.artistName] - The name of the artist.
+ * @returns {Promise<Object>} - A success or error object.
+ */
+async function addSongToQueue({ songName, artistName }) {
+    try {
+        await checkAuthorization();
+        const spotifyService = await getSpotifyService();
+        const result = await spotifyService.addToQueue(songName, artistName);
+        return result;
+    } catch (error) {
+        getErrorService().reportError(error, "spotify-command-addSongToQueue");
+        return {
+            success: false,
+            error: error.message,
+        };
+    }
+}
+
+async function checkAuthorization() {
+    const spotifyService = await getSpotifyService();
+    if (!spotifyService.isAuthorized()) {
+        throw new Error(
+            "Spotify service not authorized. Please connect your account in the settings."
+        );
     }
 }
 
@@ -288,4 +222,5 @@ module.exports = {
     shufflePlayback,
     increaseVolume,
     decreaseVolume,
+    addSongToQueue,
 };

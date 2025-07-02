@@ -33,17 +33,10 @@ class GoogleService extends EventEmitter {
         super();
         this.credentialsService = credentialsService;
         this.settingsService = settingsService;
-        this.oAuth2Client = new google.auth.OAuth2(
-            process.env.GOOGLE_CLIENT_ID,
-            process.env.GOOGLE_CLIENT_SECRET,
-            "http://localhost:8889/callback"
-        );
-        this.gmail = google.gmail({ version: "v1", auth: this.oAuth2Client });
-        this.calendar = google.calendar({
-            version: "v3",
-            auth: this.oAuth2Client,
-        });
-        this.drive = google.drive({ version: "v3", auth: this.oAuth2Client });
+        this.oAuth2Client = null; // Will be initialized later
+        this.gmail = null;
+        this.calendar = null;
+        this.drive = null;
         this.isRefreshing = false;
         this.errorService = getErrorService();
     }
@@ -66,6 +59,37 @@ class GoogleService extends EventEmitter {
      * @description Initialize the service by loading credentials from the store.
      */
     async initialize() {
+        const clientId = await this.credentialsService.getCredentials(
+            "google-client-id"
+        );
+        const clientSecret = await this.credentialsService.getCredentials(
+            "google-client-secret"
+        );
+        const redirectUri = await this.credentialsService.getCredentials(
+            "google-redirect-uri"
+        );
+
+        if (!clientId || !clientSecret || !redirectUri) {
+            console.error(
+                "Google credentials (client ID, secret, or redirect URI) not found."
+            );
+            this.settingsService.setConfig("googleAuth", false);
+            return;
+        }
+
+        this.oAuth2Client = new google.auth.OAuth2(
+            clientId,
+            clientSecret,
+            redirectUri
+        );
+
+        this.gmail = google.gmail({ version: "v1", auth: this.oAuth2Client });
+        this.calendar = google.calendar({
+            version: "v3",
+            auth: this.oAuth2Client,
+        });
+        this.drive = google.drive({ version: "v3", auth: this.oAuth2Client });
+
         const accessToken = await this.credentialsService.getCredentials(
             "google.accessToken"
         );
@@ -201,9 +225,15 @@ class GoogleService extends EventEmitter {
      */
     async disconnect() {
         return new Promise(async (resolve, reject) => {
-            await this.credentialsService.deleteCredentials("google.accessToken");
-            await this.credentialsService.deleteCredentials("google.refreshToken");
-            await this.credentialsService.deleteCredentials("google.expiryDate");
+            await this.credentialsService.deleteCredentials(
+                "google.accessToken"
+            );
+            await this.credentialsService.deleteCredentials(
+                "google.refreshToken"
+            );
+            await this.credentialsService.deleteCredentials(
+                "google.expiryDate"
+            );
             this.settingsService.setConfig("googleAuth", false);
             this.oAuth2Client.setCredentials(null);
             resolve(true);

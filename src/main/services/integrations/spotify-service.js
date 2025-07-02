@@ -19,10 +19,12 @@ async function getSpotifyService() {
     if (!spotifyService) {
         const credentialsService = getCredentialsService();
         const settingsService = getSettingsService();
+
         spotifyService = new SpotifyService(
             credentialsService,
             settingsService
         );
+
         await spotifyService.initialize();
     }
     return spotifyService;
@@ -38,11 +40,7 @@ class SpotifyService extends EventEmitter {
         super();
         this.credentialsService = credentialsService;
         this.settingsService = settingsService;
-        this.spotifyApi = new SpotifyWebApi({
-            clientId: process.env.SPOTIFY_CLIENT_ID,
-            clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-            redirectUri: process.env.SPOTIFY_REDIRECT_URI,
-        });
+        this.spotifyApi = null;
         this.scopes = [
             "user-read-private",
             "playlist-read-private",
@@ -52,22 +50,7 @@ class SpotifyService extends EventEmitter {
             "user-modify-playback-state",
         ];
         this.isRefreshing = false;
-        this.errorService = getErrorService();
         this.tokenExpiresAt = null;
-    }
-
-    /**
-     * @description Reports an error and formats it for return
-     * @param {Error} error - The error that occurred
-     * @param {string} method - The method where the error occurred
-     * @returns {Object} - Error object with message and success flag
-     */
-    reportError(error, method) {
-        this.errorService.reportError(error, `spotify-service.${method}`);
-        return {
-            success: false,
-            error: `Error in ${method}: ${error.message}`,
-        };
     }
 
     /**
@@ -76,9 +59,6 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<any>} The result of the request.
      */
     async makeRequest(request) {
-        if (!this.isAuthorized()) {
-            return { success: false, error: "Not authorized with Spotify" };
-        }
         if (this.tokenExpiresAt && new Date() >= this.tokenExpiresAt) {
             await this.refreshToken();
         }
@@ -89,7 +69,6 @@ class SpotifyService extends EventEmitter {
                 await this.refreshToken();
                 return await request();
             }
-            // Rethrow the error to be caught by the calling function's try/catch block
             throw error;
         }
     }
@@ -98,6 +77,28 @@ class SpotifyService extends EventEmitter {
      * @description Initialize the service by loading credentials from the store.
      */
     async initialize() {
+        const clientId = await this.credentialsService.getCredentials(
+            "spotify-client-id"
+        );
+        const clientSecret = await this.credentialsService.getCredentials(
+            "spotify-client-secret"
+        );
+        const redirectUri = await this.credentialsService.getCredentials(
+            "spotify-redirect-uri"
+        );
+
+        if (!clientId || !clientSecret || !redirectUri) {
+            this.settingsService.setConfig("spotifyAuth", false);
+            return;
+        }
+
+        this.spotifyApi = new SpotifyWebApi({
+            clientId,
+            clientSecret,
+            redirectUri,
+        });
+
+        // Load tokens
         const accessToken = await this.credentialsService.getCredentials(
             "spotify.accessToken"
         );
@@ -136,6 +137,28 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<boolean>} A promise that resolves with true if the authorization was successful, and false otherwise.
      */
     async authorize() {
+        // Ensure the API client is initialized before proceeding
+        if (!this.spotifyApi) {
+            const clientId = await this.credentialsService.getCredentials(
+                "spotify-client-id"
+            );
+            const clientSecret = await this.credentialsService.getCredentials(
+                "spotify-client-secret"
+            );
+            const redirectUri = await this.credentialsService.getCredentials(
+                "spotify-redirect-uri"
+            );
+
+            if (!clientId || !clientSecret || !redirectUri) {
+                return this.emit("spotify-not-authorized");
+            }
+            this.spotifyApi = new SpotifyWebApi({
+                clientId,
+                clientSecret,
+                redirectUri,
+            });
+        }
+
         return new Promise((resolve, reject) => {
             const server = http.createServer(async (req, res) => {
                 const parsedUrl = url.parse(req.url, true);
@@ -156,6 +179,7 @@ class SpotifyService extends EventEmitter {
                         "<h1>Authentication successful!</h1><p>You can close this window and return to Luna.</p>"
                     );
                     server.close();
+
                     try {
                         const data =
                             await this.spotifyApi.authorizationCodeGrant(code);
@@ -179,13 +203,14 @@ class SpotifyService extends EventEmitter {
                             "spotify.expiresAt",
                             this.tokenExpiresAt.toISOString()
                         );
+
                         this.settingsService.setConfig("spotifyAuth", true);
                         this.emit("spotify-authorized");
                         resolve(true);
                     } catch (error) {
-                        this.reportError(error, "authorize-grant");
                         this.settingsService.setConfig("spotifyAuth", false);
-                        reject(false);
+                        this.emit("spotify-not-authorized");
+                        reject(error);
                     }
                 }
             });
@@ -201,7 +226,6 @@ class SpotifyService extends EventEmitter {
             });
 
             server.on("error", (err) => {
-                this.reportError(err, "authorize-server");
                 reject(new Error(`Server error: ${err.message}`));
             });
         });
@@ -245,9 +269,8 @@ class SpotifyService extends EventEmitter {
             );
             this.settingsService.setConfig("spotifyAuth", true);
         } catch (error) {
-            this.reportError(error, "refreshToken");
             this.settingsService.setConfig("spotifyAuth", false);
-            this.emit("spotify-not-authorized");
+            throw error;
         } finally {
             this.isRefreshing = false;
         }
@@ -283,12 +306,8 @@ class SpotifyService extends EventEmitter {
      */
     async getPlaylists() {
         return this.makeRequest(async () => {
-            try {
-                const response = await this.spotifyApi.getUserPlaylists();
-                return { success: true, data: response.body };
-            } catch (error) {
-                return this.reportError(error, "getPlaylists");
-            }
+            const response = await this.spotifyApi.getUserPlaylists();
+            return { success: true, data: response.body };
         });
     }
 
@@ -300,15 +319,11 @@ class SpotifyService extends EventEmitter {
      */
     async getTopTracks(timeRange = "medium_term", limit = 20) {
         return this.makeRequest(async () => {
-            try {
-                const response = await this.spotifyApi.getMyTopTracks({
-                    time_range: timeRange,
-                    limit,
-                });
-                return { success: true, data: response.body };
-            } catch (error) {
-                return this.reportError(error, "getTopTracks");
-            }
+            const response = await this.spotifyApi.getMyTopTracks({
+                time_range: timeRange,
+                limit,
+            });
+            return { success: true, data: response.body };
         });
     }
 
@@ -320,15 +335,11 @@ class SpotifyService extends EventEmitter {
      */
     async getTopArtists(timeRange = "medium_term", limit = 20) {
         return this.makeRequest(async () => {
-            try {
-                const response = await this.spotifyApi.getMyTopArtists({
-                    time_range: timeRange,
-                    limit,
-                });
-                return { success: true, data: response.body };
-            } catch (error) {
-                return this.reportError(error, "getTopArtists");
-            }
+            const response = await this.spotifyApi.getMyTopArtists({
+                time_range: timeRange,
+                limit,
+            });
+            return { success: true, data: response.body };
         });
     }
 
@@ -338,13 +349,8 @@ class SpotifyService extends EventEmitter {
      */
     async getCurrentlyPlaying() {
         return this.makeRequest(async () => {
-            try {
-                const response =
-                    await this.spotifyApi.getMyCurrentPlayingTrack();
-                return { success: true, data: response.body };
-            } catch (error) {
-                return this.reportError(error, "getCurrentlyPlaying");
-            }
+            const response = await this.spotifyApi.getMyCurrentPlayingTrack();
+            return { success: true, data: response.body };
         });
     }
 
@@ -354,13 +360,8 @@ class SpotifyService extends EventEmitter {
      */
     async getPlaybackState() {
         return this.makeRequest(async () => {
-            try {
-                const response =
-                    await this.spotifyApi.getMyCurrentPlaybackState();
-                return { success: true, data: response.body };
-            } catch (error) {
-                return this.reportError(error, "getPlaybackState");
-            }
+            const response = await this.spotifyApi.getMyCurrentPlaybackState();
+            return { success: true, data: response.body };
         });
     }
 
@@ -369,99 +370,82 @@ class SpotifyService extends EventEmitter {
      * @returns {Promise<string|null>} The ID of an available device, or null.
      */
     async ensureActivePlayback() {
-        try {
-            // 1. Check current playback state for an active device
-            let stateResult = await this.getPlaybackState();
-            if (stateResult.success && stateResult.data?.device?.id) {
-                return stateResult.data.device.id;
-            }
-
-            // 2. If no device in state, get list of all available devices
-            let devicesResult = await this.getDevices();
-            let devices = devicesResult.data?.devices || [];
-
-            // 3. If no devices available, open Spotify and wait.
-            if (devices.length === 0) {
-                console.log(
-                    "[SpotifyService] No devices found. Opening Spotify."
-                );
-                await openSpotify({});
-                await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for Spotify to open
-
-                // Retry getting devices
-                devicesResult = await this.getDevices();
-                devices = devicesResult.data?.devices || [];
-
-                if (devices.length === 0) {
-                    this.reportError(
-                        new Error("No devices found after opening Spotify."),
-                        "ensureActivePlayback"
-                    );
-                    return null;
-                }
-            }
-
-            // 4. Return the ID of the first available device
-            const deviceToUse = devices.find((d) => d.is_active) || devices[0];
-            return deviceToUse.id;
-        } catch (error) {
-            this.reportError(error, "ensureActivePlayback");
-            return null;
+        // 1. Check current playback state for an active device
+        let stateResult = await this.getPlaybackState();
+        if (stateResult.success && stateResult.data?.device?.id) {
+            return stateResult.data.device.id;
         }
+
+        // 2. If no device in state, get list of all available devices
+        let devicesResult = await this.getDevices();
+        let devices = devicesResult.data?.devices || [];
+
+        // 3. If no devices available, open Spotify and wait.
+        if (devices.length === 0) {
+            console.log("[SpotifyService] No devices found. Opening Spotify.");
+            await openSpotify({});
+            await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait for Spotify to open
+
+            // Retry getting devices
+            devicesResult = await this.getDevices();
+            devices = devicesResult.data?.devices || [];
+
+            if (devices.length === 0) {
+                throw new Error("No devices found after opening Spotify.");
+            }
+        }
+
+        // 4. Return the ID of the first available device
+        const deviceToUse = devices.find((d) => d.is_active) || devices[0];
+        return deviceToUse.id;
     }
 
     /**
      * @description Searches for content on Spotify.
-     * @param {string} track - The track to search for.
+     * @param {string} queryTerm - The term to search for.
      * @param {string} artist - The artist to search for.
      * @param {string} type - The type of content to search for.
      * @returns {Promise<Object>} The search results.
      */
-    async search(track, artist = "", type = "track") {
+    async search(queryTerm, artist = "", type = "track") {
         return this.makeRequest(async () => {
-            try {
-                let query = "";
-                if (type === "track") {
-                    query = artist
-                        ? `track:${track} artist:${artist}`
-                        : `track:${track}`;
-                } else {
-                    query = track;
-                }
-
-                let response;
-                switch (type) {
-                    case "track":
-                        response = await this.spotifyApi.searchTracks(query);
-                        break;
-                    case "playlist":
-                        response = await this.spotifyApi.searchPlaylists(query);
-                        break;
-                    case "album":
-                        response = await this.spotifyApi.searchAlbums(query);
-                        break;
-                    default:
-                        return {
-                            success: false,
-                            error: `Invalid search type: ${type}`,
-                        };
-                }
-
-                const items =
-                    response.body.tracks?.items ||
-                    response.body.playlists?.items ||
-                    response.body.albums?.items;
-
-                if (!items || items.length === 0) {
-                    return {
-                        success: false,
-                        error: `No ${type}s found for "${track}"`,
-                    };
-                }
-                return { success: true, data: items[0], allResults: items };
-            } catch (error) {
-                return this.reportError(error, "search");
+            let query = "";
+            if (type === "track") {
+                query = artist
+                    ? `track:${queryTerm} artist:${artist}`
+                    : `track:${queryTerm}`;
+            } else {
+                query = queryTerm;
             }
+
+            let response;
+            switch (type) {
+                case "track":
+                    response = await this.spotifyApi.searchTracks(query);
+                    break;
+                case "playlist":
+                    response = await this.spotifyApi.searchPlaylists(query);
+                    break;
+                case "album":
+                    response = await this.spotifyApi.searchAlbums(query);
+                    break;
+                case "artist":
+                    response = await this.spotifyApi.searchArtists(query);
+                    break;
+                default:
+                    throw new Error(`Invalid search type: ${type}`);
+            }
+
+            const items =
+                response.body.tracks?.items ||
+                response.body.playlists?.items ||
+                response.body.albums?.items ||
+                response.body.artists?.items;
+
+            if (!items || items.length === 0) {
+                throw new Error(`No ${type}s found for "${queryTerm}"`);
+            }
+            return { success: true, data: items[0], allResults: items };
         });
     }
 
@@ -491,69 +475,119 @@ class SpotifyService extends EventEmitter {
      * @description Plays a track, album, or playlist.
      * @param {string} title - The title of the content to play.
      * @param {string} artist - The artist of the content to play.
-     * @param {string} type - The type of content to play.
-     * @param {boolean} personal - Whether to search for personal playlists.
+     * @param {string} genre - The genre of the content to play.
      * @returns {Promise<Object>} A confirmation message.
      */
-    async play(title, artist = "", type = "track", personal = false) {
-        if (!this.isAuthorized()) {
-            return {
-                success: false,
-                error: "Not authorized with Spotify. Try first calling the authorize service tool for Spotify.",
-            };
-        }
+    async play(title = "", artist = "", genre = "") {
         const deviceId = await this.ensureActivePlayback();
         if (!deviceId) {
-            return { success: false, error: "No Spotify devices available" };
+            throw new Error("No Spotify devices available");
         }
 
-        try {
+        return this.makeRequest(async () => {
+            let playOptions = { device_id: deviceId };
             let itemToPlay = null;
+            let message = "Now playing"; // Default message
 
-            if (personal && type === "playlist") {
-                const playlistsResult = await this.getPlaylists();
-                if (playlistsResult.success) {
-                    const userProfile = await this.spotifyApi.getMe();
-                    const userId = userProfile.body.id;
-                    const personalPlaylists = playlistsResult.data.items.filter(
-                        (p) => p.owner.id === userId
-                    );
-                    itemToPlay = this.findBestMatchingPlaylist(
-                        title,
-                        personalPlaylists
-                    );
+            // Case 1: Specific song and artist
+            if (title && artist) {
+                const searchResult = await this.search(title, artist, "track");
+                if (searchResult.success && searchResult.data) {
+                    itemToPlay = searchResult.data;
+                    playOptions.uris = [itemToPlay.uri];
+                    message = `Now playing "${itemToPlay.name}" by ${itemToPlay.artists[0].name}`;
+                }
+            }
+            // Case 2: Only song title
+            else if (title) {
+                const searchResult = await this.search(title, "", "track");
+                if (searchResult.success && searchResult.data) {
+                    itemToPlay = searchResult.data;
+                    playOptions.uris = [itemToPlay.uri];
+                    message = `Now playing "${itemToPlay.name}" by ${itemToPlay.artists[0].name}`;
+                }
+            }
+            // Case 3: Only artist name
+            else if (artist) {
+                const searchResult = await this.search(artist, "", "artist");
+                if (searchResult.success && searchResult.data) {
+                    itemToPlay = searchResult.data;
+                    playOptions.context_uri = itemToPlay.uri;
+                    message = `Playing music by ${itemToPlay.name}`;
+                }
+            }
+            // Case 4: Only genre
+            else if (genre) {
+                const searchResult = await this.search(genre, "", "playlist");
+                if (searchResult.success && searchResult.data) {
+                    itemToPlay = searchResult.data;
+                    playOptions.context_uri = itemToPlay.uri;
+                    message = `Playing a ${genre} playlist for you.`;
+                }
+            }
+            // Case 5: No criteria (generic "play music")
+            else {
+                // Play a popular curated playlist (e.g., Today's Top Hits)
+                const playlistId = "37i9dQZF1DXcBWIGoYBM5M";
+                const playlist = await this.spotifyApi.getPlaylist(playlistId);
+                if (playlist.body) {
+                    itemToPlay = playlist.body;
+                    playOptions.context_uri = itemToPlay.uri;
+                    message = `Playing "${itemToPlay.name}" playlist.`;
                 }
             }
 
-            if (!itemToPlay) {
-                const searchResult = await this.search(title, artist, type);
-                if (!searchResult.success) return searchResult;
-                itemToPlay = searchResult.data;
+            if (!playOptions.uris && !playOptions.context_uri) {
+                throw new Error(
+                    `I couldn't find anything to play based on your request.`
+                );
             }
 
-            if (!itemToPlay) {
-                return {
-                    success: false,
-                    error: `Could not find a ${type} matching "${title}"`,
-                };
-            }
-
-            const playOptions = { device_id: deviceId };
-            if (type === "track") {
-                playOptions.uris = [itemToPlay.uri];
-            } else {
-                playOptions.context_uri = itemToPlay.uri;
-            }
             await this.spotifyApi.play(playOptions);
 
             return {
                 success: true,
-                message: `Now playing ${type}: "${itemToPlay.name}"`,
-                item_details: itemToPlay,
+                message: message,
+                item_details: itemToPlay, // Can be a track, artist, or playlist
             };
-        } catch (error) {
-            return this.reportError(error, "play");
-        }
+        });
+    }
+
+    /**
+     * @description Adds a track to the user's playback queue.
+     * @param {string} title - The title of the track to add.
+     * @param {string} [artist=""] - The artist of the track.
+     * @returns {Promise<Object>} A confirmation message.
+     */
+    async addToQueue(title, artist = "") {
+        return this.makeRequest(async () => {
+            if (!title) {
+                throw new Error(
+                    "A song title is required to add to the queue."
+                );
+            }
+
+            // Ensure there's an active device before proceeding.
+            await this.ensureActivePlayback();
+
+            const searchResult = await this.search(title, artist, "track");
+            if (!searchResult.success || !searchResult.data) {
+                throw new Error(
+                    `Could not find the song "${title}" by ${
+                        artist || "any artist"
+                    }.`
+                );
+            }
+
+            const track = searchResult.data;
+            await this.spotifyApi.addToQueue(track.uri);
+
+            return {
+                success: true,
+                message: `Added "${track.name}" by ${track.artists[0].name} to the queue.`,
+                item_details: track,
+            };
+        });
     }
 
     /**
@@ -563,19 +597,15 @@ class SpotifyService extends EventEmitter {
     async pause() {
         const deviceId = await this.ensureActivePlayback();
         if (!deviceId) {
-            return { success: false, error: "No Spotify devices available" };
+            throw new Error("No Spotify devices available");
         }
         return this.makeRequest(async () => {
-            try {
-                const state = await this.getPlaybackState();
-                if (state.success && !state.data?.is_playing) {
-                    return { success: true, message: "Already paused." };
-                }
-                await this.spotifyApi.pause({ device_id: deviceId });
-                return { success: true, message: "Playback paused." };
-            } catch (error) {
-                return this.reportError(error, "pause");
+            const state = await this.getPlaybackState();
+            if (state.success && !state.data?.is_playing) {
+                return { success: true, message: "Already paused." };
             }
+            await this.spotifyApi.pause({ device_id: deviceId });
+            return { success: true, message: "Playback paused." };
         });
     }
 
@@ -586,21 +616,14 @@ class SpotifyService extends EventEmitter {
     async nextTrack() {
         const deviceId = await this.ensureActivePlayback();
         if (!deviceId) {
-            return { success: false, error: "No Spotify devices available" };
+            throw new Error("No Spotify devices available");
         }
         return this.makeRequest(async () => {
-            try {
-                if (!(await this.ensureActivePlayback())) {
-                    return {
-                        success: false,
-                        error: "No Spotify devices available",
-                    };
-                }
-                await this.spotifyApi.skipToNext({ device_id: deviceId });
-                return { success: true, message: "Skipped to next track." };
-            } catch (error) {
-                return this.reportError(error, "nextTrack");
+            if (!(await this.ensureActivePlayback())) {
+                throw new Error("No Spotify devices available");
             }
+            await this.spotifyApi.skipToNext({ device_id: deviceId });
+            return { success: true, message: "Skipped to next track." };
         });
     }
 
@@ -611,52 +634,66 @@ class SpotifyService extends EventEmitter {
     async previousTrack() {
         const deviceId = await this.ensureActivePlayback();
         if (!deviceId) {
-            return { success: false, error: "No Spotify devices available" };
+            throw new Error("No Spotify devices available");
         }
         return this.makeRequest(async () => {
-            try {
-                if (!(await this.ensureActivePlayback())) {
-                    return {
-                        success: false,
-                        error: "No Spotify devices available",
-                    };
-                }
-                await this.spotifyApi.skipToPrevious({ device_id: deviceId });
-                return { success: true, message: "Skipped to previous track." };
-            } catch (error) {
-                return this.reportError(error, "previousTrack");
+            if (!(await this.ensureActivePlayback())) {
+                throw new Error("No Spotify devices available");
             }
+            await this.spotifyApi.skipToPrevious({ device_id: deviceId });
+            return { success: true, message: "Skipped to previous track." };
         });
     }
 
     /**
-     * @description Sets the volume.
-     * @param {number} volumePercent - The volume percentage.
+     * @description Increases the volume by 10%.
      * @returns {Promise<Object>} A confirmation message.
      */
-    async setVolume(volumePercent) {
-        const deviceId = await this.ensureActivePlayback();
-        if (!deviceId) {
-            return { success: false, error: "No Spotify devices available" };
-        }
+    async increaseVolume() {
         return this.makeRequest(async () => {
-            try {
-                if (!(await this.ensureActivePlayback())) {
-                    return {
-                        success: false,
-                        error: "No Spotify devices available",
-                    };
-                }
-                await this.spotifyApi.setVolume(volumePercent, {
-                    device_id: deviceId,
-                });
-                return {
-                    success: true,
-                    message: `Volume set to ${volumePercent}%`,
-                };
-            } catch (error) {
-                return this.reportError(error, "setVolume");
+            const { body: state } =
+                await this.spotifyApi.getMyCurrentPlaybackState();
+            if (!state?.device) {
+                throw new Error("No active device found to control volume.");
             }
+
+            const currentVolume = state.device.volume_percent;
+            const newVolume = Math.min(currentVolume + 10, 100);
+
+            await this.spotifyApi.setVolume(newVolume, {
+                device_id: state.device.id,
+            });
+            return {
+                success: true,
+                message: `Volume set to ${newVolume}%`,
+            };
+        });
+    }
+
+    /**
+     * @description Decreases the volume by 10%.
+     * @returns {Promise<Object>} A confirmation message.
+     */
+    async decreaseVolume() {
+        return this.makeRequest(async () => {
+            const { body: state } =
+                await this.spotifyApi.getMyCurrentPlaybackState();
+
+            if (!state?.device) {
+                throw new Error("No active device found to control volume.");
+            }
+
+            const currentVolume = state.device.volume_percent;
+            const newVolume = Math.max(currentVolume - 10, 0);
+
+            await this.spotifyApi.setVolume(newVolume, {
+                device_id: state.device.id,
+            });
+
+            return {
+                success: true,
+                message: `Volume set to ${newVolume}%`,
+            };
         });
     }
 
@@ -666,12 +703,8 @@ class SpotifyService extends EventEmitter {
      */
     async getDevices() {
         return this.makeRequest(async () => {
-            try {
-                const response = await this.spotifyApi.getMyDevices();
-                return { success: true, data: response.body };
-            } catch (error) {
-                return this.reportError(error, "getDevices");
-            }
+            const response = await this.spotifyApi.getMyDevices();
+            return { success: true, data: response.body };
         });
     }
 
@@ -683,12 +716,8 @@ class SpotifyService extends EventEmitter {
      */
     async transferPlayback(deviceId, play = true) {
         return this.makeRequest(async () => {
-            try {
-                await this.spotifyApi.transferMyPlayback([deviceId], { play });
-                return { success: true, message: "Playback transferred." };
-            } catch (error) {
-                return this.reportError(error, "transferPlayback");
-            }
+            await this.spotifyApi.transferMyPlayback([deviceId], { play });
+            return { success: true, message: "Playback transferred." };
         });
     }
 
@@ -700,24 +729,17 @@ class SpotifyService extends EventEmitter {
     async setShuffle(state) {
         const deviceId = await this.ensureActivePlayback();
         if (!deviceId) {
-            return { success: false, error: "No Spotify devices available" };
+            throw new Error("No Spotify devices available");
         }
         return this.makeRequest(async () => {
-            try {
-                if (!(await this.ensureActivePlayback())) {
-                    return {
-                        success: false,
-                        error: "No Spotify devices available",
-                    };
-                }
-                await this.spotifyApi.setShuffle({
-                    state,
-                    device_id: deviceId,
-                });
-                return { success: true, message: `Shuffle set to ${state}.` };
-            } catch (error) {
-                return this.reportError(error, "setShuffle");
+            if (!(await this.ensureActivePlayback())) {
+                throw new Error("No Spotify devices available");
             }
+            await this.spotifyApi.setShuffle({
+                state,
+                device_id: deviceId,
+            });
+            return { success: true, message: `Shuffle set to ${state}.` };
         });
     }
 }

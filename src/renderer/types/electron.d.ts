@@ -3,7 +3,12 @@ export {};
 declare global {
     interface Window {
         electron: {
-            send: (channel: "show-orb", ...args: any[]) => void;
+            send: (
+                channel:
+                    | "show-orb"
+                    | "audio-stream-end",
+                ...args: any[]
+            ) => void;
             receive: (
                 channel:
                     | "end-conversation"

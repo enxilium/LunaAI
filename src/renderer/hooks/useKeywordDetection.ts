@@ -25,10 +25,7 @@ export default function useKeywordDetection(accessKey: string | null) {
                     console.log("Fetching Porcupine asset paths...");
                     const [fetchedKeywordPath, fetchedModelPath] =
                         await Promise.all([
-                            window.electron.getAsset(
-                                "models",
-                                "wakeWord.ppn"
-                            ),
+                            window.electron.getAsset("models", "wakeWord.ppn"),
                             window.electron.getAsset(
                                 "models",
                                 "porcupine_params.pv"
@@ -119,5 +116,7 @@ export default function useKeywordDetection(accessKey: string | null) {
 
     return {
         keywordDetection,
+        startKeywordDetection: start,
+        stopKeywordDetection: stop,
     };
 }

@@ -11,35 +11,15 @@ async function initializeServices() {
     console.log("Initializing services...");
     const errorService = getErrorService();
     const eventsService = getEventsService();
-    const spotifyService = await getSpotifyService();
-    const googleService = await getGoogleService();
     const credentialsService = getCredentialsService();
+
+    await initializeCredentialsFromEnv();
+
     const settingsService = getSettingsService();
     const dataService = getDataService();
 
-    // Store Picovoice key if it exists in env and not in credentials
-    const picovoiceKey = await credentialsService.getCredentials(
-        "picovoice-key"
-    );
-    if (!picovoiceKey && process.env.PICOVOICE_ACCESS_KEY) {
-        await credentialsService.setCredentials(
-            "picovoice-key",
-            process.env.PICOVOICE_ACCESS_KEY
-        );
-        console.log("Stored Picovoice access key.");
-    }
-
-    // Store Gemini key if it exists in env and not in credentials
-    const geminiKey = await credentialsService.getCredentials("gemini-key");
-    if (!geminiKey && process.env.GEMINI_API_KEY) {
-        await credentialsService.setCredentials(
-            "gemini-key",
-            process.env.GEMINI_API_KEY
-        );
-        console.log("Stored Gemini API key.");
-    }
-
-    console.log("Services initialized.");
+    const spotifyService = await getSpotifyService();
+    const googleService = await getGoogleService();
 
     return {
         spotifyService,
@@ -51,6 +31,42 @@ async function initializeServices() {
         commands,
         eventsService,
     };
+}
+
+async function initializeCredentialsFromEnv() {
+    const credentialsService = getCredentialsService();
+
+    // Define a map of credential keys to environment variable names
+    const credentialsToStore = {
+        "spotify-client-id": process.env.SPOTIFY_CLIENT_ID,
+        "spotify-client-secret": process.env.SPOTIFY_CLIENT_SECRET,
+        "spotify-redirect-uri": process.env.SPOTIFY_REDIRECT_URI,
+        "google-client-id": process.env.GOOGLE_CLIENT_ID,
+        "google-client-secret": process.env.GOOGLE_CLIENT_SECRET,
+        "google-redirect-uri": process.env.GOOGLE_REDIRECT_URI,
+        "discord-client-id": process.env.DISCORD_CLIENT_ID,
+        "discord-client-secret": process.env.DISCORD_CLIENT_SECRET,
+        "notion-client-id": process.env.NOTION_CLIENT_ID,
+        "notion-client-secret": process.env.NOTION_CLIENT_SECRET,
+        "weather-api-key": process.env.WEATHERAPI_KEY,
+        "gemini-key": process.env.GEMINI_API_KEY,
+        "picovoice-key": process.env.PICOVOICE_ACCESS_KEY,
+    };
+
+    console.log("Initializing credentials from environment variables...");
+
+    for (const [key, value] of Object.entries(credentialsToStore)) {
+        if (value) {
+            try {
+                await credentialsService.setCredentials(key, value);
+                console.log(`Successfully stored ${key}.`);
+            } catch (error) {
+                console.error(`Failed to store ${key}:`, error);
+            }
+        } else {
+            console.warn(`Environment variable for ${key} is not set.`);
+        }
+    }
 }
 
 module.exports = {
