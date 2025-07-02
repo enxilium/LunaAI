@@ -12,7 +12,6 @@ const {
 
 const { getWeather } = require("./weather");
 const { getDate, getTime } = require("./date");
-const { handleEnd } = require("./misc");
 const { openApplication, openSpotify } = require("./open");
 const downloadFile = require("./downloadFile");
 const { authorizeService } = require("../invokes/authorize-service");
@@ -48,8 +47,6 @@ module.exports = {
     getCalendarEvents,
     createCalendarEvent,
     listDriveFiles,
-    // Error handling
-    handleEnd,
     // File handling
     downloadFile,
     // Authorization
