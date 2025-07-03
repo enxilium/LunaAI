@@ -79,11 +79,7 @@ export default function useOrb() {
                 }
             });
         }
-    }, [
-        keywordDetection,
-        startSession,
-        startRecording,
-    ]);
+    }, [keywordDetection, startSession, startRecording]);
 
     useEffect(() => {
         window.electron.receive("end-conversation", endConversation);

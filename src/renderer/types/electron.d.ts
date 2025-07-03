@@ -10,6 +10,7 @@ declare global {
             receive: (
                 channel:
                     | "end-conversation"
+                    | "gemini:turn-complete"
                     | "processing"
                     | "audio-chunk-received"
                     | "audio-stream-complete"

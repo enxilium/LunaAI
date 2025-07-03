@@ -346,6 +346,13 @@ class McpToolMapper {
     processSchemaProperty(prop) {
         const processed = {};
 
+        // Early filtering: Remove format and other unsupported properties from input
+        if (prop.format) {
+            console.log(
+                `MCP Tool Mapper: Skipping unsupported 'format' property: ${prop.format}`
+            );
+        }
+
         // Handle oneOf/anyOf - take the first option or create a flexible type
         if (prop.oneOf || prop.anyOf) {
             const options = prop.oneOf || prop.anyOf;
@@ -420,32 +427,41 @@ class McpToolMapper {
                     // When additionalProperties is true, we need to be more flexible
                     // For parent objects in Notion, this means database_id, page_id, etc. are all valid
                     processed.additionalProperties = true;
-                    
+
                     // Add common known properties for Notion parent objects
                     if (!processed.properties) {
                         processed.properties = {};
                     }
-                    
+
                     // If this looks like a Notion parent object, add database_id support
                     if (processed.properties.page_id) {
-                        console.log('MCP Tool Mapper: Adding database_id support to parent object with additionalProperties: true');
+                        console.log(
+                            "MCP Tool Mapper: Adding database_id support to parent object with additionalProperties: true"
+                        );
                         processed.properties.database_id = {
                             type: "STRING",
-                            description: "Database ID for creating pages in databases"
+                            description:
+                                "Database ID for creating pages in databases",
                         };
                         processed.properties.type = {
-                            type: "STRING", 
+                            type: "STRING",
                             enum: ["page_id", "database_id", "workspace"],
-                            description: "Type of parent (page_id, database_id, or workspace)"
+                            description:
+                                "Type of parent (page_id, database_id, or workspace)",
                         };
                         processed.properties.workspace = {
                             type: "BOOLEAN",
-                            description: "Set to true for workspace parent"
+                            description: "Set to true for workspace parent",
                         };
-                        
+
                         // Make page_id optional since we now have alternatives
-                        if (processed.required && processed.required.includes('page_id')) {
-                            processed.required = processed.required.filter(req => req !== 'page_id');
+                        if (
+                            processed.required &&
+                            processed.required.includes("page_id")
+                        ) {
+                            processed.required = processed.required.filter(
+                                (req) => req !== "page_id"
+                            );
                         }
                     }
                 }
@@ -463,6 +479,12 @@ class McpToolMapper {
         if (processed.type === "STRING") {
             if (prop.pattern) processed.pattern = prop.pattern;
             // Note: 'format' property is not supported by Gemini API, so we omit it
+            // Explicitly skip the format property to prevent Gemini API errors
+            if (prop.format) {
+                console.log(
+                    `MCP Tool Mapper: Removing unsupported 'format' property: ${prop.format}`
+                );
+            }
             if (prop.default !== undefined) processed.default = prop.default;
 
             // Handle string length constraints
@@ -496,6 +518,23 @@ class McpToolMapper {
         // Handle nullable
         if (prop.nullable !== undefined) {
             processed.nullable = prop.nullable;
+        }
+
+        // Final cleanup: Remove any properties that Gemini API doesn't support
+        const unsupportedProps = [
+            "format",
+            "contentEncoding",
+            "contentMediaType",
+            "examples",
+            "$ref",
+        ];
+        for (const unsupportedProp of unsupportedProps) {
+            if (processed[unsupportedProp] !== undefined) {
+                console.log(
+                    `MCP Tool Mapper: Removing unsupported property '${unsupportedProp}' from schema`
+                );
+                delete processed[unsupportedProp];
+            }
         }
 
         return processed;
@@ -666,7 +705,7 @@ class McpToolMapper {
         // Handle nested objects (with special handling for parent objects)
         for (const [key, nestedMapping] of Object.entries(mapping.nested)) {
             if (geminiArgs.hasOwnProperty(key) && geminiArgs[key]) {
-                if (key === 'parent') {
+                if (key === "parent") {
                     // Special handling for Notion parent objects
                     mcpArgs[key] = this.transformNotionParent(geminiArgs[key]);
                 } else {
@@ -683,7 +722,7 @@ class McpToolMapper {
             mapping.dynamicProperties
         )) {
             if (geminiArgs.hasOwnProperty(key) && geminiArgs[key]) {
-                if (key === 'parent') {
+                if (key === "parent") {
                     // Special handling for Notion parent objects
                     mcpArgs[key] = this.transformNotionParent(geminiArgs[key]);
                 } else {
@@ -704,12 +743,12 @@ class McpToolMapper {
      * @returns {Object} - Cleaned parent object for Notion API
      */
     transformNotionParent(parentObj) {
-        if (!parentObj || typeof parentObj !== 'object') {
+        if (!parentObj || typeof parentObj !== "object") {
             return parentObj;
         }
 
         const cleaned = {};
-        
+
         // Only include non-null properties
         for (const [key, value] of Object.entries(parentObj)) {
             if (value != null) {
@@ -718,31 +757,41 @@ class McpToolMapper {
         }
 
         // Validate that we have exactly one parent type
-        const validParentKeys = ['page_id', 'database_id', 'workspace'];
-        const presentKeys = Object.keys(cleaned).filter(key => validParentKeys.includes(key));
-        
+        const validParentKeys = ["page_id", "database_id", "workspace"];
+        const presentKeys = Object.keys(cleaned).filter((key) =>
+            validParentKeys.includes(key)
+        );
+
         if (presentKeys.length === 0) {
-            console.warn('MCP Tool Mapper: No valid parent type found, defaulting to database_id if available');
+            console.warn(
+                "MCP Tool Mapper: No valid parent type found, defaulting to database_id if available"
+            );
             // If we have a type field, try to use it
-            if (cleaned.type === 'database_id' && !cleaned.database_id) {
-                console.warn('MCP Tool Mapper: type is database_id but database_id value is missing');
+            if (cleaned.type === "database_id" && !cleaned.database_id) {
+                console.warn(
+                    "MCP Tool Mapper: type is database_id but database_id value is missing"
+                );
             }
         } else if (presentKeys.length > 1) {
-            console.warn(`MCP Tool Mapper: Multiple parent types found: ${presentKeys.join(', ')}, using first one`);
+            console.warn(
+                `MCP Tool Mapper: Multiple parent types found: ${presentKeys.join(
+                    ", "
+                )}, using first one`
+            );
             // Keep only the first valid parent type
             const keepKey = presentKeys[0];
             const result = {};
             result[keepKey] = cleaned[keepKey];
-            
+
             // Add type field if it makes sense
-            if (keepKey === 'database_id') {
-                result.type = 'database_id';
-            } else if (keepKey === 'page_id') {
-                result.type = 'page_id';
-            } else if (keepKey === 'workspace') {
+            if (keepKey === "database_id") {
+                result.type = "database_id";
+            } else if (keepKey === "page_id") {
+                result.type = "page_id";
+            } else if (keepKey === "workspace") {
                 result.workspace = true;
             }
-            
+
             console.log(`MCP Tool Mapper: Cleaned parent object:`, result);
             return result;
         }

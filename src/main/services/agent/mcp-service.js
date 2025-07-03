@@ -66,7 +66,19 @@ class McpService {
         );
 
         try {
-            const transport = new StdioClientTransport(config.transport);
+            // Add logging configuration if specified
+            const transportConfig = { ...config.transport };
+            if (config.logFile) {
+                console.log(
+                    `MCP Service: Configuring logging for ${config.name} reconnect to ${config.logFile}`
+                );
+                if (!transportConfig.env) {
+                    transportConfig.env = {};
+                }
+                transportConfig.env.MCP_LOG_FILE = config.logFile;
+            }
+
+            const transport = new StdioClientTransport(transportConfig);
             const client = new Client({
                 name: `luna-mcp-client-for-${config.name}`,
                 version: "1.0.0",
@@ -94,7 +106,20 @@ class McpService {
 
         const clientPromises = this.serverConfigs.map(async (config) => {
             try {
-                const transport = new StdioClientTransport(config.transport);
+                // Add logging configuration if specified
+                const transportConfig = { ...config.transport };
+                if (config.logFile) {
+                    console.log(
+                        `MCP Service: Configuring logging for ${config.name} to ${config.logFile}`
+                    );
+                    // Set up logging environment variable if needed
+                    if (!transportConfig.env) {
+                        transportConfig.env = {};
+                    }
+                    transportConfig.env.MCP_LOG_FILE = config.logFile;
+                }
+
+                const transport = new StdioClientTransport(transportConfig);
                 const client = new Client({
                     name: `luna-mcp-client-for-${config.name}`,
                     version: "1.0.0",

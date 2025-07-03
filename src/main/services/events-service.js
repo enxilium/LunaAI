@@ -13,7 +13,7 @@ const invokeHandlers = {
     "get-asset": getAsset,
     "update-settings": updateSettings,
     "execute-command": executeCommand,
-    "error": reportError,
+    error: reportError,
 };
 
 /**
