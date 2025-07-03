@@ -330,6 +330,12 @@ class GeminiService {
             );
         }
 
+        // Check if model turn is complete (Gemini has finished speaking)
+        if (message.serverContent?.turnComplete) {
+            console.log("Gemini Service: Model turn complete.");
+            this.eventsService.sendToRenderer("orb", "gemini:turn-complete");
+        }
+
         if (message.toolCall) {
             console.log(
                 "Gemini Service: Received tool call:",
