@@ -4,51 +4,21 @@
             {
                 "name": "getDate",
                 "description": "Gets the current date.",
-                "_originalDeclaration": {
-                    "name": "getDate",
-                    "description": "Gets the current date.",
-                    "parameters": {}
-                },
-                "parameters": {
-                    "type": "object"
-                }
+                "parameters": {}
             },
             {
                 "name": "getTime",
                 "description": "Gets the current time.",
-                "_originalDeclaration": {
-                    "name": "getTime",
-                    "description": "Gets the current time.",
-                    "parameters": {}
-                },
-                "parameters": {
-                    "type": "object"
-                }
+                "parameters": {}
             },
             {
                 "name": "openApplication",
                 "description": "Opens a specified application.",
-                "_originalDeclaration": {
-                    "name": "openApplication",
-                    "description": "Opens a specified application.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "appName": {
-                                "type": "string",
-                                "description": "The name of the application to open."
-                            }
-                        },
-                        "required": [
-                            "appName"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "appName": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The name of the application to open."
                         }
                     },
@@ -60,27 +30,11 @@
             {
                 "name": "downloadFile",
                 "description": "Downloads a file from a given URL.",
-                "_originalDeclaration": {
-                    "name": "downloadFile",
-                    "description": "Downloads a file from a given URL.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "fileUrl": {
-                                "type": "string",
-                                "description": "The URL of the file to download."
-                            }
-                        },
-                        "required": [
-                            "fileUrl"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "fileUrl": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The URL of the file to download."
                         }
                     },
@@ -92,414 +46,207 @@
             {
                 "name": "handleEnd",
                 "description": "Handles the end of a conversation. Should be called after confirming with the user that they have no more requests.",
-                "_originalDeclaration": {
-                    "name": "handleEnd",
-                    "description": "Handles the end of a conversation. Should be called after confirming with the user that they have no more requests.",
-                    "parameters": {}
-                },
-                "parameters": {
-                    "type": "object"
-                }
+                "parameters": {}
             },
             {
-                "name": "SpotifyPlayback",
+                "name": "spotifySpotifyPlayback",
                 "description": "Manages the current playback with the following actions:\n    - get: Get information about user's current track.\n    - start: Starts playing new item or resumes current playback if called with no uri.\n    - pause: Pauses current playback.\n    - skip: Skips current track.\n    ",
-                "_originalDeclaration": {
-                    "name": "SpotifyPlayback",
-                    "description": "Manages the current playback with the following actions:\n    - get: Get information about user's current track.\n    - start: Starts playing new item or resumes current playback if called with no uri.\n    - pause: Pauses current playback.\n    - skip: Skips current track.\n    ",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "action": {
-                                "description": "Action to perform: 'get', 'start', 'pause' or 'skip'.",
-                                "title": "Action",
-                                "type": "string"
-                            },
-                            "spotify_uri": {
-                                "type": "string"
-                            },
-                            "num_skips": {
-                                "type": "integer"
-                            }
-                        },
-                        "required": [
-                            "action"
-                        ],
-                        "description": "Manages the current playback with the following actions:\n- get: Get information about user's current track.\n- start: Starts playing new item or resumes current playback if called with no uri.\n- pause: Pauses current playback.\n- skip: Skips current track.",
-                        "title": "Playback"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "description": "Manages the current playback with the following actions:\n- get: Get information about user's current track.\n- start: Starts playing new item or resumes current playback if called with no uri.\n- pause: Pauses current playback.\n- skip: Skips current track.",
+                    "type": "OBJECT",
                     "properties": {
                         "action": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Action to perform: 'get', 'start', 'pause' or 'skip'."
                         },
                         "spotify_uri": {
-                            "type": "string"
+                            "type": "STRING",
+                            "nullable": true
                         },
                         "num_skips": {
-                            "type": "integer"
+                            "type": "INTEGER",
+                            "nullable": true
                         }
                     },
+                    "description": "Manages the current playback with the following actions:\n    - get: Get information about user's current track.\n    - start: Starts playing new item or resumes current playback if called with no uri.\n    - pause: Pauses current playback.\n    - skip: Skips current track.\n    ",
                     "required": [
                         "action"
                     ]
                 }
             },
             {
-                "name": "SpotifySearch",
+                "name": "spotifySpotifySearch",
                 "description": "Search for tracks, albums, artists, or playlists on Spotify.",
-                "_originalDeclaration": {
-                    "name": "SpotifySearch",
-                    "description": "Search for tracks, albums, artists, or playlists on Spotify.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "description": "query term",
-                                "title": "Query",
-                                "type": "string"
-                            },
-                            "qtype": {
-                                "type": "string"
-                            },
-                            "limit": {
-                                "type": "integer"
-                            }
-                        },
-                        "required": [
-                            "query"
-                        ],
-                        "description": "Search for tracks, albums, artists, or playlists on Spotify.",
-                        "title": "Search"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "description": "Search for tracks, albums, artists, or playlists on Spotify.",
+                    "type": "OBJECT",
                     "properties": {
                         "query": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "query term"
                         },
                         "qtype": {
-                            "type": "string"
+                            "type": "STRING",
+                            "nullable": true
                         },
                         "limit": {
-                            "type": "integer"
+                            "type": "INTEGER",
+                            "nullable": true
                         }
                     },
+                    "description": "Search for tracks, albums, artists, or playlists on Spotify.",
                     "required": [
                         "query"
                     ]
                 }
             },
             {
-                "name": "SpotifyQueue",
+                "name": "spotifySpotifyQueue",
                 "description": "Manage the playback queue - get the queue or add tracks.",
-                "_originalDeclaration": {
-                    "name": "SpotifyQueue",
-                    "description": "Manage the playback queue - get the queue or add tracks.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "action": {
-                                "description": "Action to perform: 'add' or 'get'.",
-                                "title": "Action",
-                                "type": "string"
-                            },
-                            "track_id": {
-                                "type": "string"
-                            }
-                        },
-                        "required": [
-                            "action"
-                        ],
-                        "description": "Manage the playback queue - get the queue or add tracks.",
-                        "title": "Queue"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "description": "Manage the playback queue - get the queue or add tracks.",
+                    "type": "OBJECT",
                     "properties": {
                         "action": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Action to perform: 'add' or 'get'."
                         },
                         "track_id": {
-                            "type": "string"
+                            "type": "STRING",
+                            "nullable": true
                         }
                     },
+                    "description": "Manage the playback queue - get the queue or add tracks.",
                     "required": [
                         "action"
                     ]
                 }
             },
             {
-                "name": "SpotifyGetInfo",
+                "name": "spotifySpotifyGetInfo",
                 "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
-                "_originalDeclaration": {
-                    "name": "SpotifyGetInfo",
-                    "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "item_uri": {
-                                "description": "URI of the item to get information about. If 'playlist' or 'album', returns its tracks. If 'artist', returns albums and top tracks.",
-                                "title": "Item Uri",
-                                "type": "string"
-                            }
-                        },
-                        "required": [
-                            "item_uri"
-                        ],
-                        "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
-                        "title": "GetInfo"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
+                    "type": "OBJECT",
                     "properties": {
                         "item_uri": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "URI of the item to get information about. If 'playlist' or 'album', returns its tracks. If 'artist', returns albums and top tracks."
                         }
                     },
+                    "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
                     "required": [
                         "item_uri"
                     ]
                 }
             },
             {
-                "name": "SpotifyPlaylist",
+                "name": "spotifySpotifyPlaylist",
                 "description": "Manage Spotify playlists.\n    - get: Get a list of user's playlists.\n    - get_tracks: Get tracks in a specific playlist.\n    - add_tracks: Add tracks to a specific playlist.\n    - remove_tracks: Remove tracks from a specific playlist.\n    - change_details: Change details of a specific playlist.\n    ",
-                "_originalDeclaration": {
-                    "name": "SpotifyPlaylist",
-                    "description": "Manage Spotify playlists.\n    - get: Get a list of user's playlists.\n    - get_tracks: Get tracks in a specific playlist.\n    - add_tracks: Add tracks to a specific playlist.\n    - remove_tracks: Remove tracks from a specific playlist.\n    - change_details: Change details of a specific playlist.\n    ",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "action": {
-                                "description": "Action to perform: 'get', 'get_tracks', 'add_tracks', 'remove_tracks', 'change_details'.",
-                                "title": "Action",
-                                "type": "string"
-                            },
-                            "playlist_id": {
-                                "type": "string"
-                            },
-                            "track_ids": {
-                                "items": {
-                                    "type": "string"
-                                },
-                                "type": "array"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "description": {
-                                "type": "string"
-                            }
-                        },
-                        "required": [
-                            "action"
-                        ],
-                        "description": "Manage Spotify playlists.\n- get: Get a list of user's playlists.\n- get_tracks: Get tracks in a specific playlist.\n- add_tracks: Add tracks to a specific playlist.\n- remove_tracks: Remove tracks from a specific playlist.\n- change_details: Change details of a specific playlist.",
-                        "title": "Playlist"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "description": "Manage Spotify playlists.\n- get: Get a list of user's playlists.\n- get_tracks: Get tracks in a specific playlist.\n- add_tracks: Add tracks to a specific playlist.\n- remove_tracks: Remove tracks from a specific playlist.\n- change_details: Change details of a specific playlist.",
+                    "type": "OBJECT",
                     "properties": {
                         "action": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Action to perform: 'get', 'get_tracks', 'add_tracks', 'remove_tracks', 'change_details'."
                         },
                         "playlist_id": {
-                            "type": "string"
+                            "type": "STRING",
+                            "nullable": true
                         },
                         "track_ids": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "items": {
-                                "type": "string"
-                            }
+                                "type": "STRING"
+                            },
+                            "nullable": true
                         },
                         "name": {
-                            "type": "string"
+                            "type": "STRING",
+                            "nullable": true
                         },
                         "description": {
-                            "type": "string"
+                            "type": "STRING",
+                            "nullable": true
                         }
                     },
+                    "description": "Manage Spotify playlists.\n    - get: Get a list of user's playlists.\n    - get_tracks: Get tracks in a specific playlist.\n    - add_tracks: Add tracks to a specific playlist.\n    - remove_tracks: Remove tracks from a specific playlist.\n    - change_details: Change details of a specific playlist.\n    ",
                     "required": [
                         "action"
                     ]
                 }
             },
             {
-                "name": "SpotifyResetAuth",
+                "name": "spotifySpotifyResetAuth",
                 "description": "Reset Spotify authentication.",
-                "_originalDeclaration": {
-                    "name": "SpotifyResetAuth",
-                    "description": "Reset Spotify authentication.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "description": "Reset Spotify authentication.",
-                        "title": "ResetAuth"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "description": "Reset Spotify authentication.",
-                    "properties": {}
+                    "type": "OBJECT",
+                    "properties": {},
+                    "description": "Reset Spotify authentication."
                 }
             },
             {
-                "name": "listCalendars",
+                "name": "googleCalendarListCalendars",
                 "description": "List all available calendars",
-                "_originalDeclaration": {
-                    "name": "list-calendars",
-                    "description": "List all available calendars",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "properties": {}
+                    "type": "OBJECT",
+                    "properties": {},
+                    "description": "List all available calendars"
                 }
             },
             {
-                "name": "listEvents",
+                "name": "googleCalendarListEvents",
                 "description": "List events from one or more calendars.",
-                "_originalDeclaration": {
-                    "name": "list-events",
-                    "description": "List events from one or more calendars.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "calendarId": {
-                                "type": "string",
-                                "description": "ID of the calendar(s) to list events from. Accepts either a single calendar ID string or an array of calendar IDs (passed as JSON string like '[\"cal1\", \"cal2\"]')"
-                            },
-                            "timeMin": {
-                                "type": "string",
-                                "description": "Start time boundary. Preferred: '2024-01-01T00:00:00' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T00:00:00Z' or '2024-01-01T00:00:00-08:00'."
-                            },
-                            "timeMax": {
-                                "type": "string",
-                                "description": "End time boundary. Preferred: '2024-01-01T23:59:59' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T23:59:59Z' or '2024-01-01T23:59:59-08:00'."
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
-                            }
-                        },
-                        "required": [
-                            "calendarId"
-                        ],
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "calendarId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the calendar(s) to list events from. Accepts either a single calendar ID string or an array of calendar IDs (passed as JSON string like '[\"cal1\", \"cal2\"]')"
                         },
                         "timeMin": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Start time boundary. Preferred: '2024-01-01T00:00:00' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T00:00:00Z' or '2024-01-01T00:00:00-08:00'."
                         },
                         "timeMax": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "End time boundary. Preferred: '2024-01-01T23:59:59' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T23:59:59Z' or '2024-01-01T23:59:59-08:00'."
                         },
                         "timeZone": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
                         }
                     },
+                    "description": "List events from one or more calendars.",
                     "required": [
                         "calendarId"
                     ]
                 }
             },
             {
-                "name": "searchEvents",
+                "name": "googleCalendarSearchEvents",
                 "description": "Search for events in a calendar by text query.",
-                "_originalDeclaration": {
-                    "name": "search-events",
-                    "description": "Search for events in a calendar by text query.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "calendarId": {
-                                "type": "string",
-                                "description": "ID of the calendar (use 'primary' for the main calendar)"
-                            },
-                            "query": {
-                                "type": "string",
-                                "description": "Free text search query (searches summary, description, location, attendees, etc.)"
-                            },
-                            "timeMin": {
-                                "type": "string",
-                                "description": "Start time boundary. Preferred: '2024-01-01T00:00:00' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T00:00:00Z' or '2024-01-01T00:00:00-08:00'."
-                            },
-                            "timeMax": {
-                                "type": "string",
-                                "description": "End time boundary. Preferred: '2024-01-01T23:59:59' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T23:59:59Z' or '2024-01-01T23:59:59-08:00'."
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
-                            }
-                        },
-                        "required": [
-                            "calendarId",
-                            "query",
-                            "timeMin",
-                            "timeMax"
-                        ],
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "calendarId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the calendar (use 'primary' for the main calendar)"
                         },
                         "query": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Free text search query (searches summary, description, location, attendees, etc.)"
                         },
                         "timeMin": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Start time boundary. Preferred: '2024-01-01T00:00:00' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T00:00:00Z' or '2024-01-01T00:00:00-08:00'."
                         },
                         "timeMax": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "End time boundary. Preferred: '2024-01-01T23:59:59' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T23:59:59Z' or '2024-01-01T23:59:59-08:00'."
                         },
                         "timeZone": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
                         }
                     },
+                    "description": "Search for events in a calendar by text query.",
                     "required": [
                         "calendarId",
                         "query",
@@ -509,206 +256,99 @@
                 }
             },
             {
-                "name": "listColors",
+                "name": "googleCalendarListColors",
                 "description": "List available color IDs and their meanings for calendar events",
-                "_originalDeclaration": {
-                    "name": "list-colors",
-                    "description": "List available color IDs and their meanings for calendar events",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
-                    "properties": {}
+                    "type": "OBJECT",
+                    "properties": {},
+                    "description": "List available color IDs and their meanings for calendar events"
                 }
             },
             {
-                "name": "createEvent",
+                "name": "googleCalendarCreateEvent",
                 "description": "Create a new calendar event.",
-                "_originalDeclaration": {
-                    "name": "create-event",
-                    "description": "Create a new calendar event.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "calendarId": {
-                                "type": "string",
-                                "description": "ID of the calendar (use 'primary' for the main calendar)"
-                            },
-                            "summary": {
-                                "type": "string",
-                                "description": "Title of the event"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Description/notes for the event"
-                            },
-                            "start": {
-                                "type": "string",
-                                "description": "Event start time: '2024-01-01T10:00:00'"
-                            },
-                            "end": {
-                                "type": "string",
-                                "description": "Event end time: '2024-01-01T11:00:00'"
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
-                            },
-                            "location": {
-                                "type": "string",
-                                "description": "Location of the event"
-                            },
-                            "attendees": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "email": {
-                                            "type": "string",
-                                            "format": "email",
-                                            "description": "Email address of the attendee"
-                                        }
-                                    },
-                                    "required": [
-                                        "email"
-                                    ],
-                                    "additionalProperties": false
-                                },
-                                "description": "List of attendee email addresses"
-                            },
-                            "colorId": {
-                                "type": "string",
-                                "description": "Color ID for the event (use list-colors to see available IDs)"
-                            },
-                            "reminders": {
-                                "type": "object",
-                                "properties": {
-                                    "useDefault": {
-                                        "type": "boolean",
-                                        "description": "Whether to use the default reminders"
-                                    },
-                                    "overrides": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "method": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "email",
-                                                        "popup"
-                                                    ],
-                                                    "default": "popup",
-                                                    "description": "Reminder method"
-                                                },
-                                                "minutes": {
-                                                    "type": "number",
-                                                    "description": "Minutes before the event to trigger the reminder"
-                                                }
-                                            },
-                                            "required": [
-                                                "minutes"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "description": "Custom reminders"
-                                    }
-                                },
-                                "required": [
-                                    "useDefault"
-                                ],
-                                "additionalProperties": false,
-                                "description": "Reminder settings for the event"
-                            },
-                            "recurrence": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                },
-                                "description": "Recurrence rules in RFC5545 format (e.g., [\"RRULE:FREQ=WEEKLY;COUNT=5\"])"
-                            }
-                        },
-                        "required": [
-                            "calendarId",
-                            "summary",
-                            "start",
-                            "end"
-                        ],
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "calendarId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the calendar (use 'primary' for the main calendar)"
                         },
                         "summary": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Title of the event"
                         },
                         "description": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Description/notes for the event"
                         },
                         "start": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Event start time: '2024-01-01T10:00:00'"
                         },
                         "end": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Event end time: '2024-01-01T11:00:00'"
                         },
                         "timeZone": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
                         },
                         "location": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Location of the event"
                         },
                         "attendees": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "List of attendee email addresses",
                             "items": {
-                                "type": "string",
-                                "description": "Email address of the attendee"
+                                "type": "OBJECT",
+                                "properties": {
+                                    "email": {
+                                        "type": "STRING",
+                                        "description": "Email address of the attendee"
+                                    }
+                                },
+                                "required": [
+                                    "email"
+                                ]
                             }
                         },
                         "colorId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Color ID for the event (use list-colors to see available IDs)"
                         },
                         "reminders": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "Reminder settings for the event",
                             "properties": {
                                 "useDefault": {
-                                    "type": "boolean",
+                                    "type": "BOOLEAN",
                                     "description": "Whether to use the default reminders"
                                 },
                                 "overrides": {
-                                    "type": "array",
+                                    "type": "ARRAY",
                                     "description": "Custom reminders",
                                     "items": {
-                                        "type": "object",
+                                        "type": "OBJECT",
                                         "properties": {
                                             "method": {
-                                                "type": "string",
-                                                "description": "The method used to deliver the reminder"
+                                                "type": "STRING",
+                                                "description": "Reminder method",
+                                                "enum": [
+                                                    "email",
+                                                    "popup"
+                                                ],
+                                                "default": "popup"
                                             },
                                             "minutes": {
-                                                "type": "integer",
+                                                "type": "NUMBER",
                                                 "description": "Minutes before the event to trigger the reminder"
                                             }
-                                        }
+                                        },
+                                        "required": [
+                                            "minutes"
+                                        ]
                                     }
                                 }
                             },
@@ -717,13 +357,14 @@
                             ]
                         },
                         "recurrence": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "Recurrence rules in RFC5545 format (e.g., [\"RRULE:FREQ=WEEKLY;COUNT=5\"])",
                             "items": {
-                                "type": "string"
+                                "type": "STRING"
                             }
                         }
                     },
+                    "description": "Create a new calendar event.",
                     "required": [
                         "calendarId",
                         "summary",
@@ -733,221 +374,94 @@
                 }
             },
             {
-                "name": "updateEvent",
+                "name": "googleCalendarUpdateEvent",
                 "description": "Update an existing calendar event with recurring event modification scope support.",
-                "_originalDeclaration": {
-                    "name": "update-event",
-                    "description": "Update an existing calendar event with recurring event modification scope support.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "calendarId": {
-                                "type": "string",
-                                "description": "ID of the calendar (use 'primary' for the main calendar)"
-                            },
-                            "eventId": {
-                                "type": "string",
-                                "description": "ID of the event to update"
-                            },
-                            "summary": {
-                                "type": "string",
-                                "description": "Updated title of the event"
-                            },
-                            "description": {
-                                "type": "string",
-                                "description": "Updated description/notes"
-                            },
-                            "start": {
-                                "type": "string",
-                                "description": "Updated start time: '2024-01-01T10:00:00'"
-                            },
-                            "end": {
-                                "type": "string",
-                                "description": "Updated end time: '2024-01-01T11:00:00'"
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Updated timezone as IANA Time Zone Database name. If not provided, uses the calendar's default timezone."
-                            },
-                            "location": {
-                                "type": "string",
-                                "description": "Updated location"
-                            },
-                            "attendees": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "email": {
-                                            "type": "string",
-                                            "format": "email",
-                                            "description": "Email address of the attendee"
-                                        }
-                                    },
-                                    "required": [
-                                        "email"
-                                    ],
-                                    "additionalProperties": false
-                                },
-                                "description": "Updated attendee list"
-                            },
-                            "colorId": {
-                                "type": "string",
-                                "description": "Updated color ID"
-                            },
-                            "reminders": {
-                                "type": "object",
-                                "properties": {
-                                    "useDefault": {
-                                        "type": "boolean",
-                                        "description": "Whether to use the default reminders"
-                                    },
-                                    "overrides": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "method": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "email",
-                                                        "popup"
-                                                    ],
-                                                    "default": "popup",
-                                                    "description": "Reminder method"
-                                                },
-                                                "minutes": {
-                                                    "type": "number",
-                                                    "description": "Minutes before the event to trigger the reminder"
-                                                }
-                                            },
-                                            "required": [
-                                                "minutes"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "description": "Custom reminders"
-                                    }
-                                },
-                                "required": [
-                                    "useDefault"
-                                ],
-                                "additionalProperties": false,
-                                "description": "Reminder settings for the event"
-                            },
-                            "recurrence": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                },
-                                "description": "Updated recurrence rules"
-                            },
-                            "sendUpdates": {
-                                "type": "string",
-                                "enum": [
-                                    "all",
-                                    "externalOnly",
-                                    "none"
-                                ],
-                                "default": "all",
-                                "description": "Whether to send update notifications"
-                            },
-                            "modificationScope": {
-                                "type": "string",
-                                "enum": [
-                                    "thisAndFollowing",
-                                    "all",
-                                    "thisEventOnly"
-                                ],
-                                "description": "Scope for recurring event modifications"
-                            },
-                            "originalStartTime": {
-                                "type": "string",
-                                "description": "Original start time in the ISO 8601 format '2024-01-01T10:00:00'"
-                            },
-                            "futureStartDate": {
-                                "type": "string",
-                                "description": "Start date for future instances in the ISO 8601 format '2024-01-01T10:00:00'"
-                            }
-                        },
-                        "required": [
-                            "calendarId",
-                            "eventId"
-                        ],
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "calendarId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the calendar (use 'primary' for the main calendar)"
                         },
                         "eventId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the event to update"
                         },
                         "summary": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated title of the event"
                         },
                         "description": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated description/notes"
                         },
                         "start": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated start time: '2024-01-01T10:00:00'"
                         },
                         "end": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated end time: '2024-01-01T11:00:00'"
                         },
                         "timeZone": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated timezone as IANA Time Zone Database name. If not provided, uses the calendar's default timezone."
                         },
                         "location": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated location"
                         },
                         "attendees": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "Updated attendee list",
                             "items": {
-                                "type": "string",
-                                "description": "Email address of the attendee"
+                                "type": "OBJECT",
+                                "properties": {
+                                    "email": {
+                                        "type": "STRING",
+                                        "description": "Email address of the attendee"
+                                    }
+                                },
+                                "required": [
+                                    "email"
+                                ]
                             }
                         },
                         "colorId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Updated color ID"
                         },
                         "reminders": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "Reminder settings for the event",
                             "properties": {
                                 "useDefault": {
-                                    "type": "boolean",
+                                    "type": "BOOLEAN",
                                     "description": "Whether to use the default reminders"
                                 },
                                 "overrides": {
-                                    "type": "array",
+                                    "type": "ARRAY",
                                     "description": "Custom reminders",
                                     "items": {
-                                        "type": "object",
+                                        "type": "OBJECT",
                                         "properties": {
                                             "method": {
-                                                "type": "string",
-                                                "description": "The method used to deliver the reminder"
+                                                "type": "STRING",
+                                                "description": "Reminder method",
+                                                "enum": [
+                                                    "email",
+                                                    "popup"
+                                                ],
+                                                "default": "popup"
                                             },
                                             "minutes": {
-                                                "type": "integer",
+                                                "type": "NUMBER",
                                                 "description": "Minutes before the event to trigger the reminder"
                                             }
-                                        }
+                                        },
+                                        "required": [
+                                            "minutes"
+                                        ]
                                     }
                                 }
                             },
@@ -956,23 +470,24 @@
                             ]
                         },
                         "recurrence": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "Updated recurrence rules",
                             "items": {
-                                "type": "string"
+                                "type": "STRING"
                             }
                         },
                         "sendUpdates": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Whether to send update notifications",
                             "enum": [
                                 "all",
                                 "externalOnly",
                                 "none"
-                            ]
+                            ],
+                            "default": "all"
                         },
                         "modificationScope": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Scope for recurring event modifications",
                             "enum": [
                                 "thisAndFollowing",
@@ -981,14 +496,15 @@
                             ]
                         },
                         "originalStartTime": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Original start time in the ISO 8601 format '2024-01-01T10:00:00'"
                         },
                         "futureStartDate": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Start date for future instances in the ISO 8601 format '2024-01-01T10:00:00'"
                         }
                     },
+                    "description": "Update an existing calendar event with recurring event modification scope support.",
                     "required": [
                         "calendarId",
                         "eventId"
@@ -996,62 +512,31 @@
                 }
             },
             {
-                "name": "deleteEvent",
+                "name": "googleCalendarDeleteEvent",
                 "description": "Delete a calendar event.",
-                "_originalDeclaration": {
-                    "name": "delete-event",
-                    "description": "Delete a calendar event.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "calendarId": {
-                                "type": "string",
-                                "description": "ID of the calendar (use 'primary' for the main calendar)"
-                            },
-                            "eventId": {
-                                "type": "string",
-                                "description": "ID of the event to delete"
-                            },
-                            "sendUpdates": {
-                                "type": "string",
-                                "enum": [
-                                    "all",
-                                    "externalOnly",
-                                    "none"
-                                ],
-                                "default": "all",
-                                "description": "Whether to send cancellation notifications"
-                            }
-                        },
-                        "required": [
-                            "calendarId",
-                            "eventId"
-                        ],
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "calendarId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the calendar (use 'primary' for the main calendar)"
                         },
                         "eventId": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "ID of the event to delete"
                         },
                         "sendUpdates": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Whether to send cancellation notifications",
                             "enum": [
                                 "all",
                                 "externalOnly",
                                 "none"
-                            ]
+                            ],
+                            "default": "all"
                         }
                     },
+                    "description": "Delete a calendar event.",
                     "required": [
                         "calendarId",
                         "eventId"
@@ -1059,97 +544,51 @@
                 }
             },
             {
-                "name": "getFreebusy",
+                "name": "googleCalendarGetFreebusy",
                 "description": "Query free/busy information for calendars. Note: Time range is limited to a maximum of 3 months between timeMin and timeMax.",
-                "_originalDeclaration": {
-                    "name": "get-freebusy",
-                    "description": "Query free/busy information for calendars. Note: Time range is limited to a maximum of 3 months between timeMin and timeMax.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "calendars": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "string",
-                                            "description": "ID of the calendar (use 'primary' for the main calendar)"
-                                        }
-                                    },
-                                    "required": [
-                                        "id"
-                                    ],
-                                    "additionalProperties": false
-                                },
-                                "description": "List of calendars and/or groups to query for free/busy information"
-                            },
-                            "timeMin": {
-                                "type": "string",
-                                "description": "Start time boundary. Preferred: '2024-01-01T00:00:00' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T00:00:00Z' or '2024-01-01T00:00:00-08:00'."
-                            },
-                            "timeMax": {
-                                "type": "string",
-                                "description": "End time boundary. Preferred: '2024-01-01T23:59:59' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T23:59:59Z' or '2024-01-01T23:59:59-08:00'."
-                            },
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Timezone for the query"
-                            },
-                            "groupExpansionMax": {
-                                "type": "integer",
-                                "maximum": 100,
-                                "description": "Maximum number of calendars to expand per group (max 100)"
-                            },
-                            "calendarExpansionMax": {
-                                "type": "integer",
-                                "maximum": 50,
-                                "description": "Maximum number of calendars to expand (max 50)"
-                            }
-                        },
-                        "required": [
-                            "calendars",
-                            "timeMin",
-                            "timeMax"
-                        ],
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "calendars": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "List of calendars and/or groups to query for free/busy information",
                             "items": {
-                                "type": "string",
-                                "description": "ID of the calendar (use 'primary' for the main calendar)"
+                                "type": "OBJECT",
+                                "properties": {
+                                    "id": {
+                                        "type": "STRING",
+                                        "description": "ID of the calendar (use 'primary' for the main calendar)"
+                                    }
+                                },
+                                "required": [
+                                    "id"
+                                ]
                             }
                         },
                         "timeMin": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Start time boundary. Preferred: '2024-01-01T00:00:00' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T00:00:00Z' or '2024-01-01T00:00:00-08:00'."
                         },
                         "timeMax": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "End time boundary. Preferred: '2024-01-01T23:59:59' (uses timeZone parameter or calendar timezone). Also accepts: '2024-01-01T23:59:59Z' or '2024-01-01T23:59:59-08:00'."
                         },
                         "timeZone": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Timezone for the query"
                         },
                         "groupExpansionMax": {
-                            "type": "integer",
+                            "type": "INTEGER",
                             "description": "Maximum number of calendars to expand per group (max 100)",
                             "maximum": 100
                         },
                         "calendarExpansionMax": {
-                            "type": "integer",
+                            "type": "INTEGER",
                             "description": "Maximum number of calendars to expand (max 50)",
                             "maximum": 50
                         }
                     },
+                    "description": "Query free/busy information for calendars. Note: Time range is limited to a maximum of 3 months between timeMin and timeMax.",
                     "required": [
                         "calendars",
                         "timeMin",
@@ -1158,559 +597,324 @@
                 }
             },
             {
-                "name": "getCurrentTime",
+                "name": "googleCalendarGetCurrentTime",
                 "description": "Get current system time and timezone information.",
-                "_originalDeclaration": {
-                    "name": "get-current-time",
-                    "description": "Get current system time and timezone information.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "timeZone": {
-                                "type": "string",
-                                "description": "Optional IANA timezone (e.g., 'America/Los_Angeles', 'Europe/London', 'UTC'). If not provided, returns UTC time and system timezone for reference."
-                            }
-                        },
-                        "additionalProperties": false,
-                        "$schema": "http://json-schema.org/draft-07/schema#"
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "timeZone": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Optional IANA timezone (e.g., 'America/Los_Angeles', 'Europe/London', 'UTC'). If not provided, returns UTC time and system timezone for reference."
                         }
-                    }
+                    },
+                    "description": "Get current system time and timezone information."
                 }
             },
             {
-                "name": "APIGetUser",
+                "name": "notionMcpGetUser",
                 "description": "Retrieve a user\nError Responses:\n400: 400",
-                "_originalDeclaration": {
-                    "name": "API-get-user",
-                    "description": "Retrieve a user\nError Responses:\n400: 400",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "user_id": {
-                                "type": "string",
-                                "format": "uuid"
-                            }
-                        },
-                        "required": [
-                            "user_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "user_id": {
-                            "type": "string"
+                            "type": "STRING"
                         }
                     },
+                    "description": "Retrieve a user\nError Responses:\n400: 400",
                     "required": [
                         "user_id"
                     ]
                 }
             },
             {
-                "name": "APIGetUsers",
+                "name": "notionMcpGetUsers",
                 "description": "List all users\nError Responses:\n400: 400",
-                "_originalDeclaration": {
-                    "name": "API-get-users",
-                    "description": "List all users\nError Responses:\n400: 400",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "start_cursor": {
-                                "type": "string",
-                                "description": "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "default": 100,
-                                "description": "The number of items from the full list desired in the response. Maximum: 100"
-                            }
-                        },
-                        "required": []
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "start_cursor": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
                         },
                         "page_size": {
-                            "type": "integer",
-                            "description": "The number of items from the full list desired in the response. Maximum: 100"
+                            "type": "INTEGER",
+                            "description": "The number of items from the full list desired in the response. Maximum: 100",
+                            "default": 100
                         }
                     },
+                    "description": "List all users\nError Responses:\n400: 400",
                     "required": []
                 }
             },
             {
-                "name": "APIGetSelf",
+                "name": "notionMcpGetSelf",
                 "description": "Retrieve your token's bot user",
-                "_originalDeclaration": {
-                    "name": "API-get-self",
-                    "description": "Retrieve your token's bot user",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {},
-                        "required": []
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {},
+                    "description": "Retrieve your token's bot user",
                     "required": []
                 }
             },
             {
-                "name": "APIPostDatabaseQuery",
+                "name": "notionMcpPostDatabaseQuery",
                 "description": "Query a database",
-                "_originalDeclaration": {
-                    "name": "API-post-database-query",
-                    "description": "Query a database",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "database_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion database."
-                            },
-                            "filter_properties": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                },
-                                "description": "A list of page property value IDs associated with the database. Use this param to limit the response to a specific page property value or values for pages that meet the `filter` criteria."
-                            },
-                            "filter": {
-                                "type": "object",
-                                "description": "When supplied, limits which pages are returned based on the [filter conditions](ref:post-database-query-filter).",
-                                "additionalProperties": true
-                            },
-                            "sorts": {
-                                "type": "array",
-                                "description": "When supplied, orders the results based on the provided [sort criteria](ref:post-database-query-sort).",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "property": {
-                                            "type": "string"
-                                        },
-                                        "direction": {
-                                            "type": "string",
-                                            "enum": [
-                                                "ascending",
-                                                "descending"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "property",
-                                        "direction"
-                                    ],
-                                    "additionalProperties": true
-                                }
-                            },
-                            "start_cursor": {
-                                "type": "string",
-                                "description": "When supplied, returns a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "description": "The number of items from the full list desired in the response. Maximum: 100",
-                                "default": 100
-                            },
-                            "archived": {
-                                "type": "boolean"
-                            },
-                            "in_trash": {
-                                "type": "boolean"
-                            }
-                        },
-                        "required": [
-                            "database_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "database_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion database."
                         },
                         "filter_properties": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "A list of page property value IDs associated with the database. Use this param to limit the response to a specific page property value or values for pages that meet the `filter` criteria.",
                             "items": {
-                                "type": "string"
+                                "type": "STRING"
                             }
                         },
                         "filter": {
-                            "type": "object",
-                            "description": "When supplied, limits which pages are returned based on the [filter conditions](ref:post-database-query-filter)."
+                            "type": "OBJECT",
+                            "description": "When supplied, limits which pages are returned based on the [filter conditions](ref:post-database-query-filter).",
+                            "additionalProperties": true,
+                            "properties": {}
                         },
                         "sorts": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "When supplied, orders the results based on the provided [sort criteria](ref:post-database-query-sort).",
                             "items": {
-                                "type": "object",
+                                "type": "OBJECT",
                                 "properties": {
                                     "property": {
-                                        "type": "string"
+                                        "type": "STRING"
                                     },
                                     "direction": {
-                                        "type": "string"
+                                        "type": "STRING",
+                                        "enum": [
+                                            "ascending",
+                                            "descending"
+                                        ]
                                     }
-                                }
+                                },
+                                "required": [
+                                    "property",
+                                    "direction"
+                                ],
+                                "additionalProperties": true
                             }
                         },
                         "start_cursor": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "When supplied, returns a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
                         },
                         "page_size": {
-                            "type": "integer",
-                            "description": "The number of items from the full list desired in the response. Maximum: 100"
+                            "type": "INTEGER",
+                            "description": "The number of items from the full list desired in the response. Maximum: 100",
+                            "default": 100
                         },
                         "archived": {
-                            "type": "boolean"
+                            "type": "BOOLEAN"
                         },
                         "in_trash": {
-                            "type": "boolean"
+                            "type": "BOOLEAN"
                         }
                     },
+                    "description": "Query a database",
                     "required": [
                         "database_id"
                     ]
                 }
             },
             {
-                "name": "APIPostSearch",
+                "name": "notionMcpPostSearch",
                 "description": "Search by title",
-                "_originalDeclaration": {
-                    "name": "API-post-search",
-                    "description": "Search by title",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "query": {
-                                "type": "string",
-                                "description": "The text that the API compares page and database titles against."
-                            },
-                            "sort": {
-                                "type": "object",
-                                "description": "A set of criteria, `direction` and `timestamp` keys, that orders the results. The **only** supported timestamp value is `\"last_edited_time\"`. Supported `direction` values are `\"ascending\"` and `\"descending\"`. If `sort` is not provided, then the most recently edited results are returned first.",
-                                "properties": {
-                                    "direction": {
-                                        "type": "string",
-                                        "description": "The direction to sort. Possible values include `ascending` and `descending`."
-                                    },
-                                    "timestamp": {
-                                        "type": "string",
-                                        "description": "The name of the timestamp to sort against. Possible values include `last_edited_time`."
-                                    }
-                                },
-                                "additionalProperties": true
-                            },
-                            "filter": {
-                                "type": "object",
-                                "description": "A set of criteria, `value` and `property` keys, that limits the results to either only pages or only databases. Possible `value` values are `\"page\"` or `\"database\"`. The only supported `property` value is `\"object\"`.",
-                                "properties": {
-                                    "value": {
-                                        "type": "string",
-                                        "description": "The value of the property to filter the results by.  Possible values for object type include `page` or `database`.  **Limitation**: Currently the only filter allowed is `object` which will filter by type of object (either `page` or `database`)"
-                                    },
-                                    "property": {
-                                        "type": "string",
-                                        "description": "The name of the property to filter by. Currently the only property you can filter by is the object type.  Possible values include `object`.   Limitation: Currently the only filter allowed is `object` which will filter by type of object (either `page` or `database`)"
-                                    }
-                                },
-                                "additionalProperties": true
-                            },
-                            "start_cursor": {
-                                "type": "string",
-                                "description": "A `cursor` value returned in a previous response that If supplied, limits the response to results starting after the `cursor`. If not supplied, then the first page of results is returned. Refer to [pagination](https://developers.notion.com/reference/intro#pagination) for more details."
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "format": "int32",
-                                "description": "The number of items from the full list to include in the response. Maximum: `100`.",
-                                "default": 100
-                            }
-                        },
-                        "required": []
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "query": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The text that the API compares page and database titles against."
                         },
                         "sort": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "A set of criteria, `direction` and `timestamp` keys, that orders the results. The **only** supported timestamp value is `\"last_edited_time\"`. Supported `direction` values are `\"ascending\"` and `\"descending\"`. If `sort` is not provided, then the most recently edited results are returned first.",
                             "properties": {
                                 "direction": {
-                                    "type": "string",
+                                    "type": "STRING",
                                     "description": "The direction to sort. Possible values include `ascending` and `descending`."
                                 },
                                 "timestamp": {
-                                    "type": "string",
+                                    "type": "STRING",
                                     "description": "The name of the timestamp to sort against. Possible values include `last_edited_time`."
                                 }
-                            }
+                            },
+                            "additionalProperties": true
                         },
                         "filter": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "A set of criteria, `value` and `property` keys, that limits the results to either only pages or only databases. Possible `value` values are `\"page\"` or `\"database\"`. The only supported `property` value is `\"object\"`.",
                             "properties": {
                                 "value": {
-                                    "type": "string",
+                                    "type": "STRING",
                                     "description": "The value of the property to filter the results by.  Possible values for object type include `page` or `database`.  **Limitation**: Currently the only filter allowed is `object` which will filter by type of object (either `page` or `database`)"
                                 },
                                 "property": {
-                                    "type": "string",
+                                    "type": "STRING",
                                     "description": "The name of the property to filter by. Currently the only property you can filter by is the object type.  Possible values include `object`.   Limitation: Currently the only filter allowed is `object` which will filter by type of object (either `page` or `database`)"
                                 }
-                            }
+                            },
+                            "additionalProperties": true
                         },
                         "start_cursor": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "A `cursor` value returned in a previous response that If supplied, limits the response to results starting after the `cursor`. If not supplied, then the first page of results is returned. Refer to [pagination](https://developers.notion.com/reference/intro#pagination) for more details."
                         },
                         "page_size": {
-                            "type": "integer",
+                            "type": "INTEGER",
                             "description": "The number of items from the full list to include in the response. Maximum: `100`.",
-                            "format": "int32"
+                            "default": 100
                         }
                     },
+                    "description": "Search by title",
                     "required": []
                 }
             },
             {
-                "name": "APIGetBlockChildren",
+                "name": "notionMcpGetBlockChildren",
                 "description": "Retrieve block children",
-                "_originalDeclaration": {
-                    "name": "API-get-block-children",
-                    "description": "Retrieve block children",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "block_id": {
-                                "type": "string",
-                                "description": "Identifier for a [block](ref:block)"
-                            },
-                            "start_cursor": {
-                                "type": "string",
-                                "description": "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "format": "int32",
-                                "default": 100,
-                                "description": "The number of items from the full list desired in the response. Maximum: 100"
-                            }
-                        },
-                        "required": [
-                            "block_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "block_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a [block](ref:block)"
                         },
                         "start_cursor": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
                         },
                         "page_size": {
-                            "type": "integer",
+                            "type": "INTEGER",
                             "description": "The number of items from the full list desired in the response. Maximum: 100",
-                            "format": "int32"
+                            "default": 100
                         }
                     },
+                    "description": "Retrieve block children",
                     "required": [
                         "block_id"
                     ]
                 }
             },
             {
-                "name": "APIPatchBlockChildren",
+                "name": "notionMcpPatchBlockChildren",
                 "description": "Append block children",
-                "_originalDeclaration": {
-                    "name": "API-patch-block-children",
-                    "description": "Append block children",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "block_id": {
-                                "type": "string",
-                                "description": "Identifier for a [block](ref:block). Also accepts a [page](ref:page) ID."
-                            },
-                            "children": {
-                                "type": "array",
-                                "description": "Child content to append to a container block as an array of [block objects](ref:block)",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "paragraph": {
-                                            "type": "object",
-                                            "properties": {
-                                                "rich_text": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object",
-                                                        "properties": {
-                                                            "text": {
-                                                                "type": "object",
-                                                                "properties": {
-                                                                    "content": {
-                                                                        "type": "string"
-                                                                    },
-                                                                    "link": {
-                                                                        "type": [
-                                                                            "object",
-                                                                            "null"
-                                                                        ]
-                                                                    }
-                                                                },
-                                                                "required": [
-                                                                    "content"
-                                                                ],
-                                                                "additionalProperties": false
-                                                            },
-                                                            "type": {
-                                                                "type": "string",
-                                                                "enum": [
-                                                                    "text"
-                                                                ]
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "text"
-                                                        ],
-                                                        "additionalProperties": false
-                                                    }
-                                                }
-                                            },
-                                            "required": [
-                                                "rich_text"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "bulleted_list_item": {
-                                            "type": "object",
-                                            "properties": {
-                                                "rich_text": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "object",
-                                                        "properties": {
-                                                            "text": {
-                                                                "type": "object",
-                                                                "properties": {
-                                                                    "content": {
-                                                                        "type": "string"
-                                                                    },
-                                                                    "link": {
-                                                                        "type": [
-                                                                            "object",
-                                                                            "null"
-                                                                        ]
-                                                                    }
-                                                                },
-                                                                "required": [
-                                                                    "content"
-                                                                ],
-                                                                "additionalProperties": false
-                                                            },
-                                                            "type": {
-                                                                "type": "string",
-                                                                "enum": [
-                                                                    "text"
-                                                                ]
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "text"
-                                                        ],
-                                                        "additionalProperties": false
-                                                    }
-                                                }
-                                            },
-                                            "required": [
-                                                "rich_text"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "type": {
-                                            "type": "string",
-                                            "enum": [
-                                                "paragraph",
-                                                "bulleted_list_item"
-                                            ]
-                                        }
-                                    },
-                                    "additionalProperties": false
-                                }
-                            },
-                            "after": {
-                                "type": "string",
-                                "description": "The ID of the existing block that the new block should be appended after."
-                            }
-                        },
-                        "required": [
-                            "block_id",
-                            "children"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "block_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a [block](ref:block). Also accepts a [page](ref:page) ID."
                         },
                         "children": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "Child content to append to a container block as an array of [block objects](ref:block)",
                             "items": {
-                                "type": "object",
+                                "type": "OBJECT",
                                 "properties": {
                                     "paragraph": {
-                                        "type": "object"
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "rich_text": {
+                                                "type": "ARRAY",
+                                                "items": {
+                                                    "type": "OBJECT",
+                                                    "properties": {
+                                                        "text": {
+                                                            "type": "OBJECT",
+                                                            "properties": {
+                                                                "content": {
+                                                                    "type": "STRING"
+                                                                },
+                                                                "link": {
+                                                                    "type": "STRING"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "content"
+                                                            ]
+                                                        },
+                                                        "type": {
+                                                            "type": "STRING",
+                                                            "enum": [
+                                                                "text"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "text"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "rich_text"
+                                        ]
                                     },
                                     "bulleted_list_item": {
-                                        "type": "object"
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "rich_text": {
+                                                "type": "ARRAY",
+                                                "items": {
+                                                    "type": "OBJECT",
+                                                    "properties": {
+                                                        "text": {
+                                                            "type": "OBJECT",
+                                                            "properties": {
+                                                                "content": {
+                                                                    "type": "STRING"
+                                                                },
+                                                                "link": {
+                                                                    "type": "STRING"
+                                                                }
+                                                            },
+                                                            "required": [
+                                                                "content"
+                                                            ]
+                                                        },
+                                                        "type": {
+                                                            "type": "STRING",
+                                                            "enum": [
+                                                                "text"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "text"
+                                                    ]
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "rich_text"
+                                        ]
                                     },
                                     "type": {
-                                        "type": "string"
+                                        "type": "STRING",
+                                        "enum": [
+                                            "paragraph",
+                                            "bulleted_list_item"
+                                        ]
                                     }
                                 }
                             }
                         },
                         "after": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The ID of the existing block that the new block should be appended after."
                         }
                     },
+                    "description": "Append block children",
                     "required": [
                         "block_id",
                         "children"
@@ -1718,313 +922,138 @@
                 }
             },
             {
-                "name": "APIRetrieveABlock",
+                "name": "notionMcpRetrieveABlock",
                 "description": "Retrieve a block",
-                "_originalDeclaration": {
-                    "name": "API-retrieve-a-block",
-                    "description": "Retrieve a block",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "block_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion block"
-                            }
-                        },
-                        "required": [
-                            "block_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "block_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion block"
                         }
                     },
+                    "description": "Retrieve a block",
                     "required": [
                         "block_id"
                     ]
                 }
             },
             {
-                "name": "APIUpdateABlock",
+                "name": "notionMcpUpdateABlock",
                 "description": "Update a block",
-                "_originalDeclaration": {
-                    "name": "API-update-a-block",
-                    "description": "Update a block",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "block_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion block"
-                            },
-                            "type": {
-                                "type": "object",
-                                "description": "The [block object `type`](ref:block#block-object-keys) value with the properties to be updated. Currently only `text` (for supported block types) and `checked` (for `to_do` blocks) fields can be updated.",
-                                "properties": {},
-                                "additionalProperties": true
-                            },
-                            "archived": {
-                                "type": "boolean",
-                                "description": "Set to true to archive (delete) a block. Set to false to un-archive (restore) a block.",
-                                "default": true
-                            }
-                        },
-                        "required": [
-                            "block_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "block_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion block"
                         },
                         "type": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "The [block object `type`](ref:block#block-object-keys) value with the properties to be updated. Currently only `text` (for supported block types) and `checked` (for `to_do` blocks) fields can be updated.",
-                            "properties": {}
+                            "properties": {},
+                            "additionalProperties": true
                         },
                         "archived": {
-                            "type": "boolean",
-                            "description": "Set to true to archive (delete) a block. Set to false to un-archive (restore) a block."
+                            "type": "BOOLEAN",
+                            "description": "Set to true to archive (delete) a block. Set to false to un-archive (restore) a block.",
+                            "default": true
                         }
                     },
+                    "description": "Update a block",
                     "required": [
                         "block_id"
                     ]
                 }
             },
             {
-                "name": "APIDeleteABlock",
+                "name": "notionMcpDeleteABlock",
                 "description": "Delete a block",
-                "_originalDeclaration": {
-                    "name": "API-delete-a-block",
-                    "description": "Delete a block",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "block_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion block"
-                            }
-                        },
-                        "required": [
-                            "block_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "block_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion block"
                         }
                     },
+                    "description": "Delete a block",
                     "required": [
                         "block_id"
                     ]
                 }
             },
             {
-                "name": "APIRetrieveAPage",
+                "name": "notionMcpRetrieveAPage",
                 "description": "Retrieve a page",
-                "_originalDeclaration": {
-                    "name": "API-retrieve-a-page",
-                    "description": "Retrieve a page",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "page_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion page"
-                            },
-                            "filter_properties": {
-                                "type": "string",
-                                "description": "A list of page property value IDs associated with the page. Use this param to limit the response to a specific page property value or values. To retrieve multiple properties, specify each page property ID. For example: `?filter_properties=iAk8&filter_properties=b7dh`."
-                            }
-                        },
-                        "required": [
-                            "page_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "page_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion page"
                         },
                         "filter_properties": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "A list of page property value IDs associated with the page. Use this param to limit the response to a specific page property value or values. To retrieve multiple properties, specify each page property ID. For example: `?filter_properties=iAk8&filter_properties=b7dh`."
                         }
                     },
+                    "description": "Retrieve a page",
                     "required": [
                         "page_id"
                     ]
                 }
             },
             {
-                "name": "APIPatchPage",
+                "name": "notionMcpPatchPage",
                 "description": "Update page properties",
-                "_originalDeclaration": {
-                    "name": "API-patch-page",
-                    "description": "Update page properties",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "page_id": {
-                                "type": "string",
-                                "description": "The identifier for the Notion page to be updated."
-                            },
-                            "properties": {
-                                "type": "object",
-                                "description": "The property values to update for the page. The keys are the names or IDs of the property and the values are property values. If a page property ID is not included, then it is not changed.",
-                                "properties": {
-                                    "title": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "text": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "content": {
-                                                            "type": "string"
-                                                        },
-                                                        "link": {
-                                                            "type": [
-                                                                "object",
-                                                                "null"
-                                                            ]
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "content"
-                                                    ],
-                                                    "additionalProperties": false
-                                                },
-                                                "type": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "text"
-                                                    ]
-                                                }
-                                            },
-                                            "required": [
-                                                "text"
-                                            ],
-                                            "additionalProperties": false
-                                        }
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "title"
-                                        ]
-                                    }
-                                },
-                                "required": [
-                                    "title"
-                                ],
-                                "additionalProperties": false
-                            },
-                            "in_trash": {
-                                "type": "boolean",
-                                "description": "Set to true to delete a block. Set to false to restore a block.",
-                                "default": false
-                            },
-                            "archived": {
-                                "type": "boolean"
-                            },
-                            "icon": {
-                                "type": "object",
-                                "description": "A page icon for the page. Supported types are [external file object](https://developers.notion.com/reference/file-object) or [emoji object](https://developers.notion.com/reference/emoji-object).",
-                                "properties": {
-                                    "emoji": {
-                                        "type": "string"
-                                    }
-                                },
-                                "required": [
-                                    "emoji"
-                                ],
-                                "additionalProperties": false
-                            },
-                            "cover": {
-                                "type": "object",
-                                "description": "A cover image for the page. Only [external file objects](https://developers.notion.com/reference/file-object) are supported.",
-                                "properties": {
-                                    "external": {
-                                        "type": "object",
-                                        "properties": {
-                                            "url": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "required": [
-                                            "url"
-                                        ],
-                                        "additionalProperties": false
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "external"
-                                        ]
-                                    }
-                                },
-                                "required": [
-                                    "external"
-                                ],
-                                "additionalProperties": false
-                            }
-                        },
-                        "required": [
-                            "page_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "page_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The identifier for the Notion page to be updated."
                         },
                         "properties": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "The property values to update for the page. The keys are the names or IDs of the property and the values are property values. If a page property ID is not included, then it is not changed.",
                             "properties": {
                                 "title": {
-                                    "type": "array",
-                                    "description": "Title of the page",
+                                    "type": "ARRAY",
                                     "items": {
-                                        "type": "object",
+                                        "type": "OBJECT",
                                         "properties": {
                                             "text": {
-                                                "type": "object",
+                                                "type": "OBJECT",
                                                 "properties": {
                                                     "content": {
-                                                        "type": "string",
-                                                        "description": "Text content"
+                                                        "type": "STRING"
+                                                    },
+                                                    "link": {
+                                                        "type": "STRING"
                                                     }
-                                                }
+                                                },
+                                                "required": [
+                                                    "content"
+                                                ]
+                                            },
+                                            "type": {
+                                                "type": "STRING",
+                                                "enum": [
+                                                    "text"
+                                                ]
                                             }
-                                        }
+                                        },
+                                        "required": [
+                                            "text"
+                                        ]
                                     }
                                 },
                                 "type": {
-                                    "type": "string",
-                                    "description": "Type of the property"
+                                    "type": "STRING",
+                                    "enum": [
+                                        "title"
+                                    ]
                                 }
                             },
                             "required": [
@@ -2032,18 +1061,19 @@
                             ]
                         },
                         "in_trash": {
-                            "type": "boolean",
-                            "description": "Set to true to delete a block. Set to false to restore a block."
+                            "type": "BOOLEAN",
+                            "description": "Set to true to delete a block. Set to false to restore a block.",
+                            "default": false
                         },
                         "archived": {
-                            "type": "boolean"
+                            "type": "BOOLEAN"
                         },
                         "icon": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "A page icon for the page. Supported types are [external file object](https://developers.notion.com/reference/file-object) or [emoji object](https://developers.notion.com/reference/emoji-object).",
                             "properties": {
                                 "emoji": {
-                                    "type": "string"
+                                    "type": "STRING"
                                 }
                             },
                             "required": [
@@ -2051,14 +1081,14 @@
                             ]
                         },
                         "cover": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "A cover image for the page. Only [external file objects](https://developers.notion.com/reference/file-object) are supported.",
                             "properties": {
                                 "external": {
-                                    "type": "object",
+                                    "type": "OBJECT",
                                     "properties": {
                                         "url": {
-                                            "type": "string"
+                                            "type": "STRING"
                                         }
                                     },
                                     "required": [
@@ -2066,7 +1096,10 @@
                                     ]
                                 },
                                 "type": {
-                                    "type": "string"
+                                    "type": "STRING",
+                                    "enum": [
+                                        "external"
+                                    ]
                                 }
                             },
                             "required": [
@@ -2074,135 +1107,77 @@
                             ]
                         }
                     },
+                    "description": "Update page properties",
                     "required": [
                         "page_id"
                     ]
                 }
             },
             {
-                "name": "APIPostPage",
+                "name": "notionMcpPostPage",
                 "description": "Create a page",
-                "_originalDeclaration": {
-                    "name": "API-post-page",
-                    "description": "Create a page",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "parent": {
-                                "type": "object",
-                                "properties": {
-                                    "page_id": {
-                                        "type": "string",
-                                        "format": "uuid"
-                                    }
-                                },
-                                "required": [
-                                    "page_id"
-                                ],
-                                "additionalProperties": true
-                            },
-                            "properties": {
-                                "type": "object",
-                                "properties": {
-                                    "title": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "text": {
-                                                    "type": "object",
-                                                    "properties": {
-                                                        "content": {
-                                                            "type": "string"
-                                                        }
-                                                    },
-                                                    "required": [
-                                                        "content"
-                                                    ],
-                                                    "additionalProperties": true
-                                                }
-                                            },
-                                            "required": [
-                                                "text"
-                                            ],
-                                            "additionalProperties": true
-                                        }
-                                    },
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "title"
-                                        ]
-                                    }
-                                },
-                                "required": [
-                                    "title"
-                                ],
-                                "additionalProperties": false
-                            },
-                            "children": {
-                                "type": "array",
-                                "description": "The content to be rendered on the new page, represented as an array of [block objects](https://developers.notion.com/reference/block).",
-                                "items": {
-                                    "type": "string"
-                                }
-                            },
-                            "icon": {
-                                "type": "string",
-                                "format": "json",
-                                "description": "The icon of the new page. Either an [emoji object](https://developers.notion.com/reference/emoji-object) or an [external file object](https://developers.notion.com/reference/file-object).."
-                            },
-                            "cover": {
-                                "type": "string",
-                                "format": "json",
-                                "description": "The cover image of the new page, represented as a [file object](https://developers.notion.com/reference/file-object)."
-                            }
-                        },
-                        "required": [
-                            "parent",
-                            "properties"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "parent": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "properties": {
                                 "page_id": {
-                                    "type": "string"
+                                    "type": "STRING"
+                                },
+                                "database_id": {
+                                    "type": "STRING",
+                                    "description": "Database ID for creating pages in databases"
+                                },
+                                "type": {
+                                    "type": "STRING",
+                                    "enum": [
+                                        "page_id",
+                                        "database_id",
+                                        "workspace"
+                                    ],
+                                    "description": "Type of parent (page_id, database_id, or workspace)"
+                                },
+                                "workspace": {
+                                    "type": "BOOLEAN",
+                                    "description": "Set to true for workspace parent"
                                 }
                             },
-                            "required": [
-                                "page_id"
-                            ]
+                            "required": [],
+                            "additionalProperties": true
                         },
                         "properties": {
-                            "type": "object",
-                            "description": "Page properties",
+                            "type": "OBJECT",
                             "properties": {
                                 "title": {
-                                    "type": "array",
-                                    "description": "Title of the page",
+                                    "type": "ARRAY",
                                     "items": {
-                                        "type": "object",
+                                        "type": "OBJECT",
                                         "properties": {
                                             "text": {
-                                                "type": "object",
+                                                "type": "OBJECT",
                                                 "properties": {
                                                     "content": {
-                                                        "type": "string",
-                                                        "description": "Text content"
+                                                        "type": "STRING"
                                                     }
-                                                }
+                                                },
+                                                "required": [
+                                                    "content"
+                                                ],
+                                                "additionalProperties": true
                                             }
-                                        }
+                                        },
+                                        "required": [
+                                            "text"
+                                        ],
+                                        "additionalProperties": true
                                     }
                                 },
                                 "type": {
-                                    "type": "string",
-                                    "description": "Type of the property"
+                                    "type": "STRING",
+                                    "enum": [
+                                        "title"
+                                    ]
                                 }
                             },
                             "required": [
@@ -2210,21 +1185,22 @@
                             ]
                         },
                         "children": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "The content to be rendered on the new page, represented as an array of [block objects](https://developers.notion.com/reference/block).",
                             "items": {
-                                "type": "string"
+                                "type": "STRING"
                             }
                         },
                         "icon": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The icon of the new page. Either an [emoji object](https://developers.notion.com/reference/emoji-object) or an [external file object](https://developers.notion.com/reference/file-object).."
                         },
                         "cover": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The cover image of the new page, represented as a [file object](https://developers.notion.com/reference/file-object)."
                         }
                     },
+                    "description": "Create a page",
                     "required": [
                         "parent",
                         "properties"
@@ -2232,139 +1208,93 @@
                 }
             },
             {
-                "name": "APICreateADatabase",
+                "name": "notionMcpCreateADatabase",
                 "description": "Create a database",
-                "_originalDeclaration": {
-                    "name": "API-create-a-database",
-                    "description": "Create a database",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "parent": {
-                                "type": "object",
-                                "properties": {
-                                    "type": {
-                                        "type": "string",
-                                        "enum": [
-                                            "page_id"
-                                        ]
-                                    },
-                                    "page_id": {
-                                        "type": "string",
-                                        "format": "uuid"
-                                    }
-                                },
-                                "required": [
-                                    "type",
-                                    "page_id"
-                                ],
-                                "additionalProperties": true
-                            },
-                            "properties": {
-                                "type": "object",
-                                "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object).",
-                                "additionalProperties": {
-                                    "oneOf": [
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "title": {
-                                                    "type": "object",
-                                                    "properties": {},
-                                                    "additionalProperties": false
-                                                },
-                                                "description": {
-                                                    "type": "string"
-                                                }
-                                            },
-                                            "required": [
-                                                "title"
-                                            ],
-                                            "additionalProperties": false
-                                        }
-                                    ]
-                                }
-                            },
-                            "title": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "text": {
-                                            "type": "object",
-                                            "properties": {
-                                                "content": {
-                                                    "type": "string"
-                                                },
-                                                "link": {
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
-                                                }
-                                            },
-                                            "required": [
-                                                "content"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "type": {
-                                            "type": "string",
-                                            "enum": [
-                                                "text"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "text"
-                                    ],
-                                    "additionalProperties": false
-                                }
-                            }
-                        },
-                        "required": [
-                            "parent",
-                            "properties"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "parent": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "properties": {
                                 "type": {
-                                    "type": "string"
+                                    "type": "STRING",
+                                    "enum": [
+                                        "page_id",
+                                        "database_id",
+                                        "workspace"
+                                    ],
+                                    "description": "Type of parent (page_id, database_id, or workspace)"
                                 },
                                 "page_id": {
-                                    "type": "string"
+                                    "type": "STRING"
+                                },
+                                "database_id": {
+                                    "type": "STRING",
+                                    "description": "Database ID for creating pages in databases"
+                                },
+                                "workspace": {
+                                    "type": "BOOLEAN",
+                                    "description": "Set to true for workspace parent"
                                 }
                             },
                             "required": [
-                                "type",
-                                "page_id"
-                            ]
+                                "type"
+                            ],
+                            "additionalProperties": true
                         },
                         "properties": {
-                            "type": "object",
-                            "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object)."
+                            "type": "OBJECT",
+                            "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object).",
+                            "additionalProperties": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "title": {
+                                        "type": "OBJECT",
+                                        "properties": {}
+                                    },
+                                    "description": {
+                                        "type": "STRING"
+                                    }
+                                },
+                                "required": [
+                                    "title"
+                                ],
+                                "description": "Supports multiple types: OBJECT"
+                            }
                         },
                         "title": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "items": {
-                                "type": "object",
+                                "type": "OBJECT",
                                 "properties": {
                                     "text": {
-                                        "type": "object"
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "content": {
+                                                "type": "STRING"
+                                            },
+                                            "link": {
+                                                "type": "STRING"
+                                            }
+                                        },
+                                        "required": [
+                                            "content"
+                                        ]
                                     },
                                     "type": {
-                                        "type": "string"
+                                        "type": "STRING",
+                                        "enum": [
+                                            "text"
+                                        ]
                                     }
-                                }
+                                },
+                                "required": [
+                                    "text"
+                                ]
                             }
                         }
                     },
+                    "description": "Create a database",
                     "required": [
                         "parent",
                         "properties"
@@ -2372,246 +1302,137 @@
                 }
             },
             {
-                "name": "APIUpdateADatabase",
+                "name": "notionMcpUpdateADatabase",
                 "description": "Update a database",
-                "_originalDeclaration": {
-                    "name": "API-update-a-database",
-                    "description": "Update a database",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "database_id": {
-                                "type": "string",
-                                "description": "identifier for a Notion database"
-                            },
-                            "title": {
-                                "type": "array",
-                                "description": "An array of [rich text objects](https://developers.notion.com/reference/rich-text) that represents the title of the database that is displayed in the Notion UI. If omitted, then the database title remains unchanged.",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "text": {
-                                            "type": "object",
-                                            "properties": {
-                                                "content": {
-                                                    "type": "string"
-                                                },
-                                                "link": {
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
-                                                }
-                                            },
-                                            "required": [
-                                                "content"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "type": {
-                                            "type": "string",
-                                            "enum": [
-                                                "text"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "text"
-                                    ],
-                                    "additionalProperties": false
-                                }
-                            },
-                            "description": {
-                                "type": "array",
-                                "description": "An array of [rich text objects](https://developers.notion.com/reference/rich-text) that represents the description of the database that is displayed in the Notion UI. If omitted, then the database description remains unchanged.",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "text": {
-                                            "type": "object",
-                                            "properties": {
-                                                "content": {
-                                                    "type": "string"
-                                                },
-                                                "link": {
-                                                    "type": [
-                                                        "object",
-                                                        "null"
-                                                    ]
-                                                }
-                                            },
-                                            "required": [
-                                                "content"
-                                            ],
-                                            "additionalProperties": false
-                                        },
-                                        "type": {
-                                            "type": "string",
-                                            "enum": [
-                                                "text"
-                                            ]
-                                        }
-                                    },
-                                    "required": [
-                                        "text"
-                                    ],
-                                    "additionalProperties": false
-                                }
-                            },
-                            "properties": {
-                                "type": "object",
-                                "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object).",
-                                "properties": {
-                                    "name": {
-                                        "type": "string"
-                                    }
-                                },
-                                "additionalProperties": true
-                            }
-                        },
-                        "required": [
-                            "database_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "database_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "identifier for a Notion database"
                         },
                         "title": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "An array of [rich text objects](https://developers.notion.com/reference/rich-text) that represents the title of the database that is displayed in the Notion UI. If omitted, then the database title remains unchanged.",
                             "items": {
-                                "type": "object",
+                                "type": "OBJECT",
                                 "properties": {
                                     "text": {
-                                        "type": "object"
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "content": {
+                                                "type": "STRING"
+                                            },
+                                            "link": {
+                                                "type": "STRING"
+                                            }
+                                        },
+                                        "required": [
+                                            "content"
+                                        ]
                                     },
                                     "type": {
-                                        "type": "string"
+                                        "type": "STRING",
+                                        "enum": [
+                                            "text"
+                                        ]
                                     }
-                                }
+                                },
+                                "required": [
+                                    "text"
+                                ]
                             }
                         },
                         "description": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "description": "An array of [rich text objects](https://developers.notion.com/reference/rich-text) that represents the description of the database that is displayed in the Notion UI. If omitted, then the database description remains unchanged.",
                             "items": {
-                                "type": "object",
+                                "type": "OBJECT",
                                 "properties": {
                                     "text": {
-                                        "type": "object"
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "content": {
+                                                "type": "STRING"
+                                            },
+                                            "link": {
+                                                "type": "STRING"
+                                            }
+                                        },
+                                        "required": [
+                                            "content"
+                                        ]
                                     },
                                     "type": {
-                                        "type": "string"
+                                        "type": "STRING",
+                                        "enum": [
+                                            "text"
+                                        ]
                                     }
-                                }
+                                },
+                                "required": [
+                                    "text"
+                                ]
                             }
                         },
                         "properties": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object).",
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "STRING"
                                 }
-                            }
+                            },
+                            "additionalProperties": true
                         }
                     },
+                    "description": "Update a database",
                     "required": [
                         "database_id"
                     ]
                 }
             },
             {
-                "name": "APIRetrieveADatabase",
+                "name": "notionMcpRetrieveADatabase",
                 "description": "Retrieve a database",
-                "_originalDeclaration": {
-                    "name": "API-retrieve-a-database",
-                    "description": "Retrieve a database",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "database_id": {
-                                "type": "string",
-                                "description": "An identifier for the Notion database."
-                            }
-                        },
-                        "required": [
-                            "database_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "database_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "An identifier for the Notion database."
                         }
                     },
+                    "description": "Retrieve a database",
                     "required": [
                         "database_id"
                     ]
                 }
             },
             {
-                "name": "APIRetrieveAPageProperty",
+                "name": "notionMcpRetrieveAPageProperty",
                 "description": "Retrieve a page property item",
-                "_originalDeclaration": {
-                    "name": "API-retrieve-a-page-property",
-                    "description": "Retrieve a page property item",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "page_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion page"
-                            },
-                            "property_id": {
-                                "type": "string",
-                                "description": "Identifier for a page [property](https://developers.notion.com/reference/page#all-property-values)"
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "format": "int32",
-                                "description": "For paginated properties. The max number of property item objects on a page. The default size is 100"
-                            },
-                            "start_cursor": {
-                                "type": "string",
-                                "description": "For paginated properties."
-                            }
-                        },
-                        "required": [
-                            "page_id",
-                            "property_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "page_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion page"
                         },
                         "property_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a page [property](https://developers.notion.com/reference/page#all-property-values)"
                         },
                         "page_size": {
-                            "type": "integer",
-                            "description": "For paginated properties. The max number of property item objects on a page. The default size is 100",
-                            "format": "int32"
+                            "type": "INTEGER",
+                            "description": "For paginated properties. The max number of property item objects on a page. The default size is 100"
                         },
                         "start_cursor": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "For paginated properties."
                         }
                     },
+                    "description": "Retrieve a page property item",
                     "required": [
                         "page_id",
                         "property_id"
@@ -2619,138 +1440,92 @@
                 }
             },
             {
-                "name": "APIRetrieveAComment",
+                "name": "notionMcpRetrieveAComment",
                 "description": "Retrieve comments",
-                "_originalDeclaration": {
-                    "name": "API-retrieve-a-comment",
-                    "description": "Retrieve comments",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "block_id": {
-                                "type": "string",
-                                "description": "Identifier for a Notion block or page"
-                            },
-                            "start_cursor": {
-                                "type": "string",
-                                "description": "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
-                            },
-                            "page_size": {
-                                "type": "integer",
-                                "format": "int32",
-                                "description": "The number of items from the full list desired in the response. Maximum: 100"
-                            }
-                        },
-                        "required": [
-                            "block_id"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "block_id": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Identifier for a Notion block or page"
                         },
                         "start_cursor": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "If supplied, this endpoint will return a page of results starting after the cursor provided. If not supplied, this endpoint will return the first page of results."
                         },
                         "page_size": {
-                            "type": "integer",
-                            "description": "The number of items from the full list desired in the response. Maximum: 100",
-                            "format": "int32"
+                            "type": "INTEGER",
+                            "description": "The number of items from the full list desired in the response. Maximum: 100"
                         }
                     },
+                    "description": "Retrieve comments",
                     "required": [
                         "block_id"
                     ]
                 }
             },
             {
-                "name": "APICreateAComment",
+                "name": "notionMcpCreateAComment",
                 "description": "Create comment",
-                "_originalDeclaration": {
-                    "name": "API-create-a-comment",
-                    "description": "Create comment",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "parent": {
-                                "type": "object",
-                                "description": "The page that contains the comment",
-                                "properties": {
-                                    "page_id": {
-                                        "type": "string",
-                                        "description": "the page ID"
-                                    }
-                                },
-                                "required": [
-                                    "page_id"
-                                ],
-                                "additionalProperties": true
-                            },
-                            "rich_text": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "text": {
-                                            "type": "object",
-                                            "properties": {
-                                                "content": {
-                                                    "type": "string",
-                                                    "description": "The content of the comment"
-                                                }
-                                            },
-                                            "required": [
-                                                "content"
-                                            ],
-                                            "additionalProperties": true
-                                        }
-                                    },
-                                    "required": [
-                                        "text"
-                                    ],
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "required": [
-                            "parent",
-                            "rich_text"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "parent": {
-                            "type": "object",
+                            "type": "OBJECT",
                             "description": "The page that contains the comment",
                             "properties": {
                                 "page_id": {
-                                    "type": "string",
+                                    "type": "STRING",
                                     "description": "the page ID"
+                                },
+                                "database_id": {
+                                    "type": "STRING",
+                                    "description": "Database ID for creating pages in databases"
+                                },
+                                "type": {
+                                    "type": "STRING",
+                                    "enum": [
+                                        "page_id",
+                                        "database_id",
+                                        "workspace"
+                                    ],
+                                    "description": "Type of parent (page_id, database_id, or workspace)"
+                                },
+                                "workspace": {
+                                    "type": "BOOLEAN",
+                                    "description": "Set to true for workspace parent"
                                 }
                             },
-                            "required": [
-                                "page_id"
-                            ]
+                            "required": [],
+                            "additionalProperties": true
                         },
                         "rich_text": {
-                            "type": "array",
+                            "type": "ARRAY",
                             "items": {
-                                "type": "object",
+                                "type": "OBJECT",
                                 "properties": {
                                     "text": {
-                                        "type": "object"
+                                        "type": "OBJECT",
+                                        "properties": {
+                                            "content": {
+                                                "type": "STRING",
+                                                "description": "The content of the comment"
+                                            }
+                                        },
+                                        "required": [
+                                            "content"
+                                        ],
+                                        "additionalProperties": true
                                     }
-                                }
+                                },
+                                "required": [
+                                    "text"
+                                ],
+                                "additionalProperties": true
                             }
                         }
                     },
+                    "description": "Create comment",
                     "required": [
                         "parent",
                         "rich_text"
@@ -2758,41 +1533,17 @@
                 }
             },
             {
-                "name": "weatherGetHourly",
+                "name": "weatherWeatherGetHourly",
                 "description": "Get hourly weather forecast for the next 12 hours",
-                "_originalDeclaration": {
-                    "name": "weather-get_hourly",
-                    "description": "Get hourly weather forecast for the next 12 hours",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": "The city or location for which to retrieve the weather forecast."
-                            },
-                            "units": {
-                                "type": "string",
-                                "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
-                                "enum": [
-                                    "metric",
-                                    "imperial"
-                                ]
-                            }
-                        },
-                        "required": [
-                            "location"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "location": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The city or location for which to retrieve the weather forecast."
                         },
                         "units": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
                             "enum": [
                                 "metric",
@@ -2800,57 +1551,24 @@
                             ]
                         }
                     },
+                    "description": "Get hourly weather forecast for the next 12 hours",
                     "required": [
                         "location"
                     ]
                 }
             },
             {
-                "name": "weatherGetDaily",
+                "name": "weatherWeatherGetDaily",
                 "description": "Get daily weather forecast for up to 15 days",
-                "_originalDeclaration": {
-                    "name": "weather-get_daily",
-                    "description": "Get daily weather forecast for up to 15 days",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": "The city or location for which to retrieve the weather forecast."
-                            },
-                            "days": {
-                                "type": "number",
-                                "description": "Number of days to forecast (1, 5, 10, or 15). Default is 5.",
-                                "enum": [
-                                    1,
-                                    5,
-                                    10,
-                                    15
-                                ]
-                            },
-                            "units": {
-                                "type": "string",
-                                "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
-                                "enum": [
-                                    "metric",
-                                    "imperial"
-                                ]
-                            }
-                        },
-                        "required": [
-                            "location"
-                        ]
-                    }
-                },
                 "parameters": {
-                    "type": "object",
+                    "type": "OBJECT",
                     "properties": {
                         "location": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "The city or location for which to retrieve the weather forecast."
                         },
                         "days": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Number of days to forecast (1, 5, 10, or 15). Default is 5.",
                             "enum": [
                                 "1",
@@ -2860,7 +1578,7 @@
                             ]
                         },
                         "units": {
-                            "type": "string",
+                            "type": "STRING",
                             "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
                             "enum": [
                                 "metric",
@@ -2868,6 +1586,7 @@
                             ]
                         }
                     },
+                    "description": "Get daily weather forecast for up to 15 days",
                     "required": [
                         "location"
                     ]
