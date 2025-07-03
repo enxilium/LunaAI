@@ -1,7 +1,5 @@
 const { Client } = require("@modelcontextprotocol/sdk/client/index.js");
-const {
-    StdioClientTransport,
-} = require("@modelcontextprotocol/sdk/client/stdio.js");
+const { StdioClientTransport } = require("@modelcontextprotocol/sdk/client/stdio.js");
 const { getMcpServers } = require("../../invokes/get-asset");
 
 let mcpService = null;
@@ -26,6 +24,7 @@ class McpService {
         }
 
         const clientPromises = this.serverConfigs.map(async (config) => {
+
             try {
                 const transport = new StdioClientTransport(config.transport);
                 const client = new Client({

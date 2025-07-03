@@ -24,8 +24,6 @@ declare global {
             invoke: (
                 name:
                     | "error"
-                    | "authorize-service"
-                    | "disconnect-service"
                     | "execute-command"
                     | "update-settings"
                     | "gemini:start-session"

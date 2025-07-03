@@ -1,5 +1,3 @@
-const { getSpotifyService } = require("./integrations/spotify-service.js");
-const { getGoogleService } = require("./integrations/google-service.js");
 const { getErrorService } = require("./error-service.js");
 const { getSettingsService } = require("./user/settings-service.js");
 const { getCredentialsService } = require("./user/credentials-service.js");
@@ -21,12 +19,7 @@ async function initializeServices() {
 
     const geminiService = await getGeminiService();
 
-    const spotifyService = await getSpotifyService();
-    const googleService = await getGoogleService();
-
     return {
-        spotifyService,
-        googleService,
         errorService,
         credentialsService,
         settingsService,
@@ -42,12 +35,6 @@ async function initializeCredentialsFromEnv() {
 
     // Define a map of credential keys to environment variable names
     const credentialsToStore = {
-        "spotify-client-id": process.env.SPOTIFY_CLIENT_ID,
-        "spotify-client-secret": process.env.SPOTIFY_CLIENT_SECRET,
-        "spotify-redirect-uri": process.env.SPOTIFY_REDIRECT_URI,
-        "google-client-id": process.env.GOOGLE_CLIENT_ID,
-        "google-client-secret": process.env.GOOGLE_CLIENT_SECRET,
-        "google-redirect-uri": process.env.GOOGLE_REDIRECT_URI,
         "discord-client-id": process.env.DISCORD_CLIENT_ID,
         "discord-client-secret": process.env.DISCORD_CLIENT_SECRET,
         "notion-client-id": process.env.NOTION_CLIENT_ID,
@@ -75,8 +62,6 @@ async function initializeCredentialsFromEnv() {
 
 module.exports = {
     initializeServices,
-    getSpotifyService,
-    getGoogleService,
     getErrorService,
     getCredentialsService,
     getSettingsService,

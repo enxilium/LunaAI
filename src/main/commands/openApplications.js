@@ -4,8 +4,8 @@ const { promisify } = require("util");
 const os = require("os");
 const path = require("path");
 const fs = require("fs").promises;
-const { getErrorService } = require("../../services/error-service");
-const { getSettingsService } = require("../../services/user/settings-service");
+const { getErrorService } = require("../services/error-service");
+const { getSettingsService } = require("../services/user/settings-service");
 
 // Convert exec to promise-based
 const execPromise = promisify(exec);
@@ -214,14 +214,6 @@ async function openApplication({ appName }) {
 }
 
 /**
- * Open Spotify specifically
- * @returns {Promise<Object>} - A success or error object.
- */
-async function openSpotify() {
-    return await openApplication({ appName: "spotify" });
-}
-
-/**
  * Open a specified workspace
  * @param {Object} args - Arguments from the tool call.
  * @param {string} args.workspaceName - The name of the workspace to open.
@@ -270,6 +262,5 @@ async function openWorkspace({ workspaceName }) {
 
 module.exports = {
     openApplication,
-    openSpotify,
     openWorkspace,
 };

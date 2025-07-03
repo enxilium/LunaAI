@@ -92,22 +92,16 @@ function getAssetPath(assetType, assetName) {
     }
 }
 
-async function getSpeechConfig() {
-    return {
-        voiceConfig: {
-            prebuiltVoiceConfig: {
-                voiceName: "Aoede",
-            },
-        },
-    };
-    // TODO: Add a way to get the voice name from the user's settings
-}
-
 async function getGeminiConfig() {
     const configPath = getAssetPath("config", "gemini-config.json");
     try {
-        const configData = await fs.readFile(configPath, "utf-8");
-        return JSON.parse(configData);
+        const configData = JSON.parse(await fs.readFile(configPath, "utf-8"));
+
+        return {
+            systemInstruction: configData.systemInstruction,
+            internalTools: configData.internalTools,
+            speechConfig: configData.speechConfig,
+        };
     } catch (error) {
         const errorService = getErrorService();
         errorService.reportError(
@@ -118,25 +112,23 @@ async function getGeminiConfig() {
     }
 }
 
-async function getTools() {
-    const config = await getGeminiConfig();
-    return config ? config.tools : [];
-}
-
 async function getMcpServers() {
-    const config = await getGeminiConfig();
-    return config ? config.mcpServers : [];
-}
-
-async function getSystemInstruction() {
-    const config = await getGeminiConfig();
-    return config ? config.systemInstruction : "";
+    const configPath = getAssetPath("config", "gemini-config.json");
+    try {
+        const configData = JSON.parse(await fs.readFile(configPath, "utf-8"));
+        return configData.mcpServers;
+    } catch (error) {
+        const errorService = getErrorService();
+        errorService.reportError(
+            new Error(`Failed to read or parse gemini-config.json: ${error}`),
+            "get-asset"
+        );
+        return null;
+    }
 }
 
 module.exports = {
     getAsset,
-    getTools,
-    getSystemInstruction,
-    getSpeechConfig,
+    getGeminiConfig,
     getMcpServers,
 };

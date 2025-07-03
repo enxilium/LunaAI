@@ -24,8 +24,6 @@ const validChannels = {
 
     invoke: [
         "error",
-        "authorize-service",
-        "disconnect-service",
         "execute-command",
         "update-settings",
         "gemini:start-session",

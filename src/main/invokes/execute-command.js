@@ -9,18 +9,19 @@ const commands = require("../commands");
  */
 async function executeCommand(commandInfo) {
     const { name, args } = commandInfo;
-    console.log("Executing command:", name, args);
+    console.log("[execute-command] Executing command:", name, args);
 
     if (commands[name]) {
-        console.log("Command found:", commands[name]);
         return await commands[name](args);
     } else {
         const { getErrorService } = require("../services");
         const errorService = getErrorService();
+
         errorService.reportError(
             new Error(`Unknown command: ${name}`),
             "execute-command"
         );
+
         return { error: `Unknown command: ${name}` };
     }
 }

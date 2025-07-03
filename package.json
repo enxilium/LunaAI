@@ -20,7 +20,7 @@
     "dependencies": {
         "@babel/preset-typescript": "^7.27.0",
         "@ffmpeg-installer/ffmpeg": "^1.1.0",
-        "@google/genai": "^1.7.0",
+        "@google/genai": "^1.8.0",
         "@langchain/core": "^0.3.58",
         "@langchain/google-genai": "^0.2.12",
         "@material/web": "^2.3.0",

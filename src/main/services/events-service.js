@@ -3,8 +3,6 @@ const { ipcMain } = require("electron");
 const { getMainWindow, getOrbWindow, setOrbWindow } = require("../windows");
 const { getErrorService } = require("./error-service");
 const { updateSettings } = require("../invokes/update-settings");
-const { authorizeService } = require("../invokes/authorize-service");
-const { disconnectService } = require("../invokes/disconnect-service");
 const { reportError } = require("../invokes/error");
 const { executeCommand } = require("../invokes/execute-command");
 const { getAsset } = require("../invokes/get-asset");
@@ -14,10 +12,8 @@ let eventsService = null;
 const invokeHandlers = {
     "get-asset": getAsset,
     "update-settings": updateSettings,
-    "authorize-service": authorizeService,
-    "disconnect-service": disconnectService,
     "execute-command": executeCommand,
-    error: reportError,
+    "error": reportError,
 };
 
 /**

@@ -117,3 +117,6 @@ MANIFEST
 
 # Spotify cache
 .spotify_cache
+
+temp-mcps.json
+google-auth.json

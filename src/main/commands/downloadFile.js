@@ -10,4 +10,6 @@ function downloadFile(webContents) {
     // TODO: Return a promise that resolves when the download is complete or rejects on error
 }
 
-module.exports = downloadFile;
+module.exports = {
+    downloadFile,
+};
