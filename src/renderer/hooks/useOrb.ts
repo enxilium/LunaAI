@@ -48,14 +48,15 @@ export default function useOrb() {
     }, [reportError]);
 
     useEffect(() => {
-        console.log("isSpeaking state", isSpeaking);
         if (isPendingClose && isSpeaking) {
+            console.log("Pending close, but still speaking. Waiting for final message...");
             setFinalMessageStarted(true);
         }
     }, [isSpeaking, isPendingClose]);
 
     useEffect(() => {
         if (finalMessageStarted && !isSpeaking) {
+            console.log("Final message completed, closing session...");
             closeSession();
             setVisible(false);
 
@@ -88,6 +89,11 @@ export default function useOrb() {
             window.electron.removeListener("end-conversation");
         };
     }, [endConversation]);
+
+    // tmporary
+    useEffect(() => {
+        console.log("isSpeaking state", isSpeaking);
+    }, [isSpeaking]);
 
     return {
         isListening: isRecording,

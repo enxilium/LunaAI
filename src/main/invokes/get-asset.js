@@ -82,6 +82,9 @@ function getAllSettings() {
  * @returns {string} Absolute path to the asset
  */
 function getAssetPath(assetType, assetName) {
+    // Temporarily assume dev mode for standalone testing
+    return path.join(process.cwd(), "assets", assetType, assetName);
+    
     // Both development and production use the same assets folder structure
     if (isDev) {
         // In development: use files from project directory
