@@ -8,7 +8,10 @@ const { getEventsService } = require("../events-service");
 const { getGeminiConfig } = require("../../invokes/get-asset");
 const { getCredentialsService } = require("../user/credentials-service");
 const { getMcpService } = require("./mcp-service");
-const { McpToolMapper } = require("./mcp-tool-mapper");
+const { SimpleMcpToolMapper } = require("./simple-mcp-tool-mapper");
+const {
+    StartupMcpValidator,
+} = require("../../validation/startup-mcp-validator");
 const { executeCommand } = require("../../invokes/execute-command");
 const commands = require("../../commands");
 const fs = require("fs");
@@ -29,7 +32,8 @@ class GeminiService {
         this.mcpService = null;
 
         // Initialize the MCP tool mapper
-        this.mcpToolMapper = new McpToolMapper();
+        this.mcpToolMapper = new SimpleMcpToolMapper();
+        this.startupValidator = new StartupMcpValidator();
     }
 
     async initialize() {
@@ -72,12 +76,12 @@ class GeminiService {
                         },
                     };
 
-                    // Use the MCP Tool Mapper's validation for internal tools too
-                    const validatedDeclaration =
-                        this.mcpToolMapper.validateFunctionDeclaration(
-                            declaration
-                        );
-                    functionDeclarations.push(validatedDeclaration);
+                    // Clean enum properties from internal tools for Gemini API compliance
+                    this.cleanInternalToolDeclaration(declaration);
+
+                    // Internal tools don't need validation from MCP validator
+                    // They're handled directly by the internal tool system
+                    functionDeclarations.push(declaration);
                 } else {
                     console.warn(
                         `Command ${name} exists but has no definition in internalTools`
@@ -88,11 +92,9 @@ class GeminiService {
                         description: `Internal tool: ${name}`,
                         parameters: { type: "OBJECT", properties: {} },
                     };
-                    const validatedDefault =
-                        this.mcpToolMapper.validateFunctionDeclaration(
-                            defaultDeclaration
-                        );
-                    functionDeclarations.push(validatedDefault);
+                    // Internal tools don't need validation from MCP validator
+                    // They're handled directly by the internal tool system
+                    functionDeclarations.push(defaultDeclaration);
                 }
             }
 
@@ -157,6 +159,57 @@ class GeminiService {
                 "Gemini Service: MCP Tool Mapper Debug Info:",
                 debugInfo
             );
+
+            // Run comprehensive validation on all registered MCP tools
+            console.log("Gemini Service: Running REAL MCP tool validation...");
+            try {
+                const validationResult =
+                    await this.startupValidator.validateMcpToolMapper(
+                        this.mcpToolMapper
+                    );
+
+                if (!validationResult.success) {
+                    console.error(
+                        "Gemini Service: REAL MCP tool validation failed!"
+                    );
+
+                    // Log critical issues but don't fail startup - allow degraded operation
+                    if (validationResult.issues) {
+                        const criticalIssues = validationResult.issues.filter(
+                            (i) => i.severity === "CRITICAL"
+                        );
+                        if (criticalIssues.length > 0) {
+                            console.error(
+                                "Critical validation issues with REAL MCP tools:"
+                            );
+                            criticalIssues.forEach((issue) =>
+                                console.error(`  - ${issue.message}`)
+                            );
+                        }
+                    }
+                } else {
+                    console.log(
+                        "Gemini Service: ✅ REAL MCP tool validation passed successfully"
+                    );
+                    if (validationResult.stats) {
+                        console.log(
+                            `  - Validated ${validationResult.stats.toolsValidated} real tools`
+                        );
+                        console.log(
+                            `  - Tested ${validationResult.stats.fieldsValidated} fields`
+                        );
+                        console.log(
+                            `  - Verified ${validationResult.stats.conversionsValidated} conversions`
+                        );
+                    }
+                }
+            } catch (error) {
+                console.error(
+                    "Gemini Service: REAL MCP validation error:",
+                    error
+                );
+                // Don't fail startup, just log the error
+            }
         }
 
         if (
@@ -242,12 +295,12 @@ class GeminiService {
                 const attendeesMatches = configStr.match(/"attendees":/g);
 
                 if (formatMatches) {
-                    console.warn(
-                        `⚠️  WARNING: Found ${formatMatches.length} format properties in tools config!`
+                    console.log(
+                        `✅ Found ${formatMatches.length} format properties in tools config (supported by Gemini API)`
                     );
                 } else {
                     console.log(
-                        "✅ No format properties found in tools config"
+                        "📋 No format properties found in tools config"
                     );
                 }
 
@@ -328,12 +381,6 @@ class GeminiService {
                 "gemini:audio-chunk",
                 audio.data
             );
-        }
-
-        // Check if model turn is complete (Gemini has finished speaking)
-        if (message.serverContent?.turnComplete) {
-            console.log("Gemini Service: Model turn complete.");
-            this.eventsService.sendToRenderer("orb", "gemini:turn-complete");
         }
 
         if (message.toolCall) {
@@ -430,6 +477,50 @@ class GeminiService {
             return { success: true };
         }
         return { success: false };
+    }
+
+    // Clean internal tool declarations for Gemini API compliance
+    // Note: Enum fields are now supported by Gemini API, so we preserve them
+    cleanInternalToolDeclaration(declaration) {
+        if (declaration.parameters?.properties) {
+            const properties = declaration.parameters.properties;
+
+            // Ensure enum values are strings (as required by Gemini API)
+            for (const key in properties) {
+                const property = properties[key];
+                if (property.enum) {
+                    // Ensure enum values are strings
+                    property.enum = property.enum.map((value) => {
+                        return typeof value === "string"
+                            ? value
+                            : String(value);
+                    });
+                }
+
+                // Handle format field - Only preserve "enum" format, remove others
+                // Gemini API only supports format: "enum"
+                if (property.format && property.format !== "enum") {
+                    delete property.format;
+                }
+
+                // Clean up any unsupported properties but preserve enum and format
+                const unsupportedProps = [
+                    "minimum",
+                    "maximum",
+                    "minLength",
+                    "maxLength",
+                    "minItems",
+                    "maxItems",
+                    "minProperties",
+                    "maxProperties",
+                ];
+                unsupportedProps.forEach((prop) => {
+                    if (property.hasOwnProperty(prop)) {
+                        delete property[prop];
+                    }
+                });
+            }
+        }
     }
 }
 

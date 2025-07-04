@@ -3,6 +3,8 @@ const {
     StdioClientTransport,
 } = require("@modelcontextprotocol/sdk/client/stdio.js");
 const { getMcpServers } = require("../../invokes/get-asset");
+const fs = require("fs");
+const path = require("path");
 
 let mcpService = null;
 
@@ -57,6 +59,47 @@ class McpService {
     }
 
     /**
+     * Configure logging for MCP server
+     */
+    configureLogging(config) {
+        const transportConfig = { ...config.transport };
+
+        if (config.logFile) {
+            console.log(
+                `MCP Service: Configuring logging for ${config.name} to ${config.logFile}`
+            );
+
+            // Ensure log directory exists
+            const logDir = path.dirname(config.logFile);
+            if (!fs.existsSync(logDir)) {
+                fs.mkdirSync(logDir, { recursive: true });
+            }
+
+            // Write server start timestamp to log
+            const timestamp = new Date().toISOString();
+            fs.appendFileSync(
+                config.logFile,
+                `\n=== ${config.name} MCP Server Started ${timestamp} ===\n`
+            );
+
+            // Environment variables for the server process
+            if (!transportConfig.env) {
+                transportConfig.env = { ...process.env };
+            }
+
+            // Add logging environment variables
+            transportConfig.env.MCP_LOG_FILE = config.logFile;
+            transportConfig.env.NODE_ENV = "production";
+            transportConfig.env.SILENT = "true";
+            transportConfig.env.DEBUG = "";
+
+            // Suppress server process output by redirecting to our log file
+            transportConfig.stdio = ["pipe", "ignore", "ignore"];
+        }
+
+        return transportConfig;
+    }
+    /**
      * Reconnect a specific client
      */
     async reconnectClient(index) {
@@ -66,17 +109,8 @@ class McpService {
         );
 
         try {
-            // Add logging configuration if specified
-            const transportConfig = { ...config.transport };
-            if (config.logFile) {
-                console.log(
-                    `MCP Service: Configuring logging for ${config.name} reconnect to ${config.logFile}`
-                );
-                if (!transportConfig.env) {
-                    transportConfig.env = {};
-                }
-                transportConfig.env.MCP_LOG_FILE = config.logFile;
-            }
+            // Configure logging for the transport
+            const transportConfig = this.configureLogging(config);
 
             const transport = new StdioClientTransport(transportConfig);
             const client = new Client({
@@ -106,18 +140,8 @@ class McpService {
 
         const clientPromises = this.serverConfigs.map(async (config) => {
             try {
-                // Add logging configuration if specified
-                const transportConfig = { ...config.transport };
-                if (config.logFile) {
-                    console.log(
-                        `MCP Service: Configuring logging for ${config.name} to ${config.logFile}`
-                    );
-                    // Set up logging environment variable if needed
-                    if (!transportConfig.env) {
-                        transportConfig.env = {};
-                    }
-                    transportConfig.env.MCP_LOG_FILE = config.logFile;
-                }
+                // Configure logging for the transport
+                const transportConfig = this.configureLogging(config);
 
                 const transport = new StdioClientTransport(transportConfig);
                 const client = new Client({

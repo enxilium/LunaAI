@@ -9,13 +9,7 @@
                     "properties": {
                         "format": {
                             "type": "STRING",
-                            "description": "Format for the date (optional)",
-                            "enum": [
-                                "short",
-                                "long",
-                                "iso",
-                                "relative"
-                            ]
+                            "description": "Format for the date (optional). Valid values: \"short\", \"long\", \"iso\", \"relative\""
                         }
                     }
                 }
@@ -28,13 +22,7 @@
                     "properties": {
                         "format": {
                             "type": "STRING",
-                            "description": "Format for the time (optional)",
-                            "enum": [
-                                "short",
-                                "long",
-                                "iso",
-                                "relative"
-                            ]
+                            "description": "Format for the time (optional). Valid values: \"short\", \"long\", \"iso\", \"relative\""
                         }
                     }
                 }
@@ -90,7 +78,6 @@
                             "type": "STRING"
                         }
                     },
-                    "description": "Retrieve a user\nError Responses:\n400: 400",
                     "required": [
                         "user_id"
                     ]
@@ -108,12 +95,9 @@
                         },
                         "page_size": {
                             "type": "INTEGER",
-                            "description": "The number of items from the full list desired in the response. Maximum: 100",
-                            "default": 100
+                            "description": "The number of items from the full list desired in the response. Maximum: 100"
                         }
-                    },
-                    "description": "List all users\nError Responses:\n400: 400",
-                    "required": []
+                    }
                 }
             },
             {
@@ -121,9 +105,7 @@
                 "description": "Retrieve your token's bot user",
                 "parameters": {
                     "type": "OBJECT",
-                    "properties": {},
-                    "description": "Retrieve your token's bot user",
-                    "required": []
+                    "properties": {}
                 }
             },
             {
@@ -145,9 +127,7 @@
                         },
                         "filter": {
                             "type": "OBJECT",
-                            "description": "When supplied, limits which pages are returned based on the [filter conditions](ref:post-database-query-filter).",
-                            "additionalProperties": true,
-                            "properties": {}
+                            "description": "When supplied, limits which pages are returned based on the [filter conditions](ref:post-database-query-filter)."
                         },
                         "sorts": {
                             "type": "ARRAY",
@@ -163,14 +143,14 @@
                                         "enum": [
                                             "ascending",
                                             "descending"
-                                        ]
+                                        ],
+                                        "format": "enum"
                                     }
                                 },
                                 "required": [
                                     "property",
                                     "direction"
-                                ],
-                                "additionalProperties": true
+                                ]
                             }
                         },
                         "start_cursor": {
@@ -179,8 +159,7 @@
                         },
                         "page_size": {
                             "type": "INTEGER",
-                            "description": "The number of items from the full list desired in the response. Maximum: 100",
-                            "default": 100
+                            "description": "The number of items from the full list desired in the response. Maximum: 100"
                         },
                         "archived": {
                             "type": "BOOLEAN"
@@ -189,7 +168,6 @@
                             "type": "BOOLEAN"
                         }
                     },
-                    "description": "Query a database",
                     "required": [
                         "database_id"
                     ]
@@ -217,8 +195,7 @@
                                     "type": "STRING",
                                     "description": "The name of the timestamp to sort against. Possible values include `last_edited_time`."
                                 }
-                            },
-                            "additionalProperties": true
+                            }
                         },
                         "filter": {
                             "type": "OBJECT",
@@ -232,8 +209,7 @@
                                     "type": "STRING",
                                     "description": "The name of the property to filter by. Currently the only property you can filter by is the object type.  Possible values include `object`.   Limitation: Currently the only filter allowed is `object` which will filter by type of object (either `page` or `database`)"
                                 }
-                            },
-                            "additionalProperties": true
+                            }
                         },
                         "start_cursor": {
                             "type": "STRING",
@@ -241,12 +217,9 @@
                         },
                         "page_size": {
                             "type": "INTEGER",
-                            "description": "The number of items from the full list to include in the response. Maximum: `100`.",
-                            "default": 100
+                            "description": "The number of items from the full list to include in the response. Maximum: `100`."
                         }
-                    },
-                    "description": "Search by title",
-                    "required": []
+                    }
                 }
             },
             {
@@ -265,11 +238,9 @@
                         },
                         "page_size": {
                             "type": "INTEGER",
-                            "description": "The number of items from the full list desired in the response. Maximum: 100",
-                            "default": 100
+                            "description": "The number of items from the full list desired in the response. Maximum: 100"
                         }
                     },
-                    "description": "Retrieve block children",
                     "required": [
                         "block_id"
                     ]
@@ -317,7 +288,8 @@
                                                             "type": "STRING",
                                                             "enum": [
                                                                 "text"
-                                                            ]
+                                                            ],
+                                                            "format": "enum"
                                                         }
                                                     },
                                                     "required": [
@@ -356,7 +328,8 @@
                                                             "type": "STRING",
                                                             "enum": [
                                                                 "text"
-                                                            ]
+                                                            ],
+                                                            "format": "enum"
                                                         }
                                                     },
                                                     "required": [
@@ -374,7 +347,8 @@
                                         "enum": [
                                             "paragraph",
                                             "bulleted_list_item"
-                                        ]
+                                        ],
+                                        "format": "enum"
                                     }
                                 }
                             }
@@ -384,7 +358,6 @@
                             "description": "The ID of the existing block that the new block should be appended after."
                         }
                     },
-                    "description": "Append block children",
                     "required": [
                         "block_id",
                         "children"
@@ -402,7 +375,6 @@
                             "description": "Identifier for a Notion block"
                         }
                     },
-                    "description": "Retrieve a block",
                     "required": [
                         "block_id"
                     ]
@@ -421,16 +393,13 @@
                         "type": {
                             "type": "OBJECT",
                             "description": "The [block object `type`](ref:block#block-object-keys) value with the properties to be updated. Currently only `text` (for supported block types) and `checked` (for `to_do` blocks) fields can be updated.",
-                            "properties": {},
-                            "additionalProperties": true
+                            "properties": {}
                         },
                         "archived": {
                             "type": "BOOLEAN",
-                            "description": "Set to true to archive (delete) a block. Set to false to un-archive (restore) a block.",
-                            "default": true
+                            "description": "Set to true to archive (delete) a block. Set to false to un-archive (restore) a block."
                         }
                     },
-                    "description": "Update a block",
                     "required": [
                         "block_id"
                     ]
@@ -447,7 +416,6 @@
                             "description": "Identifier for a Notion block"
                         }
                     },
-                    "description": "Delete a block",
                     "required": [
                         "block_id"
                     ]
@@ -468,7 +436,6 @@
                             "description": "A list of page property value IDs associated with the page. Use this param to limit the response to a specific page property value or values. To retrieve multiple properties, specify each page property ID. For example: `?filter_properties=iAk8&filter_properties=b7dh`."
                         }
                     },
-                    "description": "Retrieve a page",
                     "required": [
                         "page_id"
                     ]
@@ -511,7 +478,8 @@
                                                 "type": "STRING",
                                                 "enum": [
                                                     "text"
-                                                ]
+                                                ],
+                                                "format": "enum"
                                             }
                                         },
                                         "required": [
@@ -523,7 +491,8 @@
                                     "type": "STRING",
                                     "enum": [
                                         "title"
-                                    ]
+                                    ],
+                                    "format": "enum"
                                 }
                             },
                             "required": [
@@ -532,8 +501,7 @@
                         },
                         "in_trash": {
                             "type": "BOOLEAN",
-                            "description": "Set to true to delete a block. Set to false to restore a block.",
-                            "default": false
+                            "description": "Set to true to delete a block. Set to false to restore a block."
                         },
                         "archived": {
                             "type": "BOOLEAN"
@@ -569,7 +537,8 @@
                                     "type": "STRING",
                                     "enum": [
                                         "external"
-                                    ]
+                                    ],
+                                    "format": "enum"
                                 }
                             },
                             "required": [
@@ -577,7 +546,6 @@
                             ]
                         }
                     },
-                    "description": "Update page properties",
                     "required": [
                         "page_id"
                     ]
@@ -591,30 +559,29 @@
                     "properties": {
                         "parent": {
                             "type": "OBJECT",
+                            "description": "The parent of the new page. For pages in databases, use {\"type\": \"database_id\", \"database_id\": \"uuid\"}. For pages under other pages, use {\"type\": \"page_id\", \"page_id\": \"uuid\"}.",
                             "properties": {
-                                "page_id": {
-                                    "type": "STRING"
+                                "type": {
+                                    "type": "STRING",
+                                    "description": "The type of parent. Use \"database_id\" to create in a database, \"page_id\" to create under a page.",
+                                    "enum": [
+                                        "database_id",
+                                        "page_id"
+                                    ],
+                                    "format": "enum"
                                 },
                                 "database_id": {
                                     "type": "STRING",
-                                    "description": "Database ID for creating pages in databases"
+                                    "description": "The ID of the parent database (required when type is \"database_id\"). Use this to create a new page in a database."
                                 },
-                                "type": {
+                                "page_id": {
                                     "type": "STRING",
-                                    "enum": [
-                                        "page_id",
-                                        "database_id",
-                                        "workspace"
-                                    ],
-                                    "description": "Type of parent (page_id, database_id, or workspace)"
-                                },
-                                "workspace": {
-                                    "type": "BOOLEAN",
-                                    "description": "Set to true for workspace parent"
+                                    "description": "The ID of the parent page (required when type is \"page_id\"). Use this to create a new page under an existing page."
                                 }
                             },
-                            "required": [],
-                            "additionalProperties": true
+                            "required": [
+                                "type"
+                            ]
                         },
                         "properties": {
                             "type": "OBJECT",
@@ -633,21 +600,20 @@
                                                 },
                                                 "required": [
                                                     "content"
-                                                ],
-                                                "additionalProperties": true
+                                                ]
                                             }
                                         },
                                         "required": [
                                             "text"
-                                        ],
-                                        "additionalProperties": true
+                                        ]
                                     }
                                 },
                                 "type": {
                                     "type": "STRING",
                                     "enum": [
                                         "title"
-                                    ]
+                                    ],
+                                    "format": "enum"
                                 }
                             },
                             "required": [
@@ -670,7 +636,6 @@
                             "description": "The cover image of the new page, represented as a [file object](https://developers.notion.com/reference/file-object)."
                         }
                     },
-                    "description": "Create a page",
                     "required": [
                         "parent",
                         "properties"
@@ -689,48 +654,22 @@
                                 "type": {
                                     "type": "STRING",
                                     "enum": [
-                                        "page_id",
-                                        "database_id",
-                                        "workspace"
+                                        "page_id"
                                     ],
-                                    "description": "Type of parent (page_id, database_id, or workspace)"
+                                    "format": "enum"
                                 },
                                 "page_id": {
                                     "type": "STRING"
-                                },
-                                "database_id": {
-                                    "type": "STRING",
-                                    "description": "Database ID for creating pages in databases"
-                                },
-                                "workspace": {
-                                    "type": "BOOLEAN",
-                                    "description": "Set to true for workspace parent"
                                 }
                             },
                             "required": [
-                                "type"
-                            ],
-                            "additionalProperties": true
+                                "type",
+                                "page_id"
+                            ]
                         },
                         "properties": {
                             "type": "OBJECT",
-                            "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object).",
-                            "additionalProperties": {
-                                "type": "OBJECT",
-                                "properties": {
-                                    "title": {
-                                        "type": "OBJECT",
-                                        "properties": {}
-                                    },
-                                    "description": {
-                                        "type": "STRING"
-                                    }
-                                },
-                                "required": [
-                                    "title"
-                                ],
-                                "description": "Supports multiple types: OBJECT"
-                            }
+                            "description": "Property schema of database. The keys are the names of properties as they appear in Notion and the values are [property schema objects](https://developers.notion.com/reference/property-schema-object)."
                         },
                         "title": {
                             "type": "ARRAY",
@@ -755,7 +694,8 @@
                                         "type": "STRING",
                                         "enum": [
                                             "text"
-                                        ]
+                                        ],
+                                        "format": "enum"
                                     }
                                 },
                                 "required": [
@@ -764,7 +704,6 @@
                             }
                         }
                     },
-                    "description": "Create a database",
                     "required": [
                         "parent",
                         "properties"
@@ -805,7 +744,8 @@
                                         "type": "STRING",
                                         "enum": [
                                             "text"
-                                        ]
+                                        ],
+                                        "format": "enum"
                                     }
                                 },
                                 "required": [
@@ -837,7 +777,8 @@
                                         "type": "STRING",
                                         "enum": [
                                             "text"
-                                        ]
+                                        ],
+                                        "format": "enum"
                                     }
                                 },
                                 "required": [
@@ -852,11 +793,9 @@
                                 "name": {
                                     "type": "STRING"
                                 }
-                            },
-                            "additionalProperties": true
+                            }
                         }
                     },
-                    "description": "Update a database",
                     "required": [
                         "database_id"
                     ]
@@ -873,7 +812,6 @@
                             "description": "An identifier for the Notion database."
                         }
                     },
-                    "description": "Retrieve a database",
                     "required": [
                         "database_id"
                     ]
@@ -902,7 +840,6 @@
                             "description": "For paginated properties."
                         }
                     },
-                    "description": "Retrieve a page property item",
                     "required": [
                         "page_id",
                         "property_id"
@@ -928,7 +865,6 @@
                             "description": "The number of items from the full list desired in the response. Maximum: 100"
                         }
                     },
-                    "description": "Retrieve comments",
                     "required": [
                         "block_id"
                     ]
@@ -947,27 +883,11 @@
                                 "page_id": {
                                     "type": "STRING",
                                     "description": "the page ID"
-                                },
-                                "database_id": {
-                                    "type": "STRING",
-                                    "description": "Database ID for creating pages in databases"
-                                },
-                                "type": {
-                                    "type": "STRING",
-                                    "enum": [
-                                        "page_id",
-                                        "database_id",
-                                        "workspace"
-                                    ],
-                                    "description": "Type of parent (page_id, database_id, or workspace)"
-                                },
-                                "workspace": {
-                                    "type": "BOOLEAN",
-                                    "description": "Set to true for workspace parent"
                                 }
                             },
-                            "required": [],
-                            "additionalProperties": true
+                            "required": [
+                                "page_id"
+                            ]
                         },
                         "rich_text": {
                             "type": "ARRAY",
@@ -984,18 +904,15 @@
                                         },
                                         "required": [
                                             "content"
-                                        ],
-                                        "additionalProperties": true
+                                        ]
                                     }
                                 },
                                 "required": [
                                     "text"
-                                ],
-                                "additionalProperties": true
+                                ]
                             }
                         }
                     },
-                    "description": "Create comment",
                     "required": [
                         "parent",
                         "rich_text"
@@ -1003,7 +920,7 @@
                 }
             },
             {
-                "name": "spotifySpotifyPlayback",
+                "name": "spotifySpotifyplayback",
                 "description": "Manages the current playback with the following actions:\n    - get: Get information about user's current track.\n    - start: Starts playing new item or resumes current playback if called with no uri.\n    - pause: Pauses current playback.\n    - skip: Skips current track.\n    ",
                 "parameters": {
                     "type": "OBJECT",
@@ -1013,22 +930,19 @@
                             "description": "Action to perform: 'get', 'start', 'pause' or 'skip'."
                         },
                         "spotify_uri": {
-                            "type": "STRING",
-                            "nullable": true
+                            "type": "STRING"
                         },
                         "num_skips": {
-                            "type": "INTEGER",
-                            "nullable": true
+                            "type": "INTEGER"
                         }
                     },
-                    "description": "Manages the current playback with the following actions:\n    - get: Get information about user's current track.\n    - start: Starts playing new item or resumes current playback if called with no uri.\n    - pause: Pauses current playback.\n    - skip: Skips current track.\n    ",
                     "required": [
                         "action"
                     ]
                 }
             },
             {
-                "name": "spotifySpotifySearch",
+                "name": "spotifySpotifysearch",
                 "description": "Search for tracks, albums, artists, or playlists on Spotify.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1038,22 +952,19 @@
                             "description": "query term"
                         },
                         "qtype": {
-                            "type": "STRING",
-                            "nullable": true
+                            "type": "STRING"
                         },
                         "limit": {
-                            "type": "INTEGER",
-                            "nullable": true
+                            "type": "INTEGER"
                         }
                     },
-                    "description": "Search for tracks, albums, artists, or playlists on Spotify.",
                     "required": [
                         "query"
                     ]
                 }
             },
             {
-                "name": "spotifySpotifyQueue",
+                "name": "spotifySpotifyqueue",
                 "description": "Manage the playback queue - get the queue or add tracks.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1063,18 +974,16 @@
                             "description": "Action to perform: 'add' or 'get'."
                         },
                         "track_id": {
-                            "type": "STRING",
-                            "nullable": true
+                            "type": "STRING"
                         }
                     },
-                    "description": "Manage the playback queue - get the queue or add tracks.",
                     "required": [
                         "action"
                     ]
                 }
             },
             {
-                "name": "spotifySpotifyGetInfo",
+                "name": "spotifySpotifygetinfo",
                 "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
                 "parameters": {
                     "type": "OBJECT",
@@ -1084,14 +993,13 @@
                             "description": "URI of the item to get information about. If 'playlist' or 'album', returns its tracks. If 'artist', returns albums and top tracks."
                         }
                     },
-                    "description": "Get detailed information about a Spotify item (track, album, artist, or playlist).",
                     "required": [
                         "item_uri"
                     ]
                 }
             },
             {
-                "name": "spotifySpotifyPlaylist",
+                "name": "spotifySpotifyplaylist",
                 "description": "Manage Spotify playlists.\n    - get: Get a list of user's playlists.\n    - get_tracks: Get tracks in a specific playlist.\n    - add_tracks: Add tracks to a specific playlist.\n    - remove_tracks: Remove tracks from a specific playlist.\n    - change_details: Change details of a specific playlist.\n    ",
                 "parameters": {
                     "type": "OBJECT",
@@ -1101,111 +1009,44 @@
                             "description": "Action to perform: 'get', 'get_tracks', 'add_tracks', 'remove_tracks', 'change_details'."
                         },
                         "playlist_id": {
-                            "type": "STRING",
-                            "nullable": true
+                            "type": "STRING"
                         },
                         "track_ids": {
                             "type": "ARRAY",
                             "items": {
                                 "type": "STRING"
-                            },
-                            "nullable": true
+                            }
                         },
                         "name": {
-                            "type": "STRING",
-                            "nullable": true
+                            "type": "STRING"
                         },
                         "description": {
-                            "type": "STRING",
-                            "nullable": true
+                            "type": "STRING"
                         }
                     },
-                    "description": "Manage Spotify playlists.\n    - get: Get a list of user's playlists.\n    - get_tracks: Get tracks in a specific playlist.\n    - add_tracks: Add tracks to a specific playlist.\n    - remove_tracks: Remove tracks from a specific playlist.\n    - change_details: Change details of a specific playlist.\n    ",
                     "required": [
                         "action"
                     ]
                 }
             },
             {
-                "name": "spotifySpotifyResetAuth",
+                "name": "spotifySpotifyresetauth",
                 "description": "Reset Spotify authentication.",
                 "parameters": {
                     "type": "OBJECT",
-                    "properties": {},
-                    "description": "Reset Spotify authentication."
+                    "properties": {}
                 }
             },
             {
-                "name": "weatherWeatherGetHourly",
-                "description": "Get hourly weather forecast for the next 12 hours",
-                "parameters": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "location": {
-                            "type": "STRING",
-                            "description": "The city or location for which to retrieve the weather forecast."
-                        },
-                        "units": {
-                            "type": "STRING",
-                            "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
-                            "enum": [
-                                "metric",
-                                "imperial"
-                            ]
-                        }
-                    },
-                    "description": "Get hourly weather forecast for the next 12 hours",
-                    "required": [
-                        "location"
-                    ]
-                }
-            },
-            {
-                "name": "weatherWeatherGetDaily",
-                "description": "Get daily weather forecast for up to 15 days",
-                "parameters": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "location": {
-                            "type": "STRING",
-                            "description": "The city or location for which to retrieve the weather forecast."
-                        },
-                        "days": {
-                            "type": "STRING",
-                            "description": "Number of days to forecast (1, 5, 10, or 15). Default is 5.",
-                            "enum": [
-                                "1",
-                                "5",
-                                "10",
-                                "15"
-                            ]
-                        },
-                        "units": {
-                            "type": "STRING",
-                            "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
-                            "enum": [
-                                "metric",
-                                "imperial"
-                            ]
-                        }
-                    },
-                    "description": "Get daily weather forecast for up to 15 days",
-                    "required": [
-                        "location"
-                    ]
-                }
-            },
-            {
-                "name": "googleCalendarListCalendars",
+                "name": "googlecalendarListCalendars",
                 "description": "List all available calendars",
                 "parameters": {
                     "type": "OBJECT",
-                    "properties": {},
-                    "description": "List all available calendars"
+                    "properties": {}
                 }
             },
             {
-                "name": "googleCalendarListEvents",
+                "name": "googlecalendarListEvents",
                 "description": "List events from one or more calendars.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1227,14 +1068,13 @@
                             "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
                         }
                     },
-                    "description": "List events from one or more calendars.",
                     "required": [
                         "calendarId"
                     ]
                 }
             },
             {
-                "name": "googleCalendarSearchEvents",
+                "name": "googlecalendarSearchEvents",
                 "description": "Search for events in a calendar by text query.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1260,7 +1100,6 @@
                             "description": "Timezone as IANA Time Zone Database name (e.g., America/Los_Angeles). Takes priority over calendar's default timezone. Only used for timezone-naive datetime strings."
                         }
                     },
-                    "description": "Search for events in a calendar by text query.",
                     "required": [
                         "calendarId",
                         "query",
@@ -1270,16 +1109,15 @@
                 }
             },
             {
-                "name": "googleCalendarListColors",
+                "name": "googlecalendarListColors",
                 "description": "List available color IDs and their meanings for calendar events",
                 "parameters": {
                     "type": "OBJECT",
-                    "properties": {},
-                    "description": "List available color IDs and their meanings for calendar events"
+                    "properties": {}
                 }
             },
             {
-                "name": "googleCalendarCreateEvent",
+                "name": "googlecalendarCreateEvent",
                 "description": "Create a new calendar event.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1353,7 +1191,7 @@
                                                     "email",
                                                     "popup"
                                                 ],
-                                                "default": "popup"
+                                                "format": "enum"
                                             },
                                             "minutes": {
                                                 "type": "NUMBER",
@@ -1378,7 +1216,6 @@
                             }
                         }
                     },
-                    "description": "Create a new calendar event.",
                     "required": [
                         "calendarId",
                         "summary",
@@ -1388,7 +1225,7 @@
                 }
             },
             {
-                "name": "googleCalendarUpdateEvent",
+                "name": "googlecalendarUpdateEvent",
                 "description": "Update an existing calendar event with recurring event modification scope support.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1466,7 +1303,7 @@
                                                     "email",
                                                     "popup"
                                                 ],
-                                                "default": "popup"
+                                                "format": "enum"
                                             },
                                             "minutes": {
                                                 "type": "NUMBER",
@@ -1498,7 +1335,7 @@
                                 "externalOnly",
                                 "none"
                             ],
-                            "default": "all"
+                            "format": "enum"
                         },
                         "modificationScope": {
                             "type": "STRING",
@@ -1507,7 +1344,8 @@
                                 "thisAndFollowing",
                                 "all",
                                 "thisEventOnly"
-                            ]
+                            ],
+                            "format": "enum"
                         },
                         "originalStartTime": {
                             "type": "STRING",
@@ -1518,7 +1356,6 @@
                             "description": "Start date for future instances in the ISO 8601 format '2024-01-01T10:00:00'"
                         }
                     },
-                    "description": "Update an existing calendar event with recurring event modification scope support.",
                     "required": [
                         "calendarId",
                         "eventId"
@@ -1526,7 +1363,7 @@
                 }
             },
             {
-                "name": "googleCalendarDeleteEvent",
+                "name": "googlecalendarDeleteEvent",
                 "description": "Delete a calendar event.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1547,10 +1384,9 @@
                                 "externalOnly",
                                 "none"
                             ],
-                            "default": "all"
+                            "format": "enum"
                         }
                     },
-                    "description": "Delete a calendar event.",
                     "required": [
                         "calendarId",
                         "eventId"
@@ -1558,7 +1394,7 @@
                 }
             },
             {
-                "name": "googleCalendarGetFreebusy",
+                "name": "googlecalendarGetFreebusy",
                 "description": "Query free/busy information for calendars. Note: Time range is limited to a maximum of 3 months between timeMin and timeMax.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1593,16 +1429,13 @@
                         },
                         "groupExpansionMax": {
                             "type": "INTEGER",
-                            "description": "Maximum number of calendars to expand per group (max 100)",
-                            "maximum": 100
+                            "description": "Maximum number of calendars to expand per group (max 100)"
                         },
                         "calendarExpansionMax": {
                             "type": "INTEGER",
-                            "description": "Maximum number of calendars to expand (max 50)",
-                            "maximum": 50
+                            "description": "Maximum number of calendars to expand (max 50)"
                         }
                     },
-                    "description": "Query free/busy information for calendars. Note: Time range is limited to a maximum of 3 months between timeMin and timeMax.",
                     "required": [
                         "calendars",
                         "timeMin",
@@ -1611,7 +1444,7 @@
                 }
             },
             {
-                "name": "googleCalendarGetCurrentTime",
+                "name": "googlecalendarGetCurrentTime",
                 "description": "Get current system time and timezone information.",
                 "parameters": {
                     "type": "OBJECT",
@@ -1620,8 +1453,68 @@
                             "type": "STRING",
                             "description": "Optional IANA timezone (e.g., 'America/Los_Angeles', 'Europe/London', 'UTC'). If not provided, returns UTC time and system timezone for reference."
                         }
+                    }
+                }
+            },
+            {
+                "name": "weatherWeatherGetHourly",
+                "description": "Get hourly weather forecast for the next 12 hours",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "location": {
+                            "type": "STRING",
+                            "description": "The city or location for which to retrieve the weather forecast."
+                        },
+                        "units": {
+                            "type": "STRING",
+                            "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
+                            "enum": [
+                                "metric",
+                                "imperial"
+                            ],
+                            "format": "enum"
+                        }
                     },
-                    "description": "Get current system time and timezone information."
+                    "required": [
+                        "location"
+                    ]
+                }
+            },
+            {
+                "name": "weatherWeatherGetDaily",
+                "description": "Get daily weather forecast for up to 15 days",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "location": {
+                            "type": "STRING",
+                            "description": "The city or location for which to retrieve the weather forecast."
+                        },
+                        "days": {
+                            "type": "STRING",
+                            "description": "Number of days to forecast (1, 5, 10, or 15). Default is 5.",
+                            "enum": [
+                                "1",
+                                "5",
+                                "10",
+                                "15"
+                            ],
+                            "format": "enum"
+                        },
+                        "units": {
+                            "type": "STRING",
+                            "description": "Temperature unit system (metric for Celsius, imperial for Fahrenheit). Default is metric.",
+                            "enum": [
+                                "metric",
+                                "imperial"
+                            ],
+                            "format": "enum"
+                        }
+                    },
+                    "required": [
+                        "location"
+                    ]
                 }
             }
         ]
