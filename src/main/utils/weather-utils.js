@@ -34,8 +34,11 @@ async function getCoordinates(location, apiKey) {
         }
         return { lat: null, lon: null };
     } catch (error) {
-        const { getErrorService } = require('../services/error-service');
-        getErrorService().reportError(`Could not find coordinates for ${location}: ${error.message}`, "WeatherUtils");
+        const { getErrorService } = require("../services/error-service");
+        getErrorService().reportError(
+            `Could not find coordinates for ${location}: ${error.message}`,
+            "WeatherUtils"
+        );
         throw new Error(`Could not find coordinates for ${location}`);
     }
 }
@@ -96,8 +99,11 @@ async function fetchWeatherData(
             return response.data; // Fallback to full forecast
         }
     } catch (error) {
-        const { getErrorService } = require('../services/error-service');
-        getErrorService().reportError(`Failed to fetch weather data for ${location}: ${error.message}`, "WeatherUtils");
+        const { getErrorService } = require("../services/error-service");
+        getErrorService().reportError(
+            `Failed to fetch weather data for ${location}: ${error.message}`,
+            "WeatherUtils"
+        );
         throw new Error(`Failed to fetch weather data for ${location}`);
     }
 }

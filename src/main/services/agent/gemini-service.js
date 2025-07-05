@@ -100,7 +100,10 @@ class GeminiService {
             this.internalTools = { functionDeclarations };
             this.internalToolSet = new Set(commandNames);
         } catch (error) {
-            this.errorService.reportError(`Error processing internal tools: ${error.message}`, "gemini-service");
+            this.errorService.reportError(
+                `Error processing internal tools: ${error.message}`,
+                "gemini-service"
+            );
             return { success: false };
         }
 
@@ -108,7 +111,9 @@ class GeminiService {
 
         // Process MCP clients and their tools using the new tool mapper
         if (mcpClients.length > 0) {
-            console.log(`[Gemini Service] Processing ${mcpClients.length} MCP clients`);
+            console.log(
+                `[Gemini Service] Processing ${mcpClients.length} MCP clients`
+            );
 
             const serverConfigs = this.mcpService.getServerConfigs();
 
@@ -150,7 +155,11 @@ class GeminiService {
                 }
             }
 
-            console.log(`[Gemini Service] MCP Tool Mapper initialized with ${this.mcpToolMapper.getDebugInfo().totalHandlers} handlers`);
+            console.log(
+                `[Gemini Service] MCP Tool Mapper initialized with ${
+                    this.mcpToolMapper.getDebugInfo().totalHandlers
+                } handlers`
+            );
         }
 
         if (
@@ -213,9 +222,14 @@ class GeminiService {
                     ),
                     JSON.stringify(allTools, null, 4)
                 );
-                console.log("[Gemini Service] Saved tools configuration to all-tools.json");
+                console.log(
+                    "[Gemini Service] Saved tools configuration to all-tools.json"
+                );
             } catch (error) {
-                this.errorService.reportError(`Failed to save tools configuration: ${error.message}`, "gemini-service");
+                this.errorService.reportError(
+                    `Failed to save tools configuration: ${error.message}`,
+                    "gemini-service"
+                );
             }
 
             this.session = await this.client.live.connect({
@@ -230,7 +244,10 @@ class GeminiService {
                     },
                     onmessage: (message) => this.handleMessage(message),
                     onerror: (e) => {
-                        this.errorService.reportError(`Session error: ${e.message}`, "gemini-service");
+                        this.errorService.reportError(
+                            `Session error: ${e.message}`,
+                            "gemini-service"
+                        );
                         this.eventsService.sendToRenderer(
                             "orb",
                             "gemini:error",
@@ -238,7 +255,10 @@ class GeminiService {
                         );
                     },
                     onclose: (e) => {
-                        console.log("[Gemini Service] Session closed:", e.reason);
+                        console.log(
+                            "[Gemini Service] Session closed:",
+                            e.reason
+                        );
                         this.eventsService.sendToRenderer(
                             "orb",
                             "gemini:closed",
@@ -256,7 +276,10 @@ class GeminiService {
             });
             return { success: true };
         } catch (e) {
-            this.errorService.reportError(`Failed to connect session: ${e.message}`, "gemini-service");
+            this.errorService.reportError(
+                `Failed to connect session: ${e.message}`,
+                "gemini-service"
+            );
             this.eventsService.sendToRenderer("orb", "gemini:error", e.message);
             return { success: false, error: e.message };
         }

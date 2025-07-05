@@ -62,8 +62,11 @@ class EventsService extends EventEmitter {
                 }
             });
         } catch (error) {
-            const { getErrorService } = require('./error-service');
-            getErrorService().reportError(`Error setting up error service subscription: ${error.message}`, "EventsService");
+            const { getErrorService } = require("./error-service");
+            getErrorService().reportError(
+                `Error setting up error service subscription: ${error.message}`,
+                "EventsService"
+            );
         }
     }
 

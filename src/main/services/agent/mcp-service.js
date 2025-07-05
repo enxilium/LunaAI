@@ -17,8 +17,11 @@ class McpService {
     async initialize() {
         this.serverConfigs = await getMcpServers();
         if (!this.serverConfigs) {
-            const { getErrorService } = require('../error-service');
-            getErrorService().reportError("Could not load server configurations", "MCP Service");
+            const { getErrorService } = require("../error-service");
+            getErrorService().reportError(
+                "Could not load server configurations",
+                "MCP Service"
+            );
             return;
         }
     }
@@ -82,8 +85,11 @@ class McpService {
                 console.log(`[MCP Service] Connected to ${config.name}`);
                 return client;
             } catch (e) {
-                const { getErrorService } = require('../error-service');
-                getErrorService().reportError(`Failed to connect to ${config.name} server: ${e.message}`, "MCP Service");
+                const { getErrorService } = require("../error-service");
+                getErrorService().reportError(
+                    `Failed to connect to ${config.name} server: ${e.message}`,
+                    "MCP Service"
+                );
                 return null;
             }
         });
