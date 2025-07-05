@@ -114,7 +114,9 @@ export default function useAudio() {
         }
         setIsPlaying(false);
         pendingAudioCountRef.current = 0;
-        console.log("[useAudio] Audio playback stopped, isPlaying set to false");
+        console.log(
+            "[useAudio] Audio playback stopped, isPlaying set to false"
+        );
     }, []);
 
     const playAudio = useCallback(
@@ -125,7 +127,9 @@ export default function useAudio() {
                     playbackEndTimerRef.current = null;
                 }
                 pendingAudioCountRef.current++;
-                console.log(`[useAudio] Starting audio chunk. Pending: ${pendingAudioCountRef.current}`);
+                console.log(
+                    `[useAudio] Starting audio chunk. Pending: ${pendingAudioCountRef.current}`
+                );
                 setIsPlaying(true);
 
                 if (!outputAudioContextRef.current) {
@@ -184,10 +188,14 @@ export default function useAudio() {
                         if (!hasResolved) {
                             hasResolved = true;
                             pendingAudioCountRef.current--;
-                            console.log(`[useAudio] Audio chunk completed. Pending: ${pendingAudioCountRef.current}`);
+                            console.log(
+                                `[useAudio] Audio chunk completed. Pending: ${pendingAudioCountRef.current}`
+                            );
                             if (pendingAudioCountRef.current === 0) {
                                 playbackEndTimerRef.current = setTimeout(() => {
-                                    console.log("[useAudio] All audio completed, setting isPlaying to false");
+                                    console.log(
+                                        "[useAudio] All audio completed, setting isPlaying to false"
+                                    );
                                     setIsPlaying(false);
                                 }, 100); // Reduced from 250ms to 100ms for more responsive state changes
                             }
@@ -210,9 +218,13 @@ export default function useAudio() {
                 } catch (e) {
                     reportError(`Error playing audio chunk: ${e}`, "useAudio");
                     pendingAudioCountRef.current--;
-                    console.log(`[useAudio] Audio error. Pending: ${pendingAudioCountRef.current}`);
+                    console.log(
+                        `[useAudio] Audio error. Pending: ${pendingAudioCountRef.current}`
+                    );
                     if (pendingAudioCountRef.current === 0) {
-                        console.log("[useAudio] Error caused last audio to finish, setting isPlaying to false");
+                        console.log(
+                            "[useAudio] Error caused last audio to finish, setting isPlaying to false"
+                        );
                         setIsPlaying(false);
                     }
                     reject(e);

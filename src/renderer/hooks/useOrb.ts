@@ -32,7 +32,7 @@ export default function useOrb() {
     const endConversation = useCallback(() => {
         stopRecording();
         setIsPendingClose(true);
-        
+
         // Set a fallback timeout to force close the session if isSpeaking gets stuck
         if (fallbackTimeoutRef.current) {
             clearTimeout(fallbackTimeoutRef.current);
@@ -64,7 +64,9 @@ export default function useOrb() {
 
     useEffect(() => {
         if (isPendingClose && isSpeaking) {
-            console.log("[useOrb] Pending close, but still speaking. Waiting for final message...");
+            console.log(
+                "[useOrb] Pending close, but still speaking. Waiting for final message..."
+            );
             setFinalMessageStarted(true);
         }
     }, [isSpeaking, isPendingClose]);
@@ -72,13 +74,13 @@ export default function useOrb() {
     useEffect(() => {
         if (finalMessageStarted && !isSpeaking) {
             console.log("[useOrb] Final message completed, closing session...");
-            
+
             // Clear the fallback timeout since we're closing normally
             if (fallbackTimeoutRef.current) {
                 clearTimeout(fallbackTimeoutRef.current);
                 fallbackTimeoutRef.current = null;
             }
-            
+
             closeSession();
             setVisible(false);
 

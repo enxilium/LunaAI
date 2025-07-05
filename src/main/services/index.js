@@ -49,8 +49,11 @@ async function initializeCredentialsFromEnv() {
             try {
                 await credentialsService.setCredentials(key, value);
             } catch (error) {
-                const { getErrorService } = require('./error-service');
-                getErrorService().reportError(`Failed to store ${key}: ${error.message}`, "Services");
+                const { getErrorService } = require("./error-service");
+                getErrorService().reportError(
+                    `Failed to store ${key}: ${error.message}`,
+                    "Services"
+                );
             }
         }
     }

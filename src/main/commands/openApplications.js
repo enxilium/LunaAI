@@ -188,7 +188,10 @@ async function openApplication({ appName }) {
 
         return { success: true, message: `${appName} opened successfully.` };
     } catch (error) {
-        getErrorService().reportError(`Error opening application: ${error.message}`, "openApplications");
+        getErrorService().reportError(
+            `Error opening application: ${error.message}`,
+            "openApplications"
+        );
         return {
             error: error.message,
             error_solution: `I'm sorry, I couldn't open ${
@@ -237,7 +240,10 @@ async function openWorkspace({ workspaceName }) {
             message: `Workspace '${workspaceName}' opened.`,
         };
     } catch (error) {
-        getErrorService().reportError(`Error opening workspace: ${error.message}`, "openApplications");
+        getErrorService().reportError(
+            `Error opening workspace: ${error.message}`,
+            "openApplications"
+        );
         return {
             error: error.message,
             error_solution: `I couldn't open the workspace '${workspaceName}'. Please check your settings.`,

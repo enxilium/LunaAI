@@ -49,7 +49,9 @@ export default function useKeywordDetection(accessKey: string | null) {
                     );
                 }
             } else if (accessKey) {
-                console.log("window.electron.getAsset not available yet, waiting...");
+                console.log(
+                    "window.electron.getAsset not available yet, waiting..."
+                );
             }
         };
 
@@ -82,7 +84,10 @@ export default function useKeywordDetection(accessKey: string | null) {
                 console.log("Porcupine initialized, starting...");
                 start();
             } catch (err) {
-                reportError(`Failed to initialize Porcupine: ${err}`, "useKeywordDetection");
+                reportError(
+                    `Failed to initialize Porcupine: ${err}`,
+                    "useKeywordDetection"
+                );
             }
         };
 

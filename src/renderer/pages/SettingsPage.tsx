@@ -31,8 +31,7 @@ const PREFERENCES = [
 ];
 
 const SettingsPage: React.FC = () => {
-    const [settings, setSettings] = useState({
-    });
+    const [settings, setSettings] = useState({});
 
     async function fetchSettings() {
         const newSettings = await window.electron.getAsset("allSettings");

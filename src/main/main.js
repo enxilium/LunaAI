@@ -20,7 +20,10 @@ async function initialize() {
             return callback(decodeURIComponent(url));
         } catch (error) {
             const errorService = getErrorService();
-            errorService.reportError(`Protocol handler error: ${error.message}`, "main");
+            errorService.reportError(
+                `Protocol handler error: ${error.message}`,
+                "main"
+            );
         }
     });
 
@@ -40,7 +43,10 @@ async function initialize() {
         console.log("[Main] Luna AI initialized and ready");
     } catch (error) {
         const errorService = getErrorService();
-        errorService.reportError(`Initialization error: ${error.message}`, "main");
+        errorService.reportError(
+            `Initialization error: ${error.message}`,
+            "main"
+        );
     }
 }
 

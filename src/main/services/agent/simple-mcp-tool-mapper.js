@@ -23,7 +23,9 @@ class SimpleMcpToolMapper {
      * Register MCP tools and create corresponding Gemini handler functions
      */
     async registerMcpTools(mcpClient, serverName, tools) {
-        console.log(`[SimpleMcpToolMapper] Registering ${tools.length} tools from ${serverName}`);
+        console.log(
+            `[SimpleMcpToolMapper] Registering ${tools.length} tools from ${serverName}`
+        );
 
         for (const tool of tools) {
             try {
@@ -62,10 +64,12 @@ class SimpleMcpToolMapper {
 
                 // Store function declaration
                 this.functionDeclarations.push(geminiDeclaration);
-
             } catch (error) {
-                const { getErrorService } = require('../error-service');
-                getErrorService().reportError(`Failed to register ${tool.name}: ${error.message}`, "SimpleMcpToolMapper");
+                const { getErrorService } = require("../error-service");
+                getErrorService().reportError(
+                    `Failed to register ${tool.name}: ${error.message}`,
+                    "SimpleMcpToolMapper"
+                );
             }
         }
     }
@@ -422,8 +426,11 @@ class SimpleMcpToolMapper {
 
             return response.content;
         } catch (error) {
-            const { getErrorService } = require('../error-service');
-            getErrorService().reportError(`Error calling MCP tool ${mapping.originalToolName}: ${error.message}`, "SimpleMcpToolMapper");
+            const { getErrorService } = require("../error-service");
+            getErrorService().reportError(
+                `Error calling MCP tool ${mapping.originalToolName}: ${error.message}`,
+                "SimpleMcpToolMapper"
+            );
             throw error;
         }
     }
