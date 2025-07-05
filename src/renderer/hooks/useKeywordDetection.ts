@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { usePorcupine } from "@picovoice/porcupine-react";
+import useError from "./useError";
 
 const KEYWORD_LABEL = "LUNA";
 
 export default function useKeywordDetection(accessKey: string | null) {
     const [keywordPath, setKeywordPath] = useState<string | null>(null);
     const [modelPath, setModelPath] = useState<string | null>(null);
+    const { reportError } = useError();
 
     const {
         keywordDetection,
@@ -41,18 +43,18 @@ export default function useKeywordDetection(accessKey: string | null) {
                     setKeywordPath(fetchedKeywordPath);
                     setModelPath(fetchedModelPath);
                 } catch (error) {
-                    console.error(
-                        "Failed to get Porcupine asset paths:",
-                        error
+                    reportError(
+                        `Failed to get Porcupine asset paths: ${error}`,
+                        "useKeywordDetection"
                     );
                 }
             } else if (accessKey) {
-                console.warn("window.electron.getAssetPath not available yet.");
+                console.log("window.electron.getAsset not available yet, waiting...");
             }
         };
 
         fetchPaths();
-    }, [accessKey]);
+    }, [accessKey, reportError]);
 
     // Initialize Porcupine when access key and paths are available
     useEffect(() => {
@@ -80,7 +82,7 @@ export default function useKeywordDetection(accessKey: string | null) {
                 console.log("Porcupine initialized, starting...");
                 start();
             } catch (err) {
-                console.error("Failed to initialize Porcupine:", err);
+                reportError(`Failed to initialize Porcupine: ${err}`, "useKeywordDetection");
             }
         };
 
@@ -100,10 +102,11 @@ export default function useKeywordDetection(accessKey: string | null) {
     // If porcupine encounters errors, log them
     useEffect(() => {
         if (error) {
-            console.error("Porcupine error:", error);
+            reportError(`Porcupine error: ${error}`, "useKeywordDetection");
         }
-    }, [error]);
+    }, [error, reportError]);
 
+    // Debug log for listening status
     useEffect(() => {
         console.log("Porcupine isListening status:", isListening);
     }, [isListening]);

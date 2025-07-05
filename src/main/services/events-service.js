@@ -62,10 +62,8 @@ class EventsService extends EventEmitter {
                 }
             });
         } catch (error) {
-            console.error(
-                "Error setting up error service subscription:",
-                error
-            );
+            const { getErrorService } = require('./error-service');
+            getErrorService().reportError(`Error setting up error service subscription: ${error.message}`, "EventsService");
         }
     }
 
@@ -86,7 +84,7 @@ class EventsService extends EventEmitter {
 
         this._registerInvokeHandlers();
 
-        console.log("[EventsService] IPC handlers registered successfully");
+        console.log("[EventsService] IPC handlers registered");
     }
 
     /**
@@ -97,7 +95,6 @@ class EventsService extends EventEmitter {
         for (const [name, handler] of Object.entries(invokeHandlers)) {
             ipcMain.handle(name, (event, ...args) => handler(...args));
         }
-        console.log("Invoke handlers registered.");
     }
 
     /**
@@ -106,14 +103,6 @@ class EventsService extends EventEmitter {
      * @param {any} payload - Event payload
      */
     emit(eventName, payload) {
-        console.log(
-            `[EventsService] Emitting: ${eventName}`,
-            payload
-                ? typeof payload === "object"
-                    ? "(payload object)"
-                    : payload
-                : ""
-        );
         return super.emit(eventName, payload);
     }
 
@@ -186,7 +175,8 @@ class EventsService extends EventEmitter {
      * @param {Error|string} error - Error object or message
      */
     reportError(error) {
-        this.errorService.reportError(error, "events-service");
+        const errorMessage = error instanceof Error ? error.message : error;
+        this.errorService.reportError(errorMessage, "events-service");
     }
 }
 

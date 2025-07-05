@@ -39,7 +39,7 @@ async function createOrbWindow() {
 
         // Resolve promise when window is ready
         orbWindow.webContents.once("did-finish-load", () => {
-            console.log("Orb window loaded successfully");
+            console.log("[Orb Window] Loaded successfully");
             resolve(orbWindow);
         });
 
@@ -51,7 +51,7 @@ async function createOrbWindow() {
                     `Failed to load orb window: ${errorDescription} (${errorCode})`
                 );
                 const errorService = getErrorService();
-                errorService.reportError(error, "orb-window");
+                errorService.reportError(error.message, "orb-window");
                 reject(error);
             }
         );

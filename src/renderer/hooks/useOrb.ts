@@ -12,6 +12,7 @@ export default function useOrb() {
     const [visible, setVisible] = useState(false);
     const [isPendingClose, setIsPendingClose] = useState(false);
     const [finalMessageStarted, setFinalMessageStarted] = useState(false);
+    const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const { startSession, closeSession, isSpeaking, isSessionActive } =
         useGemini();
@@ -22,13 +23,28 @@ export default function useOrb() {
     const resetState = useCallback(() => {
         setIsPendingClose(false);
         setFinalMessageStarted(false);
+        if (fallbackTimeoutRef.current) {
+            clearTimeout(fallbackTimeoutRef.current);
+            fallbackTimeoutRef.current = null;
+        }
     }, []);
 
     const endConversation = useCallback(() => {
-        console.log("Ending conversation...");
         stopRecording();
         setIsPendingClose(true);
-    }, [stopRecording]);
+        
+        // Set a fallback timeout to force close the session if isSpeaking gets stuck
+        if (fallbackTimeoutRef.current) {
+            clearTimeout(fallbackTimeoutRef.current);
+        }
+        fallbackTimeoutRef.current = setTimeout(() => {
+            console.log("[useOrb] Fallback timeout: Force closing session");
+            closeSession();
+            setVisible(false);
+            window.electron.send("audio-stream-end");
+            resetState();
+        }, 10000); // 10 second fallback timeout
+    }, [stopRecording, closeSession, resetState]);
 
     useEffect(() => {
         if (window.electron) {
@@ -36,7 +52,6 @@ export default function useOrb() {
                 .getAsset("key", "picovoice")
                 .then((key: string | null) => {
                     setPicovoiceAccessKey(key);
-                    console.log("Received Picovoice access key");
                 })
                 .catch((err: Error) =>
                     reportError(
@@ -49,14 +64,21 @@ export default function useOrb() {
 
     useEffect(() => {
         if (isPendingClose && isSpeaking) {
-            console.log("Pending close, but still speaking. Waiting for final message...");
+            console.log("[useOrb] Pending close, but still speaking. Waiting for final message...");
             setFinalMessageStarted(true);
         }
     }, [isSpeaking, isPendingClose]);
 
     useEffect(() => {
         if (finalMessageStarted && !isSpeaking) {
-            console.log("Final message completed, closing session...");
+            console.log("[useOrb] Final message completed, closing session...");
+            
+            // Clear the fallback timeout since we're closing normally
+            if (fallbackTimeoutRef.current) {
+                clearTimeout(fallbackTimeoutRef.current);
+                fallbackTimeoutRef.current = null;
+            }
+            
             closeSession();
             setVisible(false);
 
@@ -69,8 +91,6 @@ export default function useOrb() {
 
     useEffect(() => {
         if (keywordDetection && !isRecording && !isSessionActive) {
-            console.log("Keyword detected!");
-
             setVisible(true);
             window.electron.send("show-orb");
 
@@ -90,9 +110,9 @@ export default function useOrb() {
         };
     }, [endConversation]);
 
-    // tmporary
+    // Debug logging for isSpeaking state
     useEffect(() => {
-        console.log("isSpeaking state", isSpeaking);
+        console.log(`[useOrb] isSpeaking state changed: ${isSpeaking}`);
     }, [isSpeaking]);
 
     return {

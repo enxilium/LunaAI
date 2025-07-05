@@ -9,10 +9,8 @@ const { getGeminiConfig } = require("../../invokes/get-asset");
 const { getCredentialsService } = require("../user/credentials-service");
 const { getMcpService } = require("./mcp-service");
 const { SimpleMcpToolMapper } = require("./simple-mcp-tool-mapper");
-const {
-    StartupMcpValidator,
-} = require("../../validation/startup-mcp-validator");
 const { executeCommand } = require("../../invokes/execute-command");
+const { getErrorService } = require("../error-service");
 const commands = require("../../commands");
 const fs = require("fs");
 const path = require("path");
@@ -33,7 +31,7 @@ class GeminiService {
 
         // Initialize the MCP tool mapper
         this.mcpToolMapper = new SimpleMcpToolMapper();
-        this.startupValidator = new StartupMcpValidator();
+        this.errorService = getErrorService();
     }
 
     async initialize() {
@@ -51,8 +49,9 @@ class GeminiService {
 
         // Ensure internalTools exists before using it
         if (!internalTools) {
-            console.error(
-                "Gemini Service: internalTools is undefined in config"
+            this.errorService.reportError(
+                "internalTools is undefined in config",
+                "gemini-service"
             );
             return { success: false };
         }
@@ -101,7 +100,7 @@ class GeminiService {
             this.internalTools = { functionDeclarations };
             this.internalToolSet = new Set(commandNames);
         } catch (error) {
-            console.error("Error processing internal tools:", error);
+            this.errorService.reportError(`Error processing internal tools: ${error.message}`, "gemini-service");
             return { success: false };
         }
 
@@ -109,9 +108,7 @@ class GeminiService {
 
         // Process MCP clients and their tools using the new tool mapper
         if (mcpClients.length > 0) {
-            console.log(
-                `Gemini Service: Processing ${mcpClients.length} MCP clients`
-            );
+            console.log(`[Gemini Service] Processing ${mcpClients.length} MCP clients`);
 
             const serverConfigs = this.mcpService.getServerConfigs();
 
@@ -136,7 +133,7 @@ class GeminiService {
                     }
 
                     console.log(
-                        `Gemini Service: Processing ${tools.length} tools from ${serverConfig.name}`
+                        `[Gemini Service] Processing ${tools.length} tools from ${serverConfig.name}`
                     );
 
                     // Register tools with the mapper
@@ -146,70 +143,14 @@ class GeminiService {
                         tools
                     );
                 } catch (error) {
-                    console.error(
-                        `Gemini Service: Error processing MCP client ${serverConfig.name}:`,
-                        error
+                    this.errorService.reportError(
+                        `Error processing MCP client ${serverConfig.name}: ${error.message}`,
+                        "gemini-service"
                     );
                 }
             }
 
-            // Get debug info
-            const debugInfo = this.mcpToolMapper.getDebugInfo();
-            console.log(
-                "Gemini Service: MCP Tool Mapper Debug Info:",
-                debugInfo
-            );
-
-            // Run comprehensive validation on all registered MCP tools
-            console.log("Gemini Service: Running REAL MCP tool validation...");
-            try {
-                const validationResult =
-                    await this.startupValidator.validateMcpToolMapper(
-                        this.mcpToolMapper
-                    );
-
-                if (!validationResult.success) {
-                    console.error(
-                        "Gemini Service: REAL MCP tool validation failed!"
-                    );
-
-                    // Log critical issues but don't fail startup - allow degraded operation
-                    if (validationResult.issues) {
-                        const criticalIssues = validationResult.issues.filter(
-                            (i) => i.severity === "CRITICAL"
-                        );
-                        if (criticalIssues.length > 0) {
-                            console.error(
-                                "Critical validation issues with REAL MCP tools:"
-                            );
-                            criticalIssues.forEach((issue) =>
-                                console.error(`  - ${issue.message}`)
-                            );
-                        }
-                    }
-                } else {
-                    console.log(
-                        "Gemini Service: ✅ REAL MCP tool validation passed successfully"
-                    );
-                    if (validationResult.stats) {
-                        console.log(
-                            `  - Validated ${validationResult.stats.toolsValidated} real tools`
-                        );
-                        console.log(
-                            `  - Tested ${validationResult.stats.fieldsValidated} fields`
-                        );
-                        console.log(
-                            `  - Verified ${validationResult.stats.conversionsValidated} conversions`
-                        );
-                    }
-                }
-            } catch (error) {
-                console.error(
-                    "Gemini Service: REAL MCP validation error:",
-                    error
-                );
-                // Don't fail startup, just log the error
-            }
+            console.log(`[Gemini Service] MCP Tool Mapper initialized with ${this.mcpToolMapper.getDebugInfo().totalHandlers} handlers`);
         }
 
         if (
@@ -218,7 +159,10 @@ class GeminiService {
             !this.internalTools ||
             !this.speechConfig
         ) {
-            console.error("Gemini Service: Missing initialization parameters.");
+            this.errorService.reportError(
+                "Missing initialization parameters",
+                "gemini-service"
+            );
             return { success: false };
         }
 
@@ -235,12 +179,11 @@ class GeminiService {
 
     async startSession() {
         if (this.session) {
-            console.log("Gemini Service: Session already active.");
             return { success: true };
         }
 
         try {
-            console.log("Gemini Service: Starting session...");
+            console.log("[Gemini Service] Starting session...");
 
             // Create a combined tool set for Gemini
             const mcpHandlerDeclarations =
@@ -251,23 +194,8 @@ class GeminiService {
             ];
 
             console.log(
-                `Gemini Service: Created ${allDeclarations.length} total function declarations (${this.internalTools.functionDeclarations.length} internal, ${mcpHandlerDeclarations.length} MCP)`
+                `[Gemini Service] Created ${allDeclarations.length} function declarations (${this.internalTools.functionDeclarations.length} internal, ${mcpHandlerDeclarations.length} MCP)`
             );
-
-            // Log each declaration for debugging
-            allDeclarations.forEach((decl, index) => {
-                console.log(`Declaration ${index}: ${decl.name}`);
-                if (decl.parameters?.properties?.attendees) {
-                    console.log(
-                        `  - Has attendees property:`,
-                        JSON.stringify(
-                            decl.parameters.properties.attendees,
-                            null,
-                            2
-                        )
-                    );
-                }
-            });
 
             const allTools =
                 allDeclarations.length > 0
@@ -285,46 +213,16 @@ class GeminiService {
                     ),
                     JSON.stringify(allTools, null, 4)
                 );
-                console.log(
-                    "Gemini Service: Saved tools configuration to all-tools.json"
-                );
-
-                // Debug: Check for problematic properties
-                const configStr = JSON.stringify(allTools);
-                const formatMatches = configStr.match(/"format":/g);
-                const attendeesMatches = configStr.match(/"attendees":/g);
-
-                if (formatMatches) {
-                    console.log(
-                        `✅ Found ${formatMatches.length} format properties in tools config (supported by Gemini API)`
-                    );
-                } else {
-                    console.log(
-                        "📋 No format properties found in tools config"
-                    );
-                }
-
-                if (attendeesMatches) {
-                    console.log(
-                        `ℹ️  Found ${attendeesMatches.length} attendees properties in tools config`
-                    );
-                }
-
-                console.log(
-                    `📊 Total function declarations: ${allDeclarations.length}`
-                );
+                console.log("[Gemini Service] Saved tools configuration to all-tools.json");
             } catch (error) {
-                console.error(
-                    "Gemini Service: Failed to save tools configuration:",
-                    error
-                );
+                this.errorService.reportError(`Failed to save tools configuration: ${error.message}`, "gemini-service");
             }
 
             this.session = await this.client.live.connect({
                 model: "gemini-live-2.5-flash-preview",
                 callbacks: {
                     onopen: () => {
-                        console.log("Gemini Service: Session opened.");
+                        console.log("[Gemini Service] Session opened");
                         this.eventsService.sendToRenderer(
                             "orb",
                             "gemini:session-opened"
@@ -332,10 +230,7 @@ class GeminiService {
                     },
                     onmessage: (message) => this.handleMessage(message),
                     onerror: (e) => {
-                        console.error(
-                            "Gemini Service: Session error:",
-                            e.message
-                        );
+                        this.errorService.reportError(`Session error: ${e.message}`, "gemini-service");
                         this.eventsService.sendToRenderer(
                             "orb",
                             "gemini:error",
@@ -343,7 +238,7 @@ class GeminiService {
                         );
                     },
                     onclose: (e) => {
-                        console.log("session closed:", e.reason);
+                        console.log("[Gemini Service] Session closed:", e.reason);
                         this.eventsService.sendToRenderer(
                             "orb",
                             "gemini:closed",
@@ -361,7 +256,7 @@ class GeminiService {
             });
             return { success: true };
         } catch (e) {
-            console.error("Gemini Service: Failed to connect.", e);
+            this.errorService.reportError(`Failed to connect session: ${e.message}`, "gemini-service");
             this.eventsService.sendToRenderer("orb", "gemini:error", e.message);
             return { success: false, error: e.message };
         }
@@ -369,7 +264,6 @@ class GeminiService {
 
     async handleMessage(message) {
         if (message.serverContent?.interrupted) {
-            console.log("Gemini Service: Session interrupted.");
             this.eventsService.sendToRenderer("orb", "gemini:interrupted");
             return;
         }
@@ -384,10 +278,7 @@ class GeminiService {
         }
 
         if (message.toolCall) {
-            console.log(
-                "Gemini Service: Received tool call:",
-                message.toolCall
-            );
+            console.log("[Gemini Service] Tool call received");
 
             const functionResponses = [];
 
@@ -397,9 +288,6 @@ class GeminiService {
 
                     // Check if it's an internal tool
                     if (this.internalToolSet.has(call.name)) {
-                        console.log(
-                            `Gemini Service: Executing internal tool: ${call.name}`
-                        );
                         result = await executeCommand({
                             name: call.name,
                             args: call.args,
@@ -407,17 +295,11 @@ class GeminiService {
                     }
                     // Check if it's an MCP handler
                     else if (this.mcpToolMapper.isHandler(call.name)) {
-                        console.log(
-                            `Gemini Service: Executing MCP handler: ${call.name}`
-                        );
                         result = await this.mcpToolMapper.executeHandler(
                             call.name,
                             call.args
                         );
                     } else {
-                        console.warn(
-                            `Gemini Service: Unknown tool called: ${call.name}`
-                        );
                         result = `Error: Unknown tool ${call.name}`;
                     }
 
@@ -430,9 +312,9 @@ class GeminiService {
                         },
                     });
                 } catch (error) {
-                    console.error(
-                        `Gemini Service: Error executing tool ${call.name}:`,
-                        error
+                    this.errorService.reportError(
+                        `Error executing tool ${call.name}: ${error.message}`,
+                        "gemini-service"
                     );
 
                     functionResponses.push({
@@ -447,10 +329,7 @@ class GeminiService {
             }
 
             if (this.session && functionResponses.length > 0) {
-                console.log(
-                    "Gemini Service: Sending tool responses:",
-                    functionResponses
-                );
+                console.log("[Gemini Service] Tool responses sent");
                 this.session.sendToolResponse({
                     functionResponses,
                 });
@@ -471,7 +350,7 @@ class GeminiService {
 
     closeSession() {
         if (this.session) {
-            console.log("Gemini Service: Closing session.");
+            console.log("[Gemini Service] Closing session");
             this.session.close();
             this.session = null;
             return { success: true };

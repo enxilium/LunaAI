@@ -62,7 +62,8 @@ async function getClipboardContent() {
             content: ''
         };
     } catch (error) {
-        console.error('Error reading clipboard:', error);
+        const { getErrorService } = require('../services/error-service');
+        getErrorService().reportError(`Error reading clipboard: ${error.message}`, "ClipboardUtils");
         return {
             type: 'error',
             content: `Error reading clipboard: ${error.message}`
@@ -78,10 +79,10 @@ async function cleanupTempClipboardFile(filePath) {
     try {
         if (filePath) {
             await fs.unlink(filePath);
-            console.log(`Cleaned up temporary clipboard file: ${filePath}`);
         }
     } catch (error) {
-        console.error('Error cleaning up clipboard temp file:', error);
+        const { getErrorService } = require('../services/error-service');
+        getErrorService().reportError(`Error cleaning up clipboard temp file: ${error.message}`, "ClipboardUtils");
     }
 }
 
