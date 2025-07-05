@@ -11,7 +11,7 @@ require("dotenv").config();
  * @description Initializes the application, including services, windows, and tray.
  */
 async function initialize() {
-    console.log("Starting Luna AI initialization...");
+    console.log("[Main] Starting Luna AI initialization...");
 
     // Register protocol handler for local files
     protocol.registerFileProtocol("file", (request, callback) => {
@@ -20,27 +20,27 @@ async function initialize() {
             return callback(decodeURIComponent(url));
         } catch (error) {
             const errorService = getErrorService();
-            errorService.reportError(error, "protocol-handler");
+            errorService.reportError(`Protocol handler error: ${error.message}`, "main");
         }
     });
 
     try {
         // Initialize services BEFORE creating windows
         await initializeServices().then(async () => {
-            console.log("All services initialized");
+            console.log("[Main] Services initialized");
             await createWindows().then(async () => {
-                console.log("All windows created and loaded");
+                console.log("[Main] Windows created");
                 const tray = await createTray().then(() => {
-                    console.log("Tray created");
+                    console.log("[Main] Tray created");
                 });
             });
         });
 
         // Log initialization complete
-        console.log("Luna AI initialized and ready");
+        console.log("[Main] Luna AI initialized and ready");
     } catch (error) {
         const errorService = getErrorService();
-        errorService.reportError(error, "main-initialization");
+        errorService.reportError(`Initialization error: ${error.message}`, "main");
     }
 }
 

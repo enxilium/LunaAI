@@ -73,11 +73,8 @@ async function findApplicationPath(appName, platform) {
         COMMON_INSTALLATION_PATHS[platform]?.[appName.toLowerCase()];
 
     if (!commonPaths) {
-        console.log(`No common paths defined for ${appName} on ${platform}`);
         return null;
     }
-
-    console.log(`Searching for ${appName} in common locations...`);
 
     // Check each common path
     for (const commonPath of commonPaths) {
@@ -107,7 +104,6 @@ async function findApplicationPath(appName, platform) {
                         );
                         try {
                             await fs.access(fullPath);
-                            console.log(`Found ${appName} at ${fullPath}`);
                             return fullPath;
                         } catch (e) {
                             // Path doesn't exist, continue to next
@@ -115,22 +111,16 @@ async function findApplicationPath(appName, platform) {
                     }
                 } catch (e) {
                     // Can't read directory, continue to next path
-                    console.log(
-                        `Could not read directory ${baseDir}: ${e.message}`
-                    );
                 }
             } else {
                 // For non-glob paths, just check if they exist
                 await fs.access(expandedPath);
-                console.log(`Found ${appName} at ${expandedPath}`);
                 return expandedPath;
             }
         } catch (e) {
             // Path doesn't exist, continue to next
         }
     }
-
-    console.log(`Could not find ${appName} in any common locations`);
     return null;
 }
 
@@ -156,13 +146,9 @@ async function openApplication({ appName }) {
         );
 
         if (appPath) {
-            console.log(`Found saved path for ${appName}: ${appPath}`);
             try {
                 await fs.access(appPath);
             } catch (error) {
-                console.log(
-                    `Saved path for ${appName} no longer exists, searching again.`
-                );
                 appPath = null;
             }
         }
@@ -175,7 +161,6 @@ async function openApplication({ appName }) {
                     `app_paths.${appName.toLowerCase()}`,
                     appPath
                 );
-                console.log(`Saved new path for ${appName}: ${appPath}`);
             }
         }
 
@@ -187,7 +172,7 @@ async function openApplication({ appName }) {
         }
 
         // Step 4: Open the application
-        console.log(`Opening application at: ${appPath}`);
+        console.log(`[OpenApplications] Opening ${appName}`);
         if (platform === "win32") {
             spawn(appPath, [], { detached: true, stdio: "ignore" }).unref();
         } else if (platform === "darwin") {
@@ -203,7 +188,7 @@ async function openApplication({ appName }) {
 
         return { success: true, message: `${appName} opened successfully.` };
     } catch (error) {
-        getErrorService().reportError(error, "open-command");
+        getErrorService().reportError(`Error opening application: ${error.message}`, "openApplications");
         return {
             error: error.message,
             error_solution: `I'm sorry, I couldn't open ${
@@ -238,7 +223,7 @@ async function openWorkspace({ workspaceName }) {
         }
 
         // Open the workspace with the default application
-        console.log(`Opening workspace: ${workspacePath}`);
+        console.log(`[OpenApplications] Opening workspace: ${workspaceName}`);
         if (os.platform() === "win32") {
             exec(`start "" "${workspacePath}"`);
         } else if (os.platform() === "darwin") {
@@ -252,7 +237,7 @@ async function openWorkspace({ workspaceName }) {
             message: `Workspace '${workspaceName}' opened.`,
         };
     } catch (error) {
-        getErrorService().reportError(error, "open-workspace-command");
+        getErrorService().reportError(`Error opening workspace: ${error.message}`, "openApplications");
         return {
             error: error.message,
             error_solution: `I couldn't open the workspace '${workspaceName}'. Please check your settings.`,

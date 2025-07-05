@@ -6,9 +6,9 @@ const { getErrorService } = require("../services/error-service");
  * @param {string} errorInfo.error - The error message.
  * @param {string} errorInfo.source - The source of the error.
  */
-function reportError(error, source) {
+function reportError(errorInfo) {
     const errorService = getErrorService();
-    errorService.reportError(new Error(error), source);
+    errorService.reportError(errorInfo.error, errorInfo.source);
 }
 
 module.exports = { reportError };

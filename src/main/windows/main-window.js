@@ -18,7 +18,7 @@ function createMainWindow() {
 
         // Resolve promise when window is ready
         mainWindow.webContents.once("did-finish-load", () => {
-            console.log("Main window loaded successfully");
+            console.log("[Main Window] Loaded successfully");
             resolve(mainWindow);
         });
 
@@ -30,7 +30,7 @@ function createMainWindow() {
                     `Failed to load main window: ${errorDescription} (${errorCode})`
                 );
                 const errorService = getErrorService();
-                errorService.reportError(error, "main-window");
+                errorService.reportError(error.message, "main-window");
                 reject(error);
             }
         );

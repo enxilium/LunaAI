@@ -7,7 +7,7 @@ const { getGeminiService } = require("./agent/gemini-service.js");
 const commands = require("../commands");
 
 async function initializeServices() {
-    console.log("Initializing services...");
+    console.log("[Services] Initializing services...");
     const errorService = getErrorService();
     const eventsService = await getEventsService();
     const credentialsService = getCredentialsService();
@@ -44,18 +44,14 @@ async function initializeCredentialsFromEnv() {
         "picovoice-key": process.env.PICOVOICE_ACCESS_KEY,
     };
 
-    console.log("Initializing credentials from environment variables...");
-
     for (const [key, value] of Object.entries(credentialsToStore)) {
         if (value) {
             try {
                 await credentialsService.setCredentials(key, value);
-                console.log(`Successfully stored ${key}.`);
             } catch (error) {
-                console.error(`Failed to store ${key}:`, error);
+                const { getErrorService } = require('./error-service');
+                getErrorService().reportError(`Failed to store ${key}: ${error.message}`, "Services");
             }
-        } else {
-            console.warn(`Environment variable for ${key} is not set.`);
         }
     }
 }

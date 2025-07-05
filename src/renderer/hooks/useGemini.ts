@@ -57,18 +57,16 @@ export default function useGemini() {
     useEffect(() => {
         const handleAudioChunk = (audioData: string) => {
             playAudio(audioData).catch((err) =>
-                console.error("Audio playback error:", err)
+                reportError(`Audio playback error: ${err}`, "useGemini")
             );
         };
 
         const handleInterrupted = () => {
-            console.log("Gemini session interrupted in renderer.");
             setIsInterrupted(true);
             stopAudio();
         };
 
         const handleSessionOpened = () => {
-            console.log("Gemini session opened in renderer.");
             setIsInterrupted(false);
         };
 
@@ -77,7 +75,6 @@ export default function useGemini() {
         };
 
         const handleClosed = (reason: string) => {
-            console.log("Gemini session closed in renderer:", reason);
             setIsSessionActive(false);
         };
 

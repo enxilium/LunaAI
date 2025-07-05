@@ -36,7 +36,6 @@ const SettingsPage: React.FC = () => {
 
     async function fetchSettings() {
         const newSettings = await window.electron.getAsset("allSettings");
-        console.log("Fetched settings:", newSettings);
         setSettings(newSettings);
     }
 

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Buffer } from "buffer";
+import useError from "./useError";
 
 /**
  * @description Custom hook for managing audio recording and playback.
@@ -15,6 +16,7 @@ import { Buffer } from "buffer";
 export default function useAudio() {
     const [isRecording, setIsRecording] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const { reportError } = useError();
     const audioContextRef = useRef<AudioContext | null>(null);
     const outputAudioContextRef = useRef<AudioContext | null>(null);
     const scriptProcessorNodeRef = useRef<ScriptProcessorNode | null>(null);
@@ -27,7 +29,6 @@ export default function useAudio() {
     const playbackEndTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const startRecording = useCallback(async () => {
-        console.log("useAudio: Starting recording...");
         setIsRecording(true);
         try {
             if (!audioContextRef.current) {
@@ -74,13 +75,12 @@ export default function useAudio() {
                 audioContextRef.current.destination
             );
         } catch (error) {
-            console.error("useAudio: Error starting recording:", error);
+            reportError(`Error starting recording: ${error}`, "useAudio");
             setIsRecording(false);
         }
     }, []);
 
     const stopRecording = useCallback(() => {
-        console.log("useAudio: Stopping recording.");
         setIsRecording(false);
 
         if (scriptProcessorNodeRef.current) {
@@ -103,7 +103,7 @@ export default function useAudio() {
     }, []);
 
     const stopAudio = useCallback(() => {
-        console.log("useAudio: Stopping audio.");
+        console.log("[useAudio] Stopping audio playback");
         if (playbackEndTimerRef.current) {
             clearTimeout(playbackEndTimerRef.current);
             playbackEndTimerRef.current = null;
@@ -114,6 +114,7 @@ export default function useAudio() {
         }
         setIsPlaying(false);
         pendingAudioCountRef.current = 0;
+        console.log("[useAudio] Audio playback stopped, isPlaying set to false");
     }, []);
 
     const playAudio = useCallback(
@@ -124,6 +125,7 @@ export default function useAudio() {
                     playbackEndTimerRef.current = null;
                 }
                 pendingAudioCountRef.current++;
+                console.log(`[useAudio] Starting audio chunk. Pending: ${pendingAudioCountRef.current}`);
                 setIsPlaying(true);
 
                 if (!outputAudioContextRef.current) {
@@ -182,10 +184,12 @@ export default function useAudio() {
                         if (!hasResolved) {
                             hasResolved = true;
                             pendingAudioCountRef.current--;
+                            console.log(`[useAudio] Audio chunk completed. Pending: ${pendingAudioCountRef.current}`);
                             if (pendingAudioCountRef.current === 0) {
                                 playbackEndTimerRef.current = setTimeout(() => {
+                                    console.log("[useAudio] All audio completed, setting isPlaying to false");
                                     setIsPlaying(false);
-                                }, 250);
+                                }, 100); // Reduced from 250ms to 100ms for more responsive state changes
                             }
                             resolve();
                         }
@@ -204,9 +208,11 @@ export default function useAudio() {
                     source.start(startTime);
                     nextStartTimeRef.current = endTime;
                 } catch (e) {
-                    console.error("Error playing audio chunk:", e);
+                    reportError(`Error playing audio chunk: ${e}`, "useAudio");
                     pendingAudioCountRef.current--;
+                    console.log(`[useAudio] Audio error. Pending: ${pendingAudioCountRef.current}`);
                     if (pendingAudioCountRef.current === 0) {
+                        console.log("[useAudio] Error caused last audio to finish, setting isPlaying to false");
                         setIsPlaying(false);
                     }
                     reject(e);

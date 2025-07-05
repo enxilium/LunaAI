@@ -1,6 +1,3 @@
-const fs = require("fs");
-const path = require("path");
-
 /**
  * Simple MCP Tool Mapper - Direct one-to-one field mapping between MCP tools and Gemini handlers
  *
@@ -26,9 +23,7 @@ class SimpleMcpToolMapper {
      * Register MCP tools and create corresponding Gemini handler functions
      */
     async registerMcpTools(mcpClient, serverName, tools) {
-        console.log(
-            `SimpleMcpToolMapper: Registering ${tools.length} tools from ${serverName}`
-        );
+        console.log(`[SimpleMcpToolMapper] Registering ${tools.length} tools from ${serverName}`);
 
         for (const tool of tools) {
             try {
@@ -68,14 +63,9 @@ class SimpleMcpToolMapper {
                 // Store function declaration
                 this.functionDeclarations.push(geminiDeclaration);
 
-                console.log(
-                    `SimpleMcpToolMapper: ✓ ${handlerName} → ${serverName}.${tool.name}`
-                );
             } catch (error) {
-                console.error(
-                    `SimpleMcpToolMapper: Failed to register ${tool.name}:`,
-                    error
-                );
+                const { getErrorService } = require('../error-service');
+                getErrorService().reportError(`Failed to register ${tool.name}: ${error.message}`, "SimpleMcpToolMapper");
             }
         }
     }
@@ -116,9 +106,6 @@ class SimpleMcpToolMapper {
             serverName.includes("notion") &&
             (tool.name === "post_page" || tool.name === "API-post-page")
         ) {
-            console.log(
-                `Enhancing Notion post_page schema for proper database/page support`
-            );
             enhancedTool.inputSchema = this.enhanceNotionPostPageSchema(
                 enhancedTool.inputSchema
             );
@@ -418,11 +405,9 @@ class SimpleMcpToolMapper {
 
         // Apply custom conversions for specific tools
         mcpArgs = this.applyCustomConversions(handlerName, mcpArgs);
-        
+
         // Clean null/undefined values from the final arguments
         mcpArgs = this.cleanNullValues(mcpArgs);
-
-        console.log(`SimpleMcpToolMapper: Converted to MCP args:`, mcpArgs);
 
         try {
             // Call the actual MCP tool
@@ -437,10 +422,8 @@ class SimpleMcpToolMapper {
 
             return response.content;
         } catch (error) {
-            console.error(
-                `SimpleMcpToolMapper: Error calling MCP tool ${mapping.originalToolName}:`,
-                error
-            );
+            const { getErrorService } = require('../error-service');
+            getErrorService().reportError(`Error calling MCP tool ${mapping.originalToolName}: ${error.message}`, "SimpleMcpToolMapper");
             throw error;
         }
     }
@@ -483,7 +466,7 @@ class SimpleMcpToolMapper {
         if (value === null || value === undefined) {
             return undefined; // This will be filtered out by JSON.stringify
         }
-        
+
         // Convert type if needed
         let convertedValue = value;
 
@@ -715,10 +698,6 @@ class SimpleMcpToolMapper {
                 !parent.database_id);
 
         if (hasCorrectStructure) {
-            console.log(
-                "SimpleMcpToolMapper: Notion parent object already has correct structure:",
-                parent
-            );
             return mcpArgs;
         }
 
@@ -727,9 +706,6 @@ class SimpleMcpToolMapper {
 
         // If we have a page_id but the type suggests database, convert it
         if (parent.page_id && parent.type === "database_id") {
-            console.log(
-                "SimpleMcpToolMapper: Converting page_id to database_id for Notion parent"
-            );
             convertedParent = {
                 type: "database_id",
                 database_id: parent.page_id,
@@ -737,9 +713,6 @@ class SimpleMcpToolMapper {
         }
         // If we have a database_id but the type suggests page, convert it
         else if (parent.database_id && parent.type === "page_id") {
-            console.log(
-                "SimpleMcpToolMapper: Converting database_id to page_id for Notion parent"
-            );
             convertedParent = {
                 type: "page_id",
                 page_id: parent.database_id,
@@ -749,9 +722,6 @@ class SimpleMcpToolMapper {
         // Since most use cases are creating pages in databases, and the error suggests
         // this ID is actually a database ID, let's default to database_id
         else if (parent.page_id && !parent.type) {
-            console.log(
-                "SimpleMcpToolMapper: page_id without type - defaulting to database_id (most common case)"
-            );
             convertedParent = {
                 type: "database_id",
                 database_id: parent.page_id,
@@ -759,9 +729,6 @@ class SimpleMcpToolMapper {
         }
         // If we have database_id and no type, assume it's a database parent
         else if (parent.database_id && !parent.type) {
-            console.log(
-                "SimpleMcpToolMapper: Setting type to database_id for Notion parent"
-            );
             convertedParent = {
                 type: "database_id",
                 database_id: parent.database_id,
@@ -770,30 +737,17 @@ class SimpleMcpToolMapper {
         // If we have both page_id and database_id, prioritize based on type
         else if (parent.page_id && parent.database_id) {
             if (parent.type === "database_id") {
-                console.log(
-                    "SimpleMcpToolMapper: Both IDs present, using database_id based on type"
-                );
                 convertedParent = {
                     type: "database_id",
                     database_id: parent.database_id,
                 };
             } else {
-                console.log(
-                    "SimpleMcpToolMapper: Both IDs present, using page_id based on type"
-                );
                 convertedParent = {
                     type: "page_id",
                     page_id: parent.page_id,
                 };
             }
         }
-
-        console.log(
-            "SimpleMcpToolMapper: Converted Notion parent from:",
-            parent,
-            "to:",
-            convertedParent
-        );
 
         return {
             ...mcpArgs,
@@ -808,14 +762,14 @@ class SimpleMcpToolMapper {
         if (obj === null || obj === undefined) {
             return undefined;
         }
-        
+
         if (Array.isArray(obj)) {
             return obj
-                .map(item => this.cleanNullValues(item))
-                .filter(item => item !== undefined);
+                .map((item) => this.cleanNullValues(item))
+                .filter((item) => item !== undefined);
         }
-        
-        if (typeof obj === 'object') {
+
+        if (typeof obj === "object") {
             const cleaned = {};
             for (const [key, value] of Object.entries(obj)) {
                 const cleanedValue = this.cleanNullValues(value);
@@ -825,7 +779,7 @@ class SimpleMcpToolMapper {
             }
             return cleaned;
         }
-        
+
         return obj;
     }
 }
