@@ -7,6 +7,7 @@ const KEYWORD_LABEL = "LUNA";
 export default function useKeywordDetection(accessKey: string | null) {
     const [keywordPath, setKeywordPath] = useState<string | null>(null);
     const [modelPath, setModelPath] = useState<string | null>(null);
+    const [isKeywordDetected, setIsKeywordDetected] = useState(false);
     const { reportError } = useError();
 
     const {
@@ -19,6 +20,21 @@ export default function useKeywordDetection(accessKey: string | null) {
         stop,
         release,
     } = usePorcupine();
+
+    // Monitor keyword detection changes
+    useEffect(() => {
+        if (keywordDetection) {
+            // Check if the detected keyword matches our wake word
+            if (keywordDetection.label === KEYWORD_LABEL) {
+                setIsKeywordDetected(true);
+
+                // Reset detection flag after 2 seconds
+                setTimeout(() => {
+                    setIsKeywordDetected(false);
+                }, 2000);
+            }
+        }
+    }, [keywordDetection]);
 
     useEffect(() => {
         const fetchPaths = async () => {
@@ -118,6 +134,8 @@ export default function useKeywordDetection(accessKey: string | null) {
 
     return {
         keywordDetection,
+        isListening,
+        isKeywordDetected,
         startKeywordDetection: start,
         stopKeywordDetection: stop,
     };

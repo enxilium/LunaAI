@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BinarySetting } from "../components/settingsComponents";
+import { BinarySetting } from "../components/main/settingsComponents";
 
 const PREFERENCES = [
     {

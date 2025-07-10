@@ -27,8 +27,12 @@ declare global {
                     | "error"
                     | "execute-command"
                     | "update-settings"
+                    | "get-window-bounds"
                     | "gemini:start-session"
-                    | "gemini:close-session",
+                    | "gemini:close-session"
+                    | "livekit:get-token"
+                    | "livekit:start-session"
+                    | "livekit:stop-agent",
                 ...args: any[]
             ) => Promise<any>;
             getAsset: (type: string, ...args: any[]) => Promise<any>;

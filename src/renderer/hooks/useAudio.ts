@@ -65,7 +65,8 @@ export default function useAudio() {
                 }
 
                 const base64 = Buffer.from(int16Data.buffer).toString("base64");
-                window.electron.send("gemini:audio-data" as any, base64);
+                // TODO: This was for Gemini audio streaming - now using LiveKit
+                // window.electron.send("gemini:audio-data" as any, base64);
             };
 
             mediaStreamSourceRef.current.connect(

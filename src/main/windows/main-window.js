@@ -18,7 +18,6 @@ function createMainWindow() {
 
         // Resolve promise when window is ready
         mainWindow.webContents.once("did-finish-load", () => {
-            console.log("[Main Window] Loaded successfully");
             resolve(mainWindow);
         });
 

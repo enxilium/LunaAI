@@ -3,8 +3,7 @@ const { getSettingsService } = require("./user/settings-service.js");
 const { getCredentialsService } = require("./user/credentials-service.js");
 const { getDataService } = require("./user/data-service.js");
 const { getEventsService } = require("./events-service.js");
-const { getGeminiService } = require("./agent/gemini-service.js");
-const commands = require("../commands");
+const { getLiveKitService } = require("./agent/livekit-service.js");
 
 async function initializeServices() {
     console.log("[Services] Initializing services...");
@@ -17,16 +16,16 @@ async function initializeServices() {
     const settingsService = getSettingsService();
     const dataService = getDataService();
 
-    const geminiService = await getGeminiService();
+    // Initialize LiveKit service
+    const liveKitService = await getLiveKitService();
 
     return {
         errorService,
         credentialsService,
         settingsService,
         dataService,
-        commands,
         eventsService,
-        geminiService,
+        liveKitService,
     };
 }
 
@@ -66,5 +65,5 @@ module.exports = {
     getSettingsService,
     getDataService,
     getEventsService,
-    getGeminiService,
+    getLiveKitService,
 };

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import useKeywordDetection from "./useKeywordDetection";
-import useGemini from "./useGemini";
+import useLiveKit from "./useLiveKit";
 import useAudio from "./useAudio";
 import useError from "./useError";
 
@@ -15,7 +15,7 @@ export default function useOrb() {
     const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const { startSession, closeSession, isSpeaking, isSessionActive } =
-        useGemini();
+        useLiveKit();
     const { isRecording, startRecording, stopRecording } = useAudio();
     const { reportError } = useError();
     const { keywordDetection } = useKeywordDetection(picovoiceAccessKey);
@@ -96,7 +96,7 @@ export default function useOrb() {
             setVisible(true);
             window.electron.send("show-orb");
 
-            startSession().then((success) => {
+            startSession().then((success: boolean) => {
                 if (success) {
                     startRecording();
                 }
