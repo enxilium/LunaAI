@@ -484,49 +484,6 @@ class LiveKitService {
     }
 
     /**
-     * Generate a token for the user to join a LiveKit room
-     */
-    async generateToken() {
-        if (!this.apiKey || !this.apiSecret) {
-            throw new Error("LiveKit credentials not configured");
-        }
-
-        try {
-            // Create a unique room name for this session
-            const roomName = `luna-chat-${Date.now()}`;
-            const participantName = "user";
-
-            const token = new AccessToken(this.apiKey, this.apiSecret, {
-                identity: participantName,
-                ttl: "1h", // Token valid for 1 hour
-            });
-
-            // Grant permissions for the user
-            token.addGrant({
-                room: roomName,
-                roomJoin: true,
-                canPublish: true,
-                canSubscribe: true,
-            });
-
-            // Convert to JWT and return only plain object
-            const jwtToken = await token.toJwt();
-
-            // Return only serializable data - no complex objects
-            const result = {
-                url: String(this.serverUrl),
-                token: String(jwtToken),
-                roomName: String(roomName),
-            };
-
-            return result;
-        } catch (error) {
-            console.error("[LiveKit] Error generating token:", error);
-            throw new Error(`Failed to generate token: ${error.message}`);
-        }
-    }
-
-    /**
      * Get room information for the Python agent
      */
     getRoomInfo() {

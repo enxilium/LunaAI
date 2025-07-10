@@ -1,7 +1,6 @@
 import { ThemeProvider } from "styled-components";
 import { theme } from "./styles/theme";
 import Orb from "./components/orb/Orb";
-import OrbContainer from "./components/orb/OrbContainer";
 import SettingsPage from "./pages/SettingsPage";
 import "./styles/globals.css";
 import { useEffect, useState } from "react";
@@ -26,11 +25,7 @@ function App() {
     switch (windowType) {
         case "orb":
             // Orb window content (new LiveKit voice assistant)
-            page = (
-                <OrbContainer>
-                    <Orb />
-                </OrbContainer>
-            );
+            page = <Orb />;
             break;
         case "settings":
             page = <SettingsPage />;

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
     Orb as ReactAiOrb,
     emeraldPreset,
@@ -8,14 +8,18 @@ import {
 } from "react-ai-orb";
 import {
     useVoiceAssistant,
-    BarVisualizer,
     useParticipants,
     useTracks,
     LiveKitRoom,
     RoomAudioRenderer,
     useRoomContext,
 } from "@livekit/components-react";
-import { Track, ConnectionState, RemoteAudioTrack, Room } from "livekit-client";
+import {
+    Track,
+    RemoteAudioTrack,
+    Room,
+    LocalParticipant,
+} from "livekit-client";
 import styled from "styled-components";
 import useKeywordDetection from "../../hooks/useKeywordDetection";
 
@@ -29,8 +33,10 @@ const OrbWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
+    background: transparent;
+    overflow: hidden;
 `;
 
 const OrbContainer = styled.div`
@@ -39,6 +45,8 @@ const OrbContainer = styled.div`
     height: 200px;
     cursor: pointer;
     transition: all 0.3s ease;
+    -webkit-app-region: drag;
+    -webkit-user-select: none;
 
     &:hover {
         transform: scale(1.05);
@@ -124,6 +132,23 @@ const ToggleButton = styled.button<{ $side: "left" | "right" }>`
 `;
 
 const Orb: React.FC = () => {
+    // Set a data attribute on body for CSS targeting and remove scrollbars
+    useEffect(() => {
+        document.body.setAttribute("data-window-type", "orb");
+
+        // Add CSS to eliminate margins and scrollbars
+        document.body.style.margin = "0";
+        document.body.style.padding = "0";
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.removeAttribute("data-window-type");
+            document.body.style.margin = "";
+            document.body.style.padding = "";
+            document.body.style.overflow = "";
+        };
+    }, []);
+
     const [serverUrl, setServerUrl] = useState<string>("");
     const [token, setToken] = useState<string>("");
     const [isConnecting, setIsConnecting] = useState(false);
@@ -175,15 +200,12 @@ const Orb: React.FC = () => {
     const {
         isListening: isKeywordListening,
         isKeywordDetected,
-        startKeywordDetection,
-        stopKeywordDetection,
     } = useKeywordDetection(accessKey);
 
     // Auto-start session when wake word is detected
     useEffect(() => {
         if (isKeywordDetected && !isConnecting && !serverUrl) {
             console.log("[Orb] Wake word detected, starting session...");
-            window.electron.send("show-orb");
             startSession();
         }
     }, [isKeywordDetected, isConnecting, serverUrl]);
@@ -194,7 +216,6 @@ const Orb: React.FC = () => {
         setIsConnecting(true);
 
         try {
-            console.log("[Orb] Starting LiveKit session...");
             const sessionInfo = await window.electron.invoke(
                 "livekit:start-session"
             );
@@ -219,7 +240,6 @@ const Orb: React.FC = () => {
 
             setServerUrl(url);
             setToken(sessionToken);
-            console.log("[Orb] Room configured:", roomName);
         } catch (error) {
             console.error("[Orb] Failed to start session:", error);
             setIsConnecting(false);
@@ -263,47 +283,6 @@ const Orb: React.FC = () => {
         }
     };
 
-    // Show loading state while connecting
-    if (isConnecting && !serverUrl) {
-        return (
-            <OrbWrapper>
-                <OrbContainer aria-label="Initializing Luna...">
-                    <ReactAiOrb
-                        size={1.2}
-                        {...oceanDepthsPreset}
-                        animationSpeedBase={0.8}
-                        animationSpeedHue={1.0}
-                        mainOrbHueAnimation={true}
-                    />
-                </OrbContainer>
-            </OrbWrapper>
-        );
-    }
-
-    // Show disconnected state with keyword listening
-    if (!serverUrl || !token) {
-        return (
-            <OrbWrapper>
-                <OrbContainer
-                    onClick={handleOrbClick}
-                    aria-label={
-                        isKeywordListening
-                            ? "Listening for wake word..."
-                            : "Click to start Luna"
-                    }
-                >
-                    <ReactAiOrb
-                        size={1.2}
-                        {...oceanDepthsPreset}
-                        animationSpeedBase={isKeywordListening ? 0.7 : 0.3}
-                        animationSpeedHue={isKeywordListening ? 0.8 : 0.2}
-                        mainOrbHueAnimation={isKeywordListening}
-                    />
-                </OrbContainer>
-            </OrbWrapper>
-        );
-    }
-
     // Connected state - render LiveKit room with orb content
     return (
         <LiveKitRoom
@@ -313,16 +292,12 @@ const Orb: React.FC = () => {
             audio={true}
             video={false}
             onConnected={() => {
-                console.log("[Orb] Connected to LiveKit room");
+                console.log("[User] Connected to room.");
+                window.electron.send("show-orb");
                 setIsConnecting(false);
             }}
             onDisconnected={() => {
-                console.log("[Orb] Disconnected from LiveKit room");
-                setServerUrl("");
-                setToken("");
-                setIsConnecting(false);
-                setShowPanel(false);
-                setPanelCollapsed(true);
+                console.log("[User] Disconnected from room.");
             }}
             onError={(error) => {
                 console.error("[Orb] LiveKit error:", error);
@@ -444,7 +419,7 @@ function ConnectedOrbContent({
     const room = useRoomContext();
 
     // LiveKit components hooks (work within LiveKitRoom context)
-    const { state: vaState, audioTrack } = useVoiceAssistant();
+    const { state: vaState } = useVoiceAssistant();
     const tracks = useTracks([Track.Source.Microphone], {
         onlySubscribed: false,
     });
@@ -556,9 +531,9 @@ function ConnectedOrbContent({
             action: async () => {
                 if (localParticipant) {
                     const isEnabled = localParticipant.isMicrophoneEnabled;
-                    await (localParticipant as any).setMicrophoneEnabled(
-                        !isEnabled
-                    );
+                    await (
+                        localParticipant as LocalParticipant
+                    ).setMicrophoneEnabled(!isEnabled);
                 }
             },
         },
