@@ -1,7 +1,7 @@
 import { ThemeProvider } from "styled-components";
 import { theme } from "./styles/theme";
-import Orb from "./components/Orb";
-import OrbContainer from "./components/OrbContainer";
+import Orb from "./components/orb/Orb";
+import OrbContainer from "./components/orb/OrbContainer";
 import SettingsPage from "./pages/SettingsPage";
 import "./styles/globals.css";
 import { useEffect, useState } from "react";
@@ -25,7 +25,7 @@ function App() {
     // Render different content based on which window we're in
     switch (windowType) {
         case "orb":
-            // Orb window content (just the orb)
+            // Orb window content (new LiveKit voice assistant)
             page = (
                 <OrbContainer>
                     <Orb />
@@ -47,11 +47,7 @@ function App() {
             );
     }
 
-    return (
-        <ThemeProvider theme={theme}>
-            {page}
-        </ThemeProvider>
-    );
+    return <ThemeProvider theme={theme}>{page}</ThemeProvider>;
 }
 
 export default App;

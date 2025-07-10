@@ -10,25 +10,27 @@ const { contextBridge, ipcRenderer } = require("electron");
  * @type {{send: string[], receive: string[], invoke: string[]}}
  */
 const validChannels = {
-    send: ["show-orb", "audio-stream-end", "gemini:audio-data"],
+    send: ["show-orb", "audio-stream-end"],
 
     receive: [
         "end-conversation",
         "processing",
-        "gemini:audio-chunk",
-        "gemini:interrupted",
-        "gemini:session-opened",
-        "gemini:error",
-        "gemini:closed",
+        "livekit:connected",
+        "livekit:disconnected",
+        "livekit:error",
+        "livekit:agent-started",
+        "livekit:agent-stopped",
+        "livekit:agent-error",
     ],
 
     invoke: [
         "error",
-        "execute-command",
         "update-settings",
-        "gemini:start-session",
-        "gemini:close-session",
         "get-asset",
+        "get-window-bounds",
+        "livekit:get-token",
+        "livekit:start-session",
+        "livekit:stop-agent",
     ],
 };
 
@@ -100,5 +102,30 @@ contextBridge.exposeInMainWorld("electron", {
      */
     removeListener: (channel) => {
         ipcRenderer.removeAllListeners(channel);
+    },
+
+    // LiveKit and Agent methods
+    /**
+     * @description Get a LiveKit token for connecting to the room.
+     * @returns {Promise<{url: string, token: string, roomName: string}>} LiveKit connection details
+     */
+    getLiveKitToken: () => {
+        return ipcRenderer.invoke("livekit:get-token");
+    },
+
+    /**
+     * @description Start a LiveKit session with agent.
+     * @returns {Promise<{url: string, token: string, roomName: string, agentStarted: boolean, agentType: string}>} Session details
+     */
+    startLiveKitSession: () => {
+        return ipcRenderer.invoke("livekit:start-session");
+    },
+
+    /**
+     * @description Stop the LiveKit agent.
+     * @returns {Promise<{success: boolean, message: string}>} Stop result
+     */
+    stopLiveKitAgent: () => {
+        return ipcRenderer.invoke("livekit:stop-agent");
     },
 });

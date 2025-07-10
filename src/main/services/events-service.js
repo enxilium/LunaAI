@@ -3,8 +3,7 @@ const { ipcMain } = require("electron");
 const { getMainWindow, getOrbWindow, setOrbWindow } = require("../windows");
 const { getErrorService } = require("./error-service");
 const { updateSettings } = require("../invokes/update-settings");
-const { reportError } = require("../invokes/error");
-const { executeCommand } = require("../invokes/execute-command");
+const { reportError } = require("../invokes/report-error");
 const { getAsset } = require("../invokes/get-asset");
 
 let eventsService = null;
@@ -12,7 +11,6 @@ let eventsService = null;
 const invokeHandlers = {
     "get-asset": getAsset,
     "update-settings": updateSettings,
-    "execute-command": executeCommand,
     error: reportError,
 };
 
@@ -136,8 +134,6 @@ class EventsService extends EventEmitter {
     showOrbWindow() {
         const orbWindow = getOrbWindow();
         if (orbWindow && !orbWindow.isVisible()) {
-            console.log("[EventsService] Showing orb window");
-
             orbWindow.show();
         }
     }
@@ -148,8 +144,6 @@ class EventsService extends EventEmitter {
     hideOrbWindow() {
         const orbWindow = getOrbWindow();
         if (orbWindow && orbWindow.isVisible()) {
-            console.log("[EventsService] Hiding orb window");
-
             orbWindow.hide();
         }
     }

@@ -1,4 +1,4 @@
-const { BrowserWindow, screen, app } = require("electron");
+const { BrowserWindow, screen, app, ipcMain } = require("electron");
 const path = require("path");
 const { getResourcePath } = require("../utils/paths");
 const { getErrorService } = require("../services/error-service");
@@ -13,9 +13,9 @@ async function createOrbWindow() {
         const { width } = screen.getPrimaryDisplay().workAreaSize;
 
         orbWindow = new BrowserWindow({
-            width: 100, // Fixed size large enough for animation
-            height: 100,
-            x: width - 120,
+            width: 400, // Larger size to accommodate orb and arc menu
+            height: 400,
+            x: width - 420,
             y: 100,
             frame: false,
             transparent: true,
@@ -35,11 +35,13 @@ async function createOrbWindow() {
         // Use a more aggressive always-on-top setting
         orbWindow.setAlwaysOnTop(true, "floating");
 
-        orbWindow.webContents.openDevTools({ mode: "detach" });
+        // Only open DevTools in development when needed (reduces console noise)
+        if (process.env.NODE_ENV === "development") {
+            orbWindow.webContents.openDevTools({ mode: "detach" });
+        }
 
         // Resolve promise when window is ready
         orbWindow.webContents.once("did-finish-load", () => {
-            console.log("[Orb Window] Loaded successfully");
             resolve(orbWindow);
         });
 
@@ -158,6 +160,14 @@ function preventOffscreenMovement(window) {
 function getOrbWindow() {
     return orbWindow;
 }
+
+// Set up IPC handler for getting window bounds
+ipcMain.handle("get-window-bounds", () => {
+    if (orbWindow) {
+        return orbWindow.getBounds();
+    }
+    return { x: 0, y: 0, width: 400, height: 400 };
+});
 
 module.exports = {
     createOrbWindow,
