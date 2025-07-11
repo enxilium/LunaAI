@@ -51,9 +51,37 @@ function getModelPath(modelName) {
     return getAssetPath("models", modelName);
 }
 
+
+/**
+ * Gets the path to the Python executable to run the agent process. Only used in development.
+ * @returns 
+ */
+function getPythonPath() {
+    const candidates =
+        process.platform === "win32"
+            ? ["python", "python3", "py"]
+            : ["python3", "python"];
+
+    for (const candidate of candidates) {
+        try {
+            const result = require("child_process").execSync(
+                `${candidate} --version`,
+                { encoding: "utf8", stdio: "pipe" }
+            );
+            if (result.includes("Python 3.")) {
+                return candidate;
+            }
+        } catch (error) {
+            // Continue to next candidate
+        }
+    }
+    return null;
+}
+
 module.exports = {
     getAssetPath,
     getImagePath,
     getModelPath,
     getResourcePath,
+    getPythonPath,
 };

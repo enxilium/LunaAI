@@ -1,6 +1,6 @@
 import { ThemeProvider } from "styled-components";
 import { theme } from "./styles/theme";
-import Orb from "./components/orb/Orb";
+import Orb from "./components/orb/OrbContainer";
 import SettingsPage from "./pages/SettingsPage";
 import "./styles/globals.css";
 import { useEffect, useState } from "react";

@@ -4,6 +4,22 @@ const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
 const { getErrorService } = require("./services/error-service");
 const { createOrbWindow } = require("./windows/orb-window");
+const { getLivekitService } = require("./services/agent/livekit-service");
+
+ipcMain.handle("livekit:get-warmup-token", async () => {
+    try {
+        const livekitService = getLivekitService();
+        const token = await livekitService.getWarmupToken();
+        return token;
+    } catch (error) {
+        const errorService = getErrorService();
+        errorService.reportError(
+            `Failed to get warmup token: ${error.message}`,
+            "main"
+        );
+        return null;
+    }
+});
 
 require("dotenv").config();
 

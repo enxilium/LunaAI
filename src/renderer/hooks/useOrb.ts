@@ -1,126 +1,102 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useVoiceAssistant, useTracks, useParticipants } from "@livekit/components-react";
+import {
+    RemoteAudioTrack,
+    LocalParticipant,
+    Room,
+    Track,
+    LocalTrackPublication,
+} from "livekit-client";
 import useKeywordDetection from "./useKeywordDetection";
-import useLiveKit from "./useLiveKit";
 import useAudio from "./useAudio";
-import useError from "./useError";
 
-export default function useOrb() {
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [picovoiceAccessKey, setPicovoiceAccessKey] = useState<string | null>(
-        null
+export type OrbState = "idle" | "listening" | "thinking" | "speaking";
+
+export const useOrb = (
+    accessKey: string | null,
+    isConnecting: boolean,
+    room: Room
+) => {
+    const [orbState, setOrbState] = useState<OrbState>("idle");
+    const [orbSize, setOrbSize] = useState(1.2);
+    const [isAudioActive, setIsAudioActive] = useState(false);
+
+    const { isListening: isKeywordListening, isKeywordDetected } = useKeywordDetection(accessKey);
+    const { state: vaState } = useVoiceAssistant();
+    const tracks = useTracks([Track.Source.Microphone], { onlySubscribed: false });
+    const participants = useParticipants();
+
+    const remoteAudioTrack = tracks.find(
+        (trackRef) =>
+            trackRef.publication.kind === Track.Kind.Audio &&
+            !trackRef.participant.isLocal &&
+            trackRef.publication.isSubscribed
+    )?.publication.track as RemoteAudioTrack | undefined;
+
+    const audioLevel = useAudio(remoteAudioTrack);
+
+    const isAgentSpeaking = tracks.some(
+        (track) =>
+            track.publication.kind === Track.Kind.Audio &&
+            track.publication.isSubscribed &&
+            !track.participant.isLocal
     );
-    const [visible, setVisible] = useState(false);
-    const [isPendingClose, setIsPendingClose] = useState(false);
-    const [finalMessageStarted, setFinalMessageStarted] = useState(false);
-    const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    const { startSession, closeSession, isSpeaking, isSessionActive } =
-        useLiveKit();
-    const { isRecording, startRecording, stopRecording } = useAudio();
-    const { reportError } = useError();
-    const { keywordDetection } = useKeywordDetection(picovoiceAccessKey);
-
-    const resetState = useCallback(() => {
-        setIsPendingClose(false);
-        setFinalMessageStarted(false);
-        if (fallbackTimeoutRef.current) {
-            clearTimeout(fallbackTimeoutRef.current);
-            fallbackTimeoutRef.current = null;
-        }
-    }, []);
-
-    const endConversation = useCallback(() => {
-        stopRecording();
-        setIsPendingClose(true);
-
-        // Set a fallback timeout to force close the session if isSpeaking gets stuck
-        if (fallbackTimeoutRef.current) {
-            clearTimeout(fallbackTimeoutRef.current);
-        }
-        fallbackTimeoutRef.current = setTimeout(() => {
-            console.log("[useOrb] Fallback timeout: Force closing session");
-            closeSession();
-            setVisible(false);
-            window.electron.send("audio-stream-end");
-            resetState();
-        }, 10000); // 10 second fallback timeout
-    }, [stopRecording, closeSession, resetState]);
 
     useEffect(() => {
-        if (window.electron) {
-            window.electron
-                .getAsset("key", "picovoice")
-                .then((key: string | null) => {
-                    setPicovoiceAccessKey(key);
-                })
-                .catch((err: Error) =>
-                    reportError(
-                        `Failed to get Picovoice Access Key: ${err.message}`,
-                        "useOrb"
-                    )
-                );
+        if (isConnecting) {
+            setOrbState("idle");
+            return;
         }
-    }, [reportError]);
+
+        if (isAgentSpeaking) {
+            setOrbState("speaking");
+            setIsAudioActive(true);
+        } else if (vaState === "listening") {
+            setOrbState("listening");
+            setIsAudioActive(true);
+        } else if (vaState === "thinking") {
+            setOrbState("thinking");
+            setIsAudioActive(false);
+        } else {
+            setOrbState("idle");
+            setIsAudioActive(false);
+        }
+    }, [isAgentSpeaking, vaState, isConnecting]);
 
     useEffect(() => {
-        if (isPendingClose && isSpeaking) {
-            console.log(
-                "[useOrb] Pending close, but still speaking. Waiting for final message..."
-            );
-            setFinalMessageStarted(true);
-        }
-    }, [isSpeaking, isPendingClose]);
-
-    useEffect(() => {
-        if (finalMessageStarted && !isSpeaking) {
-            console.log("[useOrb] Final message completed, closing session...");
-
-            // Clear the fallback timeout since we're closing normally
-            if (fallbackTimeoutRef.current) {
-                clearTimeout(fallbackTimeoutRef.current);
-                fallbackTimeoutRef.current = null;
-            }
-
-            closeSession();
-            setVisible(false);
-
-            setTimeout(() => {
-                window.electron.send("audio-stream-end");
-                resetState();
-            }, 1000);
-        }
-    }, [isSpeaking, finalMessageStarted, closeSession, resetState]);
-
-    useEffect(() => {
-        if (keywordDetection && !isRecording && !isSessionActive) {
-            setVisible(true);
-            window.electron.send("show-orb");
-
-            startSession().then((success: boolean) => {
-                if (success) {
-                    startRecording();
+        if (isAudioActive) {
+            const pulsate = () => {
+                if (orbState === "speaking") {
+                    const minSize = 1.15;
+                    const maxGrowth = 0.2;
+                    const newSize = minSize + audioLevel * maxGrowth;
+                    setOrbSize(newSize);
+                } else {
+                    setOrbSize(1.15 + Math.random() * 0.1);
                 }
-            });
+            };
+
+            const interval = setInterval(pulsate, 100);
+            return () => clearInterval(interval);
+        } else {
+            setOrbSize(1.2);
         }
-    }, [keywordDetection, startSession, startRecording]);
+    }, [isAudioActive, orbState, audioLevel]);
 
-    useEffect(() => {
-        window.electron.receive("end-conversation", endConversation);
+    const localParticipant = participants.find((p) => p.isLocal);
 
-        return () => {
-            window.electron.removeListener("end-conversation");
-        };
-    }, [endConversation]);
-
-    // Debug logging for isSpeaking state
-    useEffect(() => {
-        console.log(`[useOrb] isSpeaking state changed: ${isSpeaking}`);
-    }, [isSpeaking]);
+    const toggleMicrophone = async () => {
+        if (localParticipant) {
+            const isEnabled = localParticipant.isMicrophoneEnabled;
+            await (localParticipant as LocalParticipant).setMicrophoneEnabled(!isEnabled);
+        }
+    };
 
     return {
-        isListening: isRecording,
-        isSpeaking,
-        visible,
-        processing: isProcessing,
+        orbState,
+        orbSize,
+        isKeywordListening,
+        isKeywordDetected,
+        toggleMicrophone,
     };
-}
+};

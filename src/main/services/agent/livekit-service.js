@@ -113,80 +113,40 @@ class LiveKitService {
     }
 
     /**
-     * Find the best available Python installation
+     * Creates a long-lived token for pre-warming the connection.
      */
-    findBestPython() {
-        const candidates =
-            process.platform === "win32"
-                ? ["python", "python3", "py"]
-                : ["python3", "python"];
-
-        for (const candidate of candidates) {
-            try {
-                const result = require("child_process").execSync(
-                    `${candidate} --version`,
-                    { encoding: "utf8", stdio: "pipe" }
-                );
-                if (result.includes("Python 3.")) {
-                    return candidate;
-                }
-            } catch (error) {
-                // Continue to next candidate
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Generate a warm token for faster connections
-     */
-    async generateWarmToken() {
+    async getWarmupToken() {
         if (!this.apiKey || !this.apiSecret) {
-            return;
+            console.warn("[LiveKit] API credentials not configured, cannot create warmup token.");
+            return null;
         }
 
         try {
-            const roomName = `luna-warm-${Date.now()}`;
-            const participantName = "user";
-
+            // This token isn't for a specific room, but just for the initial connection.
+            const roomName = `warmup-${Date.now()}`;
+            const participantName = `warmup-participant-${Date.now()}`;
             const token = new AccessToken(this.apiKey, this.apiSecret, {
                 identity: participantName,
-                ttl: "10m", // 10 minutes - enough time for quick access
+                // Give it a long TTL, e.g., 24 hours.
+                ttl: 60 * 60 * 24,
             });
 
             token.addGrant({
                 room: roomName,
                 roomJoin: true,
-                canPublish: true,
-                canSubscribe: true,
+                canPublish: false,
+                canSubscribe: false,
             });
 
-            this.warmToken = {
-                token: await token.toJwt(),
-                roomName: roomName,
+            const jwtToken = await token.toJwt();
+            return {
                 url: this.serverUrl,
+                token: jwtToken,
             };
-            this.warmTokenExpiry = Date.now() + 9 * 60 * 1000; // 9 minutes from now
         } catch (error) {
-            console.warn("[LiveKit] Failed to generate warm token:", error);
+            console.error("[LiveKit] Failed to create warmup token:", error);
+            return null;
         }
-    }
-
-    /**
-     * Get or refresh warm token
-     */
-    getWarmToken() {
-        // Check if warm token is still valid (with 1 minute buffer)
-        if (
-            this.warmToken &&
-            this.warmTokenExpiry &&
-            Date.now() < this.warmTokenExpiry - 60000
-        ) {
-            return this.warmToken;
-        }
-
-        // Token expired or doesn't exist, return null to generate new one
-        return null;
     }
 
     /**
