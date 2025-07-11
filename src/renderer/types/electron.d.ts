@@ -10,15 +10,9 @@ declare global {
             receive: (
                 channel:
                     | "end-conversation"
-                    | "gemini:turn-complete"
                     | "processing"
                     | "audio-chunk-received"
-                    | "audio-stream-complete"
-                    | "gemini:audio-chunk"
-                    | "gemini:interrupted"
-                    | "gemini:session-opened"
-                    | "gemini:error"
-                    | "gemini:closed",
+                    | "audio-stream-complete",
                 func: (...args: any[]) => void
             ) => void;
             removeListener: (channel: string) => void;
@@ -28,8 +22,6 @@ declare global {
                     | "execute-command"
                     | "update-settings"
                     | "get-window-bounds"
-                    | "gemini:start-session"
-                    | "gemini:close-session"
                     | "livekit:get-token"
                     | "livekit:start-session"
                     | "livekit:stop-agent",
