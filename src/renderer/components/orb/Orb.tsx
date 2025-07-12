@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import {
     Orb as ReactAiOrb,
@@ -7,9 +7,12 @@ import {
     galaxyPreset,
     oceanDepthsPreset,
 } from "react-ai-orb";
-import { useRoomContext } from "@livekit/components-react";
-import { useOrb, OrbState } from "../../hooks/useOrb";
 import ArcPanel from "./ArcPanel";
+import {
+    useLocalParticipant,
+    useSpeakingParticipants,
+    useRemoteParticipants,
+} from "@livekit/components-react";
 
 const OrbWrapper = styled.div`
     position: relative;
@@ -36,67 +39,36 @@ const OrbContainer = styled.div`
     }
 `;
 
-interface ConnectedOrbContentProps {
-    onStopSession: () => void;
-    onOrbClick: () => void;
-    showPanel: boolean;
-    panelCollapsed: boolean;
-    panelSide: "left" | "right";
-    setPanelCollapsed: (collapsed: boolean) => void;
-    isInitializing: boolean;
-    accessKey: string | null;
-}
+type OrbState = "idle" | "listening" | "thinking" | "speaking";
 
-const ConnectedOrbContent: React.FC<ConnectedOrbContentProps> = ({
-    onStopSession,
-    onOrbClick,
-    showPanel,
-    panelCollapsed,
-    panelSide,
-    setPanelCollapsed,
-    isInitializing,
-    accessKey,
-}) => {
-    const room = useRoomContext();
-    const { orbState, orbSize, toggleMicrophone } = useOrb(
-        accessKey,
-        isInitializing,
-        room
-    );
+const Orb: React.FC = () => {
+    const [orbState, setOrbState] = useState<OrbState>("idle");
+    const [showPanel, setShowPanel] = useState(false);
+    const [panelCollapsed, setPanelCollapsed] = useState(true);
 
-    const handleStopSession = async () => {
-        try {
-            console.log("[Orb] Disconnecting from room...");
-            room.disconnect();
-            onStopSession();
-        } catch (error) {
-            console.error("[Orb] Failed to disconnect:", error);
-            onStopSession();
+    const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
+    const speakingParticipants = useSpeakingParticipants();
+    const remoteParticipants = useRemoteParticipants();
+
+    useEffect(() => {
+        const agentParticipant = remoteParticipants.find((p) =>
+            p.identity.includes("agent")
+        );
+
+        const isAgentSpeaking =
+            agentParticipant &&
+            speakingParticipants.some(
+                (p) => p.identity === agentParticipant.identity
+            );
+
+        if (isAgentSpeaking) {
+            setOrbState("speaking");
+        } else if (isMicrophoneEnabled) {
+            setOrbState("listening");
+        } else {
+            setOrbState("idle");
         }
-    };
-
-    const panelActions = [
-        {
-            icon: "🎤",
-            label: "Toggle Microphone",
-            action: toggleMicrophone,
-        },
-        {
-            icon: "⏹️",
-            label: "Stop Session",
-            action: handleStopSession,
-        },
-        {
-            icon: "🔊",
-            label: "Audio Settings",
-            action: () => console.log("Audio settings"),
-        },
-        {
-            icon: "⚙️",
-            label: "Settings",
-            action: () => console.log("Settings"),
-        },
-    ];
+    }, [isMicrophoneEnabled, speakingParticipants, remoteParticipants]);
 
     const getOrbProps = () => {
         switch (orbState) {
@@ -131,34 +103,34 @@ const ConnectedOrbContent: React.FC<ConnectedOrbContentProps> = ({
         }
     };
 
+    const handleOrbClick = () => {
+        setShowPanel(!showPanel);
+    };
+
     return (
         <OrbWrapper>
             <OrbContainer
-                onClick={onOrbClick}
+                onClick={handleOrbClick}
                 aria-label={
-                    isInitializing
-                        ? "Luna is initializing..."
-                        : orbState === "listening"
+                    orbState === "listening"
                         ? "Luna is listening"
-                        : orbState === "thinking"
-                        ? "Luna is thinking"
                         : orbState === "speaking"
                         ? "Luna is speaking"
-                        : "Luna is active - click for controls"
+                        : "Luna is active"
                 }
             >
-                <ReactAiOrb size={orbSize} {...getOrbProps()} />
+                <ReactAiOrb size={200} {...getOrbProps()} />
             </OrbContainer>
 
             <ArcPanel
                 visible={showPanel}
-                side={panelSide}
+                side={"left"}
                 collapsed={panelCollapsed}
                 setCollapsed={setPanelCollapsed}
-                actions={panelActions}
+                actions={[]}
             />
         </OrbWrapper>
     );
 };
 
-export default ConnectedOrbContent;
+export default Orb;

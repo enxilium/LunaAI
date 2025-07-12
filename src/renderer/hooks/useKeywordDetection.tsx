@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { usePorcupine } from "@picovoice/porcupine-react";
-import useError from "./useError";
 
 const KEYWORD_LABEL = "LUNA";
 
@@ -8,7 +7,6 @@ export default function useKeywordDetection(accessKey: string | null) {
     const [keywordPath, setKeywordPath] = useState<string | null>(null);
     const [modelPath, setModelPath] = useState<string | null>(null);
     const [isKeywordDetected, setIsKeywordDetected] = useState(false);
-    const { reportError } = useError();
 
     const {
         keywordDetection,
@@ -40,7 +38,6 @@ export default function useKeywordDetection(accessKey: string | null) {
         const fetchPaths = async () => {
             if (accessKey && window.electron?.getAsset) {
                 try {
-                    console.log("Fetching Porcupine asset paths...");
                     const [fetchedKeywordPath, fetchedModelPath] =
                         await Promise.all([
                             window.electron.getAsset("models", "wakeWord.ppn"),
@@ -50,16 +47,10 @@ export default function useKeywordDetection(accessKey: string | null) {
                             ),
                         ]);
 
-                    console.log(
-                        "Porcupine paths fetched:",
-                        fetchedKeywordPath,
-                        fetchedModelPath
-                    );
-
                     setKeywordPath(fetchedKeywordPath);
                     setModelPath(fetchedModelPath);
                 } catch (error) {
-                    reportError(
+                    window.electron.reportError(
                         `Failed to get Porcupine asset paths: ${error}`,
                         "useKeywordDetection"
                     );
@@ -86,7 +77,6 @@ export default function useKeywordDetection(accessKey: string | null) {
                     await release();
                 }
 
-                console.log("Initializing Porcupine...");
                 const porcupineKeyword = {
                     publicPath: keywordPath,
                     label: KEYWORD_LABEL,
@@ -97,10 +87,11 @@ export default function useKeywordDetection(accessKey: string | null) {
                 };
 
                 await init(accessKey, porcupineKeyword, porcupineModel);
-                console.log("Porcupine initialized, starting...");
-                start();
+                await start();
+
+                console.log("[Wake Word] Wake word detection initialized.");
             } catch (err) {
-                reportError(
+                window.electron.reportError(
                     `Failed to initialize Porcupine: ${err}`,
                     "useKeywordDetection"
                 );
@@ -123,14 +114,13 @@ export default function useKeywordDetection(accessKey: string | null) {
     // If porcupine encounters errors, log them
     useEffect(() => {
         if (error) {
-            reportError(`Porcupine error: ${error}`, "useKeywordDetection");
+            window.electron.reportError(
+                `Porcupine error: ${error}`,
+                "useKeywordDetection"
+            );
         }
-    }, [error, reportError]);
+    }, [error]);
 
-    // Debug log for listening status
-    useEffect(() => {
-        console.log("Porcupine isListening status:", isListening);
-    }, [isListening]);
 
     return {
         keywordDetection,

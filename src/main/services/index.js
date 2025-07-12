@@ -5,6 +5,10 @@ const { getDataService } = require("./user/data-service.js");
 const { getEventsService } = require("./events-service.js");
 const { getLiveKitService } = require("./agent/livekit-service.js");
 
+/**
+ * @description Initializes all application services.
+ * @returns {Promise<Object>} A promise that resolves with an object containing all service instances.
+ */
 async function initializeServices() {
     console.log("[Services] Initializing services...");
     const errorService = getErrorService();
@@ -29,6 +33,10 @@ async function initializeServices() {
     };
 }
 
+/**
+ * @description Initializes credentials from environment variables.
+ * @returns {Promise<void>} A promise that resolves when credentials are initialized.
+ */
 async function initializeCredentialsFromEnv() {
     const credentialsService = getCredentialsService();
 

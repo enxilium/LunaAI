@@ -1,30 +1,14 @@
-const { app, ipcMain, protocol, BrowserWindow, session } = require("electron");
+const { app, protocol, session, BrowserWindow } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
 const { getErrorService } = require("./services/error-service");
-const { createOrbWindow } = require("./windows/orb-window");
-const { getLivekitService } = require("./services/agent/livekit-service");
-
-ipcMain.handle("livekit:get-warmup-token", async () => {
-    try {
-        const livekitService = getLivekitService();
-        const token = await livekitService.getWarmupToken();
-        return token;
-    } catch (error) {
-        const errorService = getErrorService();
-        errorService.reportError(
-            `Failed to get warmup token: ${error.message}`,
-            "main"
-        );
-        return null;
-    }
-});
 
 require("dotenv").config();
 
 /**
  * @description Initializes the application, including services, windows, and tray.
+ * @returns {Promise<void>} A promise that resolves when initialization is complete.
  */
 async function initialize() {
     console.log("[Main] Starting Luna AI initialization...");
@@ -49,7 +33,7 @@ async function initialize() {
             console.log("[Main] Services initialized");
             await createWindows().then(async () => {
                 console.log("[Main] Windows created");
-                const tray = await createTray().then(() => {
+                await createTray().then(() => {
                     console.log("[Main] Tray created");
                 });
             });
@@ -83,8 +67,12 @@ app.whenReady().then(() => {
     initialize();
 });
 
-app.on("quit", () => {
-    app.quit();
+/**
+ * @description Sets the app.isQuitting flag when the app is about to quit.
+ * This ensures that windows close properly during app shutdown.
+ */
+app.on("before-quit", () => {
+    app.isQuitting = true;
 });
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -92,17 +80,23 @@ if (require("electron-squirrel-startup")) {
     app.quit();
 }
 
-// Quit when all windows are closed, except on macOS.
+/**
+ * @description Quits the app when all windows are closed, except on macOS.
+ */
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") {
         app.quit();
     }
 });
 
+/**
+ * @description Re-creates windows when the app is activated with no windows open.
+ * This is common on macOS when the dock icon is clicked.
+ */
 app.on("activate", () => {
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-        createOrbWindow();
+        createWindows();
     }
 });

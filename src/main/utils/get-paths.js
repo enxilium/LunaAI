@@ -51,28 +51,52 @@ function getModelPath(modelName) {
     return getAssetPath("models", modelName);
 }
 
-
 /**
  * Gets the path to the Python executable to run the agent process. Only used in development.
- * @returns 
+ * @returns {string|null} The path to the Python executable, or null if not found.
  */
 function getPythonPath() {
-    const candidates =
-        process.platform === "win32"
-            ? ["python", "python3", "py"]
-            : ["python3", "python"];
+    const path = require("path");
+    const fs = require("fs");
+    const backendPath = process.cwd();
 
-    for (const candidate of candidates) {
-        try {
-            const result = require("child_process").execSync(
-                `${candidate} --version`,
-                { encoding: "utf8", stdio: "pipe" }
-            );
-            if (result.includes("Python 3.")) {
-                return candidate;
+    // Look for virtual environment Python
+    const venvPython =
+        process.platform === "win32"
+            ? path.join(backendPath, ".venv", "Scripts", "python.exe")
+            : path.join(backendPath, ".venv", "bin", "python");
+
+    const altVenvPython =
+        process.platform === "win32"
+            ? path.join(backendPath, "venv", "Scripts", "python.exe")
+            : path.join(backendPath, "venv", "bin", "python");
+
+    if (fs.existsSync(venvPython)) {
+        return venvPython;
+    } else if (fs.existsSync(altVenvPython)) {
+        return altVenvPython;
+    } else {
+        // Try to find system Python
+        const candidates =
+            process.platform === "win32"
+                ? ["python", "python3", "py"]
+                : ["python3", "python"];
+
+        for (const candidate of candidates) {
+            try {
+                const result = require("child_process").execSync(
+                    `${candidate} --version`,
+                    { encoding: "utf8", stdio: "pipe" }
+                );
+                if (result.includes("Python 3.")) {
+                    return candidate;
+                }
+            } catch (error) {
+                const {
+                    getErrorService,
+                } = require("../services/error-service");
+                getErrorService().reportError(error, "getPythonPath");
             }
-        } catch (error) {
-            // Continue to next candidate
         }
     }
     return null;

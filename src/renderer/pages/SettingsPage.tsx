@@ -38,9 +38,8 @@ const SettingsPage: React.FC = () => {
         setSettings(newSettings);
     }
 
-    async function updateSettings(name: string, value: any) {
-        await window.electron.invoke("update-settings", name, value);
-        fetchSettings();
+    async function updateSetting(name: string, value: any) {
+        await window.electron.updateSetting(name, value);
     }
 
     useEffect(() => {
@@ -60,7 +59,7 @@ const SettingsPage: React.FC = () => {
                             description={pref.description}
                             value={settings[pref.name as keyof typeof settings]}
                             onChange={(value: boolean) =>
-                                updateSettings(pref.name, value)
+                                updateSetting(pref.name, value)
                             }
                         />
                     </div>
