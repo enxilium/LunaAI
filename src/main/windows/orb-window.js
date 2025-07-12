@@ -1,6 +1,5 @@
 const { BrowserWindow, screen, app, ipcMain } = require("electron");
-const path = require("path");
-const { getResourcePath } = require("../utils/paths");
+const { getResourcePath } = require("../utils/get-paths");
 const { getErrorService } = require("../services/error-service");
 
 const ORB_MARGIN = 30;
@@ -8,6 +7,11 @@ let orbWindow = null;
 let recentlyDragged = false;
 let dragTimeout = null;
 
+/**
+ * @description Creates the floating orb window.
+ * @returns {Promise<Electron.BrowserWindow>} A promise that resolves with the created window.
+ * @throws {Error} If window creation fails.
+ */
 async function createOrbWindow() {
     return new Promise((resolve, reject) => {
         const { width } = screen.getPrimaryDisplay().workAreaSize;
@@ -94,6 +98,9 @@ async function createOrbWindow() {
 
         // Handle close event - hide instead of close
         orbWindow.on("close", (event) => {
+            console.log(
+                `[OrbWindow] close event, app.isQuitting: ${app.isQuitting}`
+            );
             // If app is not quitting, prevent window closure
             if (!app.isQuitting) {
                 event.preventDefault();
@@ -104,6 +111,12 @@ async function createOrbWindow() {
     });
 }
 
+/**
+ * @description Updates the orb window size while maintaining its position.
+ * @param {Object} args - The arguments for updating the window.
+ * @param {number} args.width - The new width of the window.
+ * @param {number} args.height - The new height of the window.
+ */
 function setOrbWindow(args) {
     if (orbWindow && orbWindow.isVisible() && !recentlyDragged) {
         const bounds = orbWindow.getBounds();
@@ -122,6 +135,10 @@ function setOrbWindow(args) {
     }
 }
 
+/**
+ * @description Prevents the window from moving off-screen by constraining its position.
+ * @param {Electron.BrowserWindow} window - The window to constrain.
+ */
 function preventOffscreenMovement(window) {
     const bounds = window.getBounds();
     const workArea = screen.getPrimaryDisplay().workAreaSize;
@@ -157,6 +174,10 @@ function preventOffscreenMovement(window) {
     }
 }
 
+/**
+ * @description Gets the current orb window instance.
+ * @returns {Electron.BrowserWindow|null} The orb window instance or null if it doesn't exist.
+ */
 function getOrbWindow() {
     return orbWindow;
 }

@@ -10,27 +10,16 @@ const { contextBridge, ipcRenderer } = require("electron");
  * @type {{send: string[], receive: string[], invoke: string[]}}
  */
 const validChannels = {
-    send: ["show-orb", "audio-stream-end"],
+    send: ["show-orb", "hide-orb", "update-setting"],
 
     receive: [
-        "end-conversation",
-        "processing",
-        "livekit:connected",
-        "livekit:disconnected",
-        "livekit:error",
-        "livekit:agent-started",
-        "livekit:agent-stopped",
-        "livekit:agent-error",
+        "error"
     ],
 
     invoke: [
-        "error",
-        "update-settings",
         "get-asset",
-        "get-window-bounds",
         "livekit:get-token",
-        "livekit:start-session",
-        "livekit:stop-agent",
+        "livekit:get-server-url",
     ],
 };
 
@@ -72,9 +61,7 @@ contextBridge.exposeInMainWorld("electron", {
         if (validChannels.invoke.includes(name)) {
             return ipcRenderer.invoke(name, ...args);
         }
-
-        console.error(`Invalid invoke method: ${name}`, "preload");
-        return Promise.reject(new Error(`Invalid invoke method: ${name}`));
+        reportError(`Invalid invoke method: ${name}`, "preload");
     },
 
     /**
@@ -97,6 +84,32 @@ contextBridge.exposeInMainWorld("electron", {
     },
 
     /**
+     * @description Get all settings from the main process.
+     * @returns {Promise<any>} A promise that resolves with the settings.
+     */
+    getAllSettings: () => {
+        return ipcRenderer.invoke("get-all-settings");
+    },
+
+    /**
+     * @description Get a setting from the main process.
+     * @param {string} key - The key of the setting to get.
+     * @returns {Promise<any>} A promise that resolves with the setting.
+     */
+    getSetting: (key) => {
+        return ipcRenderer.invoke("get-setting", key);
+    },
+
+    /**
+     * @description Update a setting in the main process.
+     * @param {string} key - The key of the setting to update.
+     * @param {any} value - The value to update the setting to.
+     */
+    updateSetting: (key, value) => {
+        return ipcRenderer.send("update-setting", key, value);
+    },
+
+    /**
      * @description Remove all listeners for a specific channel.
      * @param {string} channel - The channel to remove listeners from.
      */
@@ -114,18 +127,14 @@ contextBridge.exposeInMainWorld("electron", {
     },
 
     /**
-     * @description Start a LiveKit session with agent.
-     * @returns {Promise<{url: string, token: string, roomName: string, agentStarted: boolean, agentType: string}>} Session details
+     * @description Get a LiveKit server URL for connecting to the room.
+     * @returns {Promise<string>} LiveKit server URL
      */
-    startLiveKitSession: () => {
-        return ipcRenderer.invoke("livekit:start-session");
-    },
-
-    /**
-     * @description Stop the LiveKit agent.
-     * @returns {Promise<{success: boolean, message: string}>} Stop result
-     */
-    stopLiveKitAgent: () => {
-        return ipcRenderer.invoke("livekit:stop-agent");
+    getLiveKitServerUrl: () => {
+        return ipcRenderer.invoke("livekit:get-server-url");
     },
 });
+
+function reportError(error) {
+    return ipcRenderer.invoke("error", { error, source: "preload" });
+}

@@ -1,9 +1,14 @@
 const { BrowserWindow } = require("electron");
-const { getResourcePath } = require("../utils/paths");
+const { getResourcePath } = require("../utils/get-paths");
 const { getErrorService } = require("../services/error-service");
 
 let mainWindow = null;
 
+/**
+ * @description Creates the main application window.
+ * @returns {Promise<Electron.BrowserWindow>} A promise that resolves with the created window.
+ * @throws {Error} If window creation fails.
+ */
 function createMainWindow() {
     return new Promise((resolve, reject) => {
         mainWindow = new BrowserWindow({
@@ -46,6 +51,10 @@ function createMainWindow() {
     });
 }
 
+/**
+ * @description Gets the current main window instance.
+ * @returns {Electron.BrowserWindow|null} The main window instance or null if it doesn't exist.
+ */
 function getMainWindow() {
     return mainWindow;
 }

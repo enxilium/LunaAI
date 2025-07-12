@@ -1,14 +1,20 @@
 const { AccessToken } = require("livekit-server-sdk");
-const { ipcMain, app } = require("electron");
+const { app } = require("electron");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const { getPythonPath } = require("./../../utils/get-paths");
+const { getErrorService } = require("../error-service");
 
 /**
- * LiveKit Service for Luna AI
+ * @class LiveKitService
+ * @description LiveKit Service for Luna AI
  * Manages room creation and token generation
  */
 class LiveKitService {
+    /**
+     * @description Creates an instance of LiveKitService.
+     */
     constructor() {
         this.apiKey = null;
         this.apiSecret = null;
@@ -22,11 +28,15 @@ class LiveKitService {
         this.warmTokenExpiry = null;
     }
 
+    /**
+     * @description Initialize the LiveKit service with credentials and set up IPC handlers.
+     * @returns {Promise<boolean>} True if initialization was successful, false otherwise.
+     */
     async initialize() {
         // Get LiveKit credentials from environment or config
         this.apiKey = process.env.LIVEKIT_API_KEY;
         this.apiSecret = process.env.LIVEKIT_API_SECRET;
-        this.serverUrl = process.env.LIVEKIT_URL || "ws://localhost:7880";
+        this.serverUrl = process.env.LIVEKIT_URL;
 
         if (!this.apiKey || !this.apiSecret) {
             console.warn("[LiveKit] API credentials not configured");
@@ -40,165 +50,36 @@ class LiveKitService {
             await this.startAgentWorker();
         }
 
-        // Set up IPC handlers
-        ipcMain.handle("livekit:get-token", async () => {
-            try {
-                const result = await this.generateToken();
-                return result;
-            } catch (error) {
-                console.error("[LiveKit] Token generation error:", error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle("livekit:start-session", async () => {
-            try {
-                const result = await this.startSession();
-                return result;
-            } catch (error) {
-                console.error("[LiveKit] Session start error:", error);
-                throw error;
-            }
-        });
-
-        ipcMain.handle("livekit:stop-agent", async () => {
-            try {
-                return await this.stopAgent();
-            } catch (error) {
-                console.error("[LiveKit] Agent stop error:", error);
-                throw error;
-            }
-        });
-
-        // Generate warm token for faster connections
-        if (!app.isPackaged) {
-            this.generateWarmToken();
-        }
-
         return true;
     }
 
     /**
-     * Initialize Python environment for development mode
+     * @description Initialize Python environment for development mode.
+     * @returns {Promise<void>}
      */
     async initializePythonEnvironment() {
-        const backendPath = process.cwd();
+        this.pythonPath = getPythonPath();
 
-        // Look for virtual environment Python
-        const venvPython =
-            process.platform === "win32"
-                ? path.join(backendPath, ".venv", "Scripts", "python.exe")
-                : path.join(backendPath, ".venv", "bin", "python");
-
-        const altVenvPython =
-            process.platform === "win32"
-                ? path.join(backendPath, "venv", "Scripts", "python.exe")
-                : path.join(backendPath, "venv", "bin", "python");
-
-        if (fs.existsSync(venvPython)) {
-            this.pythonPath = venvPython;
-        } else if (fs.existsSync(altVenvPython)) {
-            this.pythonPath = altVenvPython;
-        } else {
-            // Try to find system Python
-            this.pythonPath = this.findBestPython();
-            if (!this.pythonPath) {
-                console.error("[LiveKit] No suitable Python found!");
-                console.error(
-                    "[LiveKit] Please create a virtual environment with: python -m venv .venv"
-                );
-                throw new Error("No suitable Python environment found");
-            }
+        if (!this.pythonPath) {
+            this.reportError("No suitable Python path found.");
         }
     }
 
     /**
-     * Creates a long-lived token for pre-warming the connection.
+     * @description Creates a long-lived token for pre-warming the connection.
+     * @returns {Promise<string>} The generated JWT token.
      */
-    async getWarmupToken() {
-        if (!this.apiKey || !this.apiSecret) {
-            console.warn("[LiveKit] API credentials not configured, cannot create warmup token.");
-            return null;
-        }
-
+    async generateToken() {
         try {
-            // This token isn't for a specific room, but just for the initial connection.
             const roomName = `warmup-${Date.now()}`;
             const participantName = `warmup-participant-${Date.now()}`;
             const token = new AccessToken(this.apiKey, this.apiSecret, {
                 identity: participantName,
-                // Give it a long TTL, e.g., 24 hours.
-                ttl: 60 * 60 * 24,
+                // Give it a long TTL, e.g., 1 hour.
+                ttl: 60 * 60,
             });
 
-            token.addGrant({
-                room: roomName,
-                roomJoin: true,
-                canPublish: false,
-                canSubscribe: false,
-            });
-
-            const jwtToken = await token.toJwt();
-            return {
-                url: this.serverUrl,
-                token: jwtToken,
-            };
-        } catch (error) {
-            console.error("[LiveKit] Failed to create warmup token:", error);
-            return null;
-        }
-    }
-
-    /**
-     * Start a new session - agent worker is already running and will auto-dispatch
-     */
-    async startSession() {
-        try {
-            // Try to use warm token first
-            let tokenInfo = this.getWarmToken();
-
-            if (!tokenInfo) {
-                // Generate new token
-                const roomName = `luna-chat-${Date.now()}`;
-                tokenInfo = await this.generateTokenForRoom(roomName);
-            }
-
-            if (app.isPackaged) {
-                // Production: Agents auto-dispatch when user joins room (cloud-hosted)
-                return {
-                    ...tokenInfo,
-                    agentStarted: true,
-                    agentType: "cloud",
-                };
-            } else {
-                // Development: Agent worker is already running and will auto-dispatch
-                return {
-                    ...tokenInfo,
-                    agentStarted: true,
-                    agentType: "local_worker",
-                };
-            }
-        } catch (error) {
-            console.error("[LiveKit] Failed to start session:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Generate token for a specific room
-     */
-    async generateTokenForRoom(roomName) {
-        if (!this.apiKey || !this.apiSecret) {
-            throw new Error("LiveKit credentials not configured");
-        }
-
-        try {
-            const participantName = "user";
-
-            const token = new AccessToken(this.apiKey, this.apiSecret, {
-                identity: participantName,
-                ttl: "1h",
-            });
+            this.warmTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour from now
 
             token.addGrant({
                 room: roomName,
@@ -208,20 +89,20 @@ class LiveKitService {
             });
 
             const jwtToken = await token.toJwt();
-            return {
-                url: String(this.serverUrl),
-                token: String(jwtToken),
-                roomName: String(roomName),
-            };
+
+            this.warmToken = jwtToken;
+
+            return jwtToken;
         } catch (error) {
-            console.error("[LiveKit] Error generating token for room:", error);
-            throw new Error(`Failed to generate token: ${error.message}`);
+            this.reportError(`Error generating token: ${error.message}`);
+            throw error;
         }
     }
 
     /**
-     * Start the LiveKit agent worker process (runs once at startup)
-     * The worker will automatically dispatch agents to rooms as needed
+     * @description Start the LiveKit agent worker process (runs once at startup).
+     * The worker will automatically dispatch agents to rooms as needed.
+     * @returns {Promise<boolean>} True if the agent was started successfully, false otherwise.
      */
     async startAgentWorker() {
         if (this.isAgentRunning) {
@@ -244,10 +125,11 @@ class LiveKitService {
 
             // Verify the file exists
             if (!fs.existsSync(agentScript)) {
-                console.error(
-                    `[LiveKit] Agent script not found: ${agentScript}`
+                const error = new Error(
+                    `Agent script not found: ${agentScript}`
                 );
-                throw new Error(`Agent script not found: ${agentScript}`);
+                this.reportError(error.message);
+                throw error;
             }
 
             // Validate environment variables
@@ -256,9 +138,11 @@ class LiveKitService {
                 !this.apiSecret ||
                 !process.env.GEMINI_API_KEY
             ) {
-                throw new Error(
+                const error = new Error(
                     "Missing required environment variables (LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GEMINI_API_KEY)"
                 );
+                this.reportError(error.message);
+                throw error;
             }
 
             // Set up environment variables for the agent worker
@@ -301,13 +185,13 @@ class LiveKitService {
             );
             return true;
         } catch (error) {
-            console.error("[LiveKit] Failed to start agent worker:", error);
+            this.reportError(`Failed to start agent worker: ${error.message}`);
             return false;
         }
     }
 
     /**
-     * Set up process event handlers for the Python agent
+     * @description Set up process event handlers for the Python agent.
      */
     setupAgentProcessHandlers() {
         if (!this.pythonProcess) return;
@@ -385,9 +269,7 @@ class LiveKitService {
             if (code === 0) {
                 console.log(`[LiveKit] Agent worker exited normally`);
             } else {
-                console.error(
-                    `[LiveKit] Agent worker exited with error code ${code}`
-                );
+                this.reportError(`Agent worker exited with error code ${code}`);
             }
             this.isAgentRunning = false;
             this.pythonProcess = null;
@@ -399,16 +281,14 @@ class LiveKitService {
             logStream.uncork(); // Force immediate write
 
             // Only log process startup errors to console (not Luna Agent runtime errors)
-            console.error(
-                "[LiveKit] Agent worker process error:",
-                error.message
-            );
+            this.reportError(`Agent worker process error: ${error.message}`);
             this.isAgentRunning = false;
         });
     }
 
     /**
-     * Stop the LiveKit agent worker
+     * @description Stop the LiveKit agent worker.
+     * @returns {Promise<{success: boolean, message: string}>} Result of the stop operation.
      */
     async stopAgent() {
         if (!this.isAgentRunning || !this.pythonProcess) {
@@ -444,7 +324,8 @@ class LiveKitService {
     }
 
     /**
-     * Get room information for the Python agent
+     * @description Get room information for the Python agent.
+     * @returns {Object} Room connection details.
      */
     getRoomInfo() {
         // The Python agent will use the same room that was created for the user
@@ -454,10 +335,24 @@ class LiveKitService {
             apiSecret: this.apiSecret,
         };
     }
+
+    /**
+     * @description Report an error to the error service.
+     * @param {string|Error} error - Error object or message to report.
+     */
+    reportError(error) {
+        const errorService = getErrorService();
+        const errorMessage = error instanceof Error ? error.message : error;
+        errorService.reportError(errorMessage, "LiveKitService");
+    }
 }
 
 let liveKitService = null;
 
+/**
+ * @description Get the singleton LiveKit service instance.
+ * @returns {Promise<LiveKitService>} The LiveKit service instance.
+ */
 async function getLiveKitService() {
     if (!liveKitService) {
         liveKitService = new LiveKitService();

@@ -1,114 +1,96 @@
 const { EventEmitter } = require("events");
 const { ipcMain } = require("electron");
-const { getMainWindow, getOrbWindow, setOrbWindow } = require("../windows");
+const { getMainWindow, getOrbWindow } = require("../windows");
 const { getErrorService } = require("./error-service");
-const { updateSettings } = require("../invokes/update-settings");
-const { reportError } = require("../invokes/report-error");
-const { getAsset } = require("../invokes/get-asset");
+const {
+    reportError,
+    getAsset,
+    updateSetting,
+    getAllSettings,
+    getSetting,
+} = require("../communication");
+const { getLiveKitService } = require("./agent/livekit-service");
 
 let eventsService = null;
 
-const invokeHandlers = {
-    "get-asset": getAsset,
-    "update-settings": updateSettings,
-    error: reportError,
-};
-
 /**
- * Centralized Events Service
+ * @class EventsService
+ * @description Centralized Events Service
  * Handles all event communication between main process components
  * and between main process and renderer process
+ * @extends EventEmitter
  */
 class EventsService extends EventEmitter {
+    /**
+     * @description Creates an instance of EventsService.
+     */
     constructor() {
         super();
 
         // Debug mode for logging events
         this.debugMode = process.env.NODE_ENV === "development";
-
-        this.listeningStatus = false;
-
-        // Track audio streaming state
-        this.isAudioStreaming = false;
-        this.audioStreamTimeout = null;
-        // Track audio data to prevent duplicates
-        this.lastAudioDataCounter = 0;
-
-        this.errorService = null;
     }
 
     /**
-     * Initialize the events service.
+     * @description Initialize the events service.
      */
     initialize() {
-        this.errorService = getErrorService();
         this._setupIpcHandlers();
-        this._subscribeToErrorService();
     }
 
     /**
-     * Subscribe to the centralized error service
-     * @private
-     */
-    _subscribeToErrorService() {
-        try {
-            // Subscribe to all errors reported to the error service
-            this.errorService.on("error", (errorInfo) => {
-                if (errorInfo.error === "Empty transcription.") {
-                    this.stopListening();
-                    this.hideOrbWindow();
-                }
-            });
-        } catch (error) {
-            const { getErrorService } = require("./error-service");
-            getErrorService().reportError(
-                `Error setting up error service subscription: ${error.message}`,
-                "EventsService"
-            );
-        }
-    }
-
-    /**
-     * Set up IPC handlers for renderer communication
+     * @description Set up IPC handlers for renderer communication
      * @private
      */
     _setupIpcHandlers() {
-        // Handle show-orb from renderer.
-        ipcMain.on("show-orb", (event, info) => {
-            this.showOrbWindow();
-        });
+        // Invoke handlers
+        const invokeHandlers = {
+            "get-asset": getAsset,
+            "get-all-settings": getAllSettings,
+            "get-setting": getSetting,
+            "error": reportError,
+            "livekit:get-token": async () => {
+                const livekitService = await getLiveKitService();
+                return livekitService.warmToken
+                    ? livekitService.warmToken
+                    : await livekitService.generateToken();
+            },
+            "livekit:get-server-url": async () => {
+                const livekitService = await getLiveKitService();
+                return livekitService.serverUrl;
+            },
+        };
 
-        // Handle conversation-end from renderer.
-        ipcMain.on("audio-stream-end", (event, info) => {
-            this.hideOrbWindow();
-        });
-
-        this._registerInvokeHandlers();
-
-        console.log("[EventsService] IPC handlers registered");
-    }
-
-    /**
-     * @description Register all invoke handlers.
-     * @private
-     */
-    _registerInvokeHandlers() {
         for (const [name, handler] of Object.entries(invokeHandlers)) {
-            ipcMain.handle(name, (event, ...args) => handler(...args));
+            ipcMain.handle(name, (event, ...args) => {
+                return handler(...args);
+            });
+        }
+
+        // Command handlers
+        const commandHandlers = {
+            "show-orb": this.showOrbWindow,
+            "hide-orb": this.hideOrbWindow,
+            "update-setting": updateSetting,
+        };
+
+        for (const [name, handler] of Object.entries(commandHandlers)) {
+            ipcMain.on(name, (event, ...args) => handler(...args));
         }
     }
 
     /**
-     * Emit an event with logging
+     * @description Emit an event with logging
      * @param {string} eventName - Name of the event
      * @param {any} payload - Event payload
+     * @returns {boolean} Whether the event had listeners
      */
     emit(eventName, payload) {
         return super.emit(eventName, payload);
     }
 
     /**
-     * Send an event to the renderer process
+     * @description Send an event to the renderer process
      * @param {string} windowName - Window name ('main' or 'orb')
      * @param {string} channel - Channel name
      * @param {any} data - Event data
@@ -149,14 +131,15 @@ class EventsService extends EventEmitter {
     }
 
     /**
-     * Signal that processing has started. //TODO: Modify for asynchronous function calls.
+     * @description Signal that processing has started.
      */
     processingStarted() {
         this.emit("processing-started");
     }
 
     /**
-     * Signal end of current conversation
+     * @description Signal end of current conversation
+     * @returns {Promise<{success: boolean, message: string}>} Result of the conversation end
      */
     async handleConversationEnd() {
         this.sendToRenderer("orb", "end-conversation");
@@ -168,16 +151,25 @@ class EventsService extends EventEmitter {
     }
 
     /**
-     * Report an error
+     * @description Report an error to the error service
      * @param {Error|string} error - Error object or message
      */
     reportError(error) {
-        const errorMessage = error instanceof Error ? error.message : error;
-        this.errorService.reportError(errorMessage, "events-service");
+        getErrorService().reportError(error);
+    }
+
+    /**
+     * @description Stop the listening process
+     */
+    stopListening() {
+        this.listeningStatus = false;
     }
 }
 
-// Create and export singleton instance
+/**
+ * @description Create and export singleton instance
+ * @returns {Promise<EventsService>} The events service instance
+ */
 async function getEventsService() {
     if (!eventsService) {
         eventsService = new EventsService();
