@@ -1,10 +1,23 @@
 const { app, protocol, session, BrowserWindow } = require("electron");
+const path = require("path");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
 const { getErrorService } = require("./services/error-service");
 
 require("dotenv").config();
+
+// Register custom protocols as privileged before app is ready
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: "luna-asset",
+        privileges: {
+            secure: true,
+            supportFetchAPI: true,
+            corsEnabled: false,
+        },
+    },
+]);
 
 /**
  * @description Initializes the application, including services, windows, and tray.
@@ -13,15 +26,16 @@ require("dotenv").config();
 async function initialize() {
     console.log("[Main] Starting Luna AI initialization...");
 
-    // Register protocol handler for local files
-    protocol.registerFileProtocol("file", (request, callback) => {
-        const url = request.url.replace("file:///", "");
+    // Register custom protocol for serving local assets securely
+    protocol.registerFileProtocol("luna-asset", (request, callback) => {
+        const url = request.url.replace("luna-asset://", "");
+        const filePath = path.join(app.getAppPath(), "assets", url);
         try {
-            return callback(decodeURIComponent(url));
+            return callback(decodeURIComponent(filePath));
         } catch (error) {
             const errorService = getErrorService();
             errorService.reportError(
-                `Protocol handler error: ${error.message}`,
+                `Luna asset protocol handler error: ${error.message}`,
                 "main"
             );
         }
@@ -59,7 +73,7 @@ app.whenReady().then(() => {
                 // WARNING: The current Content-Security-Policy is permissive and should be
                 // tightened for production.
                 "Content-Security-Policy": [
-                    "default-src 'self' 'unsafe-inline'; connect-src 'self' ws://localhost:* wss://localhost:* wss://*.livekit.cloud https://*.livekit.cloud https://*.picovoice.ai https://*.picovoice.net https://kmp1.picovoice.net wss://*.picovoice.ai wss://*.picovoice.net https://generativelanguage.googleapis.com https://*.googleapis.com; media-src 'self' blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:3000 blob:; script-src-elem 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;",
+                    "default-src 'self' 'unsafe-inline'; connect-src 'self' file: luna-asset: ws://localhost:* wss://localhost:* wss://*.livekit.cloud https://*.livekit.cloud https://*.picovoice.ai https://*.picovoice.net https://kmp1.picovoice.net wss://*.picovoice.ai wss://*.picovoice.net https://generativelanguage.googleapis.com https://*.googleapis.com; media-src 'self' blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:3000 blob:; script-src-elem 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;",
                 ],
             },
         });

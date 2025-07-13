@@ -1,4 +1,6 @@
-const { getCredentialsService } = require("../services/user/credentials-service");
+const {
+    getCredentialsService,
+} = require("../services/user/credentials-service");
 const { getErrorService } = require("../services/error-service");
 const path = require("path");
 const { app } = require("electron");
@@ -45,7 +47,6 @@ function getAccessKey(keyName) {
     return credentialsService.getCredentials(`${keyName}-key`);
 }
 
-
 /**
  * @description Get the appropriate path for an application asset
  * @param {string} assetType - Type of asset ('images', 'audio', 'models')
@@ -53,14 +54,18 @@ function getAccessKey(keyName) {
  * @returns {string} Absolute path to the asset
  */
 function getAssetPath(assetType, assetName) {
-    // Both development and production use the same assets folder structure
-    if (isDev) {
-        // In development: use files from project directory
-        return path.join(process.cwd(), "assets", assetType, assetName);
-    } else {
-        // In production: use files from assets directory in the app package
-        return path.join(app.getAppPath(), "assets", assetType, assetName);
-    }
+    // Option 1: Use file paths (current approach - works with file: protocol in CSP)
+    // if (isDev) {
+    //     // In development: use files from project directory
+    //     return path.join(process.cwd(), "assets", assetType, assetName);
+    // } else {
+    //     // In production: use files from assets directory in the app package
+    //     return path.join(app.getAppPath(), "assets", assetType, assetName);
+    // }
+
+    // Option 2: Use custom luna-asset:// protocol (more secure alternative)
+    // Uncomment the line below and comment out the above if block to use custom protocol
+    return `luna-asset://${assetType}/${assetName}`;
 }
 
 module.exports = {
