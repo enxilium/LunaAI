@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { usePorcupine } from "@picovoice/porcupine-react";
+import { useAssets } from "./useAssets";
 
 const KEYWORD_LABEL = "LUNA";
 
@@ -7,6 +8,7 @@ export default function useKeywordDetection(accessKey: string | null) {
     const [keywordPath, setKeywordPath] = useState<string | null>(null);
     const [modelPath, setModelPath] = useState<string | null>(null);
     const [isKeywordDetected, setIsKeywordDetected] = useState(false);
+    const { getModel } = useAssets();
 
     const {
         keywordDetection,
@@ -36,15 +38,12 @@ export default function useKeywordDetection(accessKey: string | null) {
 
     useEffect(() => {
         const fetchPaths = async () => {
-            if (accessKey && window.electron?.getAsset) {
+            if (accessKey && getModel) {
                 try {
                     const [fetchedKeywordPath, fetchedModelPath] =
                         await Promise.all([
-                            window.electron.getAsset("models", "wakeWord.ppn"),
-                            window.electron.getAsset(
-                                "models",
-                                "porcupine_params.pv"
-                            ),
+                            getModel("wakeWord.ppn"),
+                            getModel("porcupine_params.pv"),
                         ]);
 
                     setKeywordPath(fetchedKeywordPath);
@@ -56,14 +55,12 @@ export default function useKeywordDetection(accessKey: string | null) {
                     );
                 }
             } else if (accessKey) {
-                console.log(
-                    "window.electron.getAsset not available yet, waiting..."
-                );
+                console.log("Asset service not available yet, waiting...");
             }
         };
 
         fetchPaths();
-    }, [accessKey, reportError]);
+    }, [accessKey, getModel]);
 
     // Initialize Porcupine when access key and paths are available
     useEffect(() => {
@@ -120,7 +117,6 @@ export default function useKeywordDetection(accessKey: string | null) {
             );
         }
     }, [error]);
-
 
     return {
         keywordDetection,

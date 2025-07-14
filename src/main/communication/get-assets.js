@@ -26,13 +26,17 @@ async function getAsset(type, ...args) {
             const key = getAccessKey(...args);
             return key;
         }
+        case "font": {
+            const fontPath = getAssetPath("fonts", ...args);
+            return fontPath;
+        }
         default: {
             const errorService = getErrorService();
             errorService.reportError(
-                new Error(`Unknown asset type: ${type}`),
+                `Unknown asset type: ${type}`,
                 "get-asset"
             );
-            return null;
+            throw new Error(`Unknown asset type: ${type}`);
         }
     }
 }
@@ -49,23 +53,33 @@ function getAccessKey(keyName) {
 
 /**
  * @description Get the appropriate path for an application asset
- * @param {string} assetType - Type of asset ('images', 'audio', 'models')
+ * @param {string} assetType - Type of asset ('images', 'models', 'config')
  * @param {string} assetName - The name of the asset file
  * @returns {string} Absolute path to the asset
  */
 function getAssetPath(assetType, assetName) {
-    // Option 1: Use file paths (current approach - works with file: protocol in CSP)
-    // if (isDev) {
-    //     // In development: use files from project directory
-    //     return path.join(process.cwd(), "assets", assetType, assetName);
-    // } else {
-    //     // In production: use files from assets directory in the app package
-    //     return path.join(app.getAppPath(), "assets", assetType, assetName);
-    // }
+    // Security: validate asset type and name
+    if (!assetType || !assetName) {
+        throw new Error("Asset type and name are required");
+    }
 
-    // Option 2: Use custom luna-asset:// protocol (more secure alternative)
-    // Uncomment the line below and comment out the above if block to use custom protocol
-    return `luna-asset://${assetType}/${assetName}`;
+    // Prevent directory traversal
+    if (assetType.includes("..") || assetName.includes("..")) {
+        throw new Error("Invalid asset path");
+    }
+
+    const basePath = isDev
+        ? path.join(process.cwd(), "assets")
+        : path.join(app.getAppPath(), "assets");
+
+    const fullPath = path.join(basePath, assetType, assetName);
+
+    // Additional security: ensure path is within assets directory
+    if (!fullPath.startsWith(basePath)) {
+        throw new Error("Asset path outside allowed directory");
+    }
+
+    return fullPath;
 }
 
 module.exports = {
