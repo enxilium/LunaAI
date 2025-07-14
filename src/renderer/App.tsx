@@ -2,6 +2,7 @@ import { ThemeProvider } from "styled-components";
 import { theme } from "./styles/theme";
 import Orb from "./components/orb/OrbContainer";
 import SettingsPage from "./pages/SettingsPage";
+import Configuration from "./pages/Configuration";
 import "./styles/globals.css";
 import { useEffect, useState } from "react";
 import React from "react";
@@ -19,6 +20,10 @@ function App() {
         setWindowType("settings");
     };
 
+    const toConfiguration = () => {
+        setWindowType("configuration");
+    };
+
     let page;
 
     // Render different content based on which window we're in
@@ -30,6 +35,9 @@ function App() {
         case "settings":
             page = <SettingsPage />;
             break;
+        case "configuration":
+            page = <Configuration />;
+            break;
         default:
             // Home page
             page = (
@@ -38,6 +46,8 @@ function App() {
                     <p>Configure your AI assistant</p>
 
                     <button onClick={toSettingsPage}>Settings</button>
+                    <p> </p>
+                    <button onClick={toConfiguration}>Configuration</button>
                 </div>
             );
     }
