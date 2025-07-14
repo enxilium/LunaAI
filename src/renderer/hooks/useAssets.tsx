@@ -37,6 +37,7 @@ export function useAssets() {
         getImage,
         getModel,
         getKey,
+        getFont,
         clearCache: () => assetService.clearCache(),
     };
 }
