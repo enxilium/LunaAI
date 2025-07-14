@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useAssets } from "../hooks/useAssets";
 import { PreferencesCard } from "../components/main/PreferencesCard";
 import { BinarySetting } from "../components/main/settingsComponents";
+import Switch from "../components/main/Switch";
 
 const Configuration: React.FC = () => {
+    const [enabled, setEnabled] = useState(false);
     return (
         <div className="grid grid-cols-[1fr_3fr] h-screen w-full bg-backgroundColor font-fontUrl">
             <div className="flex-flex-col bg-backgroundColor2 h-full w-full p-8 border border-borderColor">
@@ -17,7 +19,9 @@ const Configuration: React.FC = () => {
                     header="General Settings"
                     description="Configure general application settings."
                     onClick={() => console.log("General Settings Clicked")}
-                />
+                >
+                    <Switch checked={enabled} onChange={setEnabled} />
+                </PreferencesCard>
                 <PreferencesCard
                     header="Biyoo Mu"
                     description="My cute shiwu."
