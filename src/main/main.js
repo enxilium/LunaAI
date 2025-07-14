@@ -1,23 +1,14 @@
-const { app, protocol, session, BrowserWindow } = require("electron");
-const path = require("path");
+const { app, session, BrowserWindow } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
 const { getErrorService } = require("./services/error-service");
+const {
+    verifyAssetPaths,
+    checkWebpackCompatibility,
+} = require("./utils/asset-verification");
 
 require("dotenv").config();
-
-// Register custom protocols as privileged before app is ready
-protocol.registerSchemesAsPrivileged([
-    {
-        scheme: "luna-asset",
-        privileges: {
-            secure: true,
-            supportFetchAPI: true,
-            corsEnabled: false,
-        },
-    },
-]);
 
 /**
  * @description Initializes the application, including services, windows, and tray.
@@ -26,20 +17,13 @@ protocol.registerSchemesAsPrivileged([
 async function initialize() {
     console.log("[Main] Starting Luna AI initialization...");
 
-    // Register custom protocol for serving local assets securely
-    protocol.registerFileProtocol("luna-asset", (request, callback) => {
-        const url = request.url.replace("luna-asset://", "");
-        const filePath = path.join(app.getAppPath(), "assets", url);
-        try {
-            return callback(decodeURIComponent(filePath));
-        } catch (error) {
-            const errorService = getErrorService();
-            errorService.reportError(
-                `Luna asset protocol handler error: ${error.message}`,
-                "main"
-            );
-        }
-    });
+    // Verify asset paths for production compatibility
+    verifyAssetPaths();
+    const webpackCompatible = checkWebpackCompatibility();
+
+    if (!webpackCompatible) {
+        console.warn("[Main] ⚠️  Asset compatibility issues detected");
+    }
 
     try {
         // Initialize services BEFORE creating windows

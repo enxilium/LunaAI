@@ -2,25 +2,27 @@ import React, { useState, useEffect } from "react";
 import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
 import useKeywordDetection from "../../hooks/useKeywordDetection";
 import { useConnection } from "../../hooks/useConnection";
+import { useAsset } from "../../hooks/useAssets";
 import Orb from "./Orb";
 
 const OrbContainer: React.FC = () => {
     const { room, wsUrl, token, shouldConnect, connect, disconnect } =
         useConnection();
     const [isConnecting, setIsConnecting] = useState(false);
-    const [accessKey, setAccessKey] = useState<string | null>(null);
 
+    // Simple asset loading with built-in loading state
+    const {
+        asset: accessKey,
+        loading: keyLoading,
+        error: keyError,
+    } = useAsset("key", "picovoice");
+
+    // Log any key loading errors
     useEffect(() => {
-        const getAccessKey = async () => {
-            try {
-                const key = await window.electron.getAsset("key", "picovoice");
-                setAccessKey(key);
-            } catch (error) {
-                console.warn("[Orb] Failed to get Picovoice key:", error);
-            }
-        };
-        getAccessKey();
-    }, []);
+        if (keyError) {
+            console.warn("[Orb] Failed to get Picovoice key:", keyError);
+        }
+    }, [keyError]);
 
     const { isKeywordDetected } = useKeywordDetection(accessKey);
 
