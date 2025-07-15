@@ -2,11 +2,6 @@ const { app, session, BrowserWindow } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
-const { getErrorService } = require("./services/error-service");
-const {
-    verifyAssetPaths,
-    checkWebpackCompatibility,
-} = require("./utils/asset-verification");
 
 require("dotenv").config();
 
@@ -17,35 +12,17 @@ require("dotenv").config();
 async function initialize() {
     console.log("[Main] Starting Luna AI initialization...");
 
-    // Verify asset paths for production compatibility
-    verifyAssetPaths();
-    const webpackCompatible = checkWebpackCompatibility();
-
-    if (!webpackCompatible) {
-        console.warn("[Main] ⚠️  Asset compatibility issues detected");
-    }
-
-    try {
-        // Initialize services BEFORE creating windows
-        await initializeServices().then(async () => {
-            console.log("[Main] Services initialized");
-            await createWindows().then(async () => {
-                console.log("[Main] Windows created");
-                await createTray().then(() => {
-                    console.log("[Main] Tray created");
-                });
+    await initializeServices().then(async () => {
+        console.log("[Main] Services initialized");
+        await createWindows().then(async () => {
+            console.log("[Main] Windows created");
+            await createTray().then(() => {
+                console.log("[Main] Tray created");
             });
         });
+    });
 
-        // Log initialization complete
-        console.log("[Main] Luna AI initialized and ready");
-    } catch (error) {
-        const errorService = getErrorService();
-        errorService.reportError(
-            `Initialization error: ${error.message}`,
-            "main"
-        );
-    }
+    console.log("[Main] Luna AI initialized and ready");
 }
 
 // Entry point

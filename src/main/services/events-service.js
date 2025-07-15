@@ -1,15 +1,16 @@
 const { EventEmitter } = require("events");
 const { ipcMain } = require("electron");
 const { getMainWindow, getOrbWindow } = require("../windows");
-const { getErrorService } = require("./error-service");
 const {
-    reportError,
-    getAsset,
     updateSetting,
     getAllSettings,
     getSetting,
 } = require("../communication");
-const { getLiveKitService } = require("./agent/livekit-service");
+const { getAccessKey } = require("../utils/get-paths");
+const {
+    getLiveKitToken,
+    getLiveKitServerUrl,
+} = require("./agent/livekit-service");
 
 let eventsService = null;
 
@@ -27,7 +28,6 @@ class EventsService extends EventEmitter {
     constructor() {
         super();
 
-        // Debug mode for logging events
         this.debugMode = process.env.NODE_ENV === "development";
     }
 
@@ -39,35 +39,42 @@ class EventsService extends EventEmitter {
     }
 
     /**
+     * @description Centralized error logging function
+     * @param {Error|string} error - The error to log
+     * @param {string} source - The source of the error
+     */
+    logError(error, source = "unknown") {
+        const errorMessage = error instanceof Error ? error.message : error;
+
+        // Console logging for development
+        console.error(`[${source}] Error ❌:`, errorMessage);
+    }
+
+    /**
      * @description Set up IPC handlers for renderer communication
      * @private
      */
     _setupIpcHandlers() {
-        // Invoke handlers
         const invokeHandlers = {
-            "get-asset": getAsset,
             "get-all-settings": getAllSettings,
             "get-setting": getSetting,
-            "error": reportError,
-            "livekit:get-token": async () => {
-                const livekitService = await getLiveKitService();
-                return livekitService.warmToken
-                    ? livekitService.warmToken
-                    : await livekitService.generateToken();
-            },
-            "livekit:get-server-url": async () => {
-                const livekitService = await getLiveKitService();
-                return livekitService.serverUrl;
-            },
+            "error": this.logError,
+            "get-key": getAccessKey,
+            "livekit:get-token": getLiveKitToken,
+            "livekit:get-server-url": getLiveKitServerUrl,
         };
 
         for (const [name, handler] of Object.entries(invokeHandlers)) {
-            ipcMain.handle(name, (event, ...args) => {
-                return handler(...args);
+            ipcMain.handle(name, async (event, ...args) => {
+                try {
+                    return await handler(...args);
+                } catch (error) {
+                    this.logError(error, `IPC:${name}`);
+                    throw error;
+                }
             });
         }
 
-        // Command handlers
         const commandHandlers = {
             "show-orb": this.showOrbWindow,
             "hide-orb": this.hideOrbWindow,
@@ -96,18 +103,14 @@ class EventsService extends EventEmitter {
      * @param {any} data - Event data
      */
     sendToRenderer(windowName, channel, data) {
-        try {
-            const window =
-                windowName === "main" ? getMainWindow() : getOrbWindow();
+        const window =
+            windowName === "main" ? getMainWindow() : getOrbWindow();
 
-            if (!window || window.isDestroyed()) {
-                throw new Error(`Window ${windowName} not found`);
-            }
-
-            window.webContents.send(channel, data);
-        } catch (error) {
-            this.reportError(error);
+        if (!window || window.isDestroyed()) {
+            throw new Error(`Window ${windowName} not found`);
         }
+
+        window.webContents.send(channel, data);
     }
 
     /**
@@ -131,13 +134,6 @@ class EventsService extends EventEmitter {
     }
 
     /**
-     * @description Signal that processing has started.
-     */
-    processingStarted() {
-        this.emit("processing-started");
-    }
-
-    /**
      * @description Signal end of current conversation
      * @returns {Promise<{success: boolean, message: string}>} Result of the conversation end
      */
@@ -148,14 +144,6 @@ class EventsService extends EventEmitter {
             success: true,
             message: "Conversation ended successfully.",
         };
-    }
-
-    /**
-     * @description Report an error to the error service
-     * @param {Error|string} error - Error object or message
-     */
-    reportError(error) {
-        getErrorService().reportError(error);
     }
 
     /**

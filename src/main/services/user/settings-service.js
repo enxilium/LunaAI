@@ -1,4 +1,3 @@
-const { getErrorService } = require("../error-service");
 const Store = require("electron-store").default;
 
 /**
@@ -12,8 +11,6 @@ class SettingsService {
             encryptionKey: "luna-settings-encryption-key",
             clearInvalidConfig: true,
         });
-
-        this.errorService = getErrorService();
     }
 
     /**
@@ -34,14 +31,9 @@ class SettingsService {
         if (!key) {
             return this.store.store;
         }
-        
-        if (!this.store.has(key)) {
-            this.errorService.reportError(
-                new Error(`Getting nonexistent key: "${key}"`),
-                "settingService"
-            );
 
-            return null;
+        if (!this.store.has(key)) {
+            throw new Error(`Getting nonexistent key: "${key}"`);
         }
 
         return this.store.get(key);

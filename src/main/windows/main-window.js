@@ -1,6 +1,5 @@
 const { BrowserWindow } = require("electron");
 const { getResourcePath } = require("../utils/get-paths");
-const { getErrorService } = require("../services/error-service");
 
 let mainWindow = null;
 
@@ -29,12 +28,13 @@ function createMainWindow() {
         // Reject promise if there's an error
         mainWindow.webContents.on(
             "did-fail-load",
-            (_, errorCode, errorDescription) => {
+            async (_, errorCode, errorDescription) => {
                 const error = new Error(
                     `Failed to load main window: ${errorDescription} (${errorCode})`
                 );
-                const errorService = getErrorService();
-                errorService.reportError(error.message, "main-window");
+                const { getEventsService } = require("../services/events-service");
+                const eventsService = await getEventsService();
+                eventsService.logError(error.message, "main-window");
                 reject(error);
             }
         );

@@ -1,7 +1,6 @@
 const { app, Menu, Tray } = require("electron");
-const { getAsset } = require("../communication/get-assets");
+const { getImagePath } = require("../utils/get-paths");
 const { getMainWindow, createMainWindow } = require("../windows/main-window");
-const { getErrorService } = require("../services/error-service");
 
 /**
  * @description Creates the system tray icon and menu.
@@ -9,71 +8,42 @@ const { getErrorService } = require("../services/error-service");
  * @throws {Error} If tray creation fails.
  */
 async function createTray() {
-    try {
-        const iconPath = await getAsset("images", "luna-tray.png");
-        const tray = new Tray(iconPath);
-        tray.setToolTip("Luna Assistant");
-        tray.setContextMenu(
-            Menu.buildFromTemplate([
-                {
-                    label: "Show",
-                    click: () => {
-                        try {
-                            const mainWindow = getMainWindow();
-                            mainWindow ? mainWindow.show() : createMainWindow();
-                        } catch (error) {
-                            getErrorService().reportError(
-                                `Error showing main window: ${error.message}`,
-                                "tray"
-                            );
-                        }
-                    },
+    const iconPath = await getImagePath("luna-tray.png");
+    const tray = new Tray(iconPath);
+    tray.setToolTip("Luna Assistant");
+    tray.setContextMenu(
+        Menu.buildFromTemplate([
+            {
+                label: "Show",
+                click: () => {
+                    const mainWindow = getMainWindow();
+                    mainWindow ? mainWindow.show() : createMainWindow();
                 },
-                {
-                    label: "Hide",
-                    click: () => {
-                        try {
-                            const mainWindow = getMainWindow();
-                            if (mainWindow) {
-                                mainWindow.hide();
-                            }
-                        } catch (error) {
-                            getErrorService().reportError(
-                                `Error hiding main window: ${error.message}`,
-                                "tray"
-                            );
-                        }
-                    },
+            },
+            {
+                label: "Hide",
+                click: () => {
+                    const mainWindow = getMainWindow();
+                    if (mainWindow) {
+                        mainWindow.hide();
+                    }
                 },
-                {
-                    label: "Quit",
-                    click: () => {
-                        app.quit();
-                    },
+            },
+            {
+                label: "Quit",
+                click: () => {
+                    app.quit();
                 },
-            ])
-        );
+            },
+        ])
+    );
 
-        tray.on("double-click", () => {
-            try {
-                const mainWindow = getMainWindow();
-                mainWindow ? mainWindow.show() : createMainWindow();
-            } catch (error) {
-                getErrorService().reportError(
-                    `Error showing main window on double-click: ${error.message}`,
-                    "tray"
-                );
-            }
-        });
+    tray.on("double-click", () => {
+        const mainWindow = getMainWindow();
+        mainWindow ? mainWindow.show() : createMainWindow();
+    });
 
-        return tray;
-    } catch (error) {
-        getErrorService().reportError(
-            `Error creating tray: ${error.message}`,
-            "tray"
-        );
-        throw error;
-    }
+    return tray;
 }
 
 module.exports = {

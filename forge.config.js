@@ -36,9 +36,17 @@ module.exports = {
                     config: "./webpack.renderer.config.js",
                     entryPoints: [
                         {
-                            html: "./src/renderer/index.html",
-                            js: "./src/renderer/index.tsx",
+                            html: "./src/renderer/main/index.html",
+                            js: "./src/renderer/main/index.tsx",
                             name: "main_window",
+                            preload: {
+                                js: "./src/preload/preload.js",
+                            },
+                        },
+                        {
+                            html: "./src/renderer/orb/index.html",
+                            js: "./src/renderer/orb/index.tsx",
+                            name: "orb_window",
                             preload: {
                                 js: "./src/preload/preload.js",
                             },

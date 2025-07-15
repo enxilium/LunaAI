@@ -1,5 +1,3 @@
-const { getErrorService } = require("../error-service");
-
 /**
  * @class DataService
  * @description A service for storing and retrieving user data for learning purposes.

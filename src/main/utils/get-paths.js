@@ -43,15 +43,6 @@ function getImagePath(imageName) {
 }
 
 /**
- * Get path for model assets
- * @param {string} modelName - Model filename
- * @returns {string} Absolute path to the model file
- */
-function getModelPath(modelName) {
-    return getAssetPath("models", modelName);
-}
-
-/**
  * Gets the path to the Python executable to run the agent process. Only used in development.
  * @returns {string|null} The path to the Python executable, or null if not found.
  */
@@ -91,21 +82,30 @@ function getPythonPath() {
                 if (result.includes("Python 3.")) {
                     return candidate;
                 }
-            } catch (error) {
-                const {
-                    getErrorService,
-                } = require("../services/error-service");
-                getErrorService().reportError(error, "getPythonPath");
+            } catch {
+                continue;
             }
         }
     }
     return null;
 }
 
+/**
+ * @description Retrieves an access key from the credentials service.
+ * @param {string} keyName - The name of the key to retrieve.
+ * @returns {Promise<string | null>} The retrieved key.
+ */
+function getAccessKey(keyName) {
+    const {
+        getCredentialsService,
+    } = require("../services/user/credentials-service");
+    const credentialsService = getCredentialsService();
+    return credentialsService.getCredentials(`${keyName}-key`);
+}
+
 module.exports = {
-    getAssetPath,
-    getImagePath,
-    getModelPath,
     getResourcePath,
     getPythonPath,
+    getAccessKey,
+    getImagePath,
 };
