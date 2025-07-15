@@ -30,7 +30,11 @@ const PREFERENCES = [
     },
 ];
 
-const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+    goBack: () => void;
+}
+
+const SettingsPage: React.FC<SettingsPageProps> = ({goBack}) => {
     const [settings, setSettings] = useState({});
 
     async function fetchSettings() {
@@ -48,6 +52,7 @@ const SettingsPage: React.FC = () => {
     // TODO: Voice settings; language settings.
     return (
         <div className="bg-stone-950 min-h-screen text-white p-8">
+            <button onClick={goBack}>Back</button>
             <h1 className="text-3xl font-bold mb-8">Settings</h1>
 
             <h2 className="text-2xl font-semibold mt-8 mb-4">Preferences</h2>
