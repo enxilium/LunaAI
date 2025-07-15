@@ -1,7 +1,7 @@
 const { BrowserWindow, screen, app, ipcMain } = require("electron");
 const { getResourcePath } = require("../utils/get-paths");
 
-const ORB_MARGIN = 30;
+const ORB_MARGIN = 0;
 let orbWindow = null;
 let recentlyDragged = false;
 let dragTimeout = null;
@@ -16,12 +16,13 @@ async function createOrbWindow() {
         const { width } = screen.getPrimaryDisplay().workAreaSize;
 
         orbWindow = new BrowserWindow({
-            width: 400, // Larger size to accommodate orb and arc menu
-            height: 400,
+            width: 200, // Larger size to accommodate orb and arc menu
+            height: 200,
             x: width - 420,
             y: 100,
             frame: false,
-            transparent: true,
+            backgroundColor: "#000000",
+            transparent: false,
             alwaysOnTop: true,
             skipTaskbar: true,
             resizable: false,
@@ -147,26 +148,6 @@ function preventOffscreenMovement(window) {
     // Calculate constrained position
     let newX = bounds.x;
     let newY = bounds.y;
-
-    // Left edge constraint
-    if (newX < ORB_MARGIN) {
-        newX = ORB_MARGIN;
-    }
-
-    // Right edge constraint
-    if (newX + bounds.width > workArea.width - ORB_MARGIN) {
-        newX = workArea.width - bounds.width - ORB_MARGIN;
-    }
-
-    // Top edge constraint
-    if (newY < ORB_MARGIN) {
-        newY = ORB_MARGIN;
-    }
-
-    // Bottom edge constraint
-    if (newY + bounds.height > workArea.height - ORB_MARGIN) {
-        newY = workArea.height - bounds.height - ORB_MARGIN;
-    }
 
     // Only set position if it changed
     if (newX !== bounds.x || newY !== bounds.y) {
