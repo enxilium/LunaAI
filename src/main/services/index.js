@@ -1,4 +1,3 @@
-const { getErrorService } = require("./error-service.js");
 const { getSettingsService } = require("./user/settings-service.js");
 const { getCredentialsService } = require("./user/credentials-service.js");
 const { getDataService } = require("./user/data-service.js");
@@ -11,7 +10,6 @@ const { getLiveKitService } = require("./agent/livekit-service.js");
  */
 async function initializeServices() {
     console.log("[Services] Initializing services...");
-    const errorService = getErrorService();
     const eventsService = await getEventsService();
     const credentialsService = getCredentialsService();
 
@@ -24,7 +22,6 @@ async function initializeServices() {
     const liveKitService = await getLiveKitService();
 
     return {
-        errorService,
         credentialsService,
         settingsService,
         dataService,
@@ -53,22 +50,13 @@ async function initializeCredentialsFromEnv() {
 
     for (const [key, value] of Object.entries(credentialsToStore)) {
         if (value) {
-            try {
-                await credentialsService.setCredentials(key, value);
-            } catch (error) {
-                const { getErrorService } = require("./error-service");
-                getErrorService().reportError(
-                    `Failed to store ${key}: ${error.message}`,
-                    "Services"
-                );
-            }
+            await credentialsService.setCredentials(key, value);
         }
     }
 }
 
 module.exports = {
     initializeServices,
-    getErrorService,
     getCredentialsService,
     getSettingsService,
     getDataService,

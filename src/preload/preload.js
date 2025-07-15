@@ -12,15 +12,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 const validChannels = {
     send: ["show-orb", "hide-orb", "update-setting"],
 
-    receive: [
-        "error"
-    ],
+    receive: ["error"],
 
-    invoke: [
-        "get-asset",
-        "livekit:get-token",
-        "livekit:get-server-url",
-    ],
+    invoke: ["get-asset", "livekit:get-token", "livekit:get-server-url"],
 };
 
 // Standard API exposure
@@ -81,6 +75,15 @@ contextBridge.exposeInMainWorld("electron", {
      */
     getAsset: (type, ...args) => {
         return ipcRenderer.invoke("get-asset", type, ...args);
+    },
+
+    /**
+     * @description Get a credential/key from the main process.
+     * @param {string} keyName - The name of the key to retrieve.
+     * @returns {Promise<string|null>} A promise that resolves with the key.
+     */
+    getKey: (keyName) => {
+        return ipcRenderer.invoke("get-key", keyName);
     },
 
     /**

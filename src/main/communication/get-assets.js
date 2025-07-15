@@ -1,44 +1,37 @@
-const {
-    getCredentialsService,
-} = require("../services/user/credentials-service");
-const { getErrorService } = require("../services/error-service");
 const path = require("path");
 const { app } = require("electron");
 const isDev = process.env.NODE_ENV === "development";
 
 /**
- * @description A centralized handler for retrieving various assets and data.
- * @param {string} type - The type of asset to retrieve (e.g., 'settings', 'tools', 'asset-path', 'gemini-key').
+ * @description Handler for retrieving assets needed by the main process (like tray icons).
+ * Renderer processes should use direct webpack bundling for their assets.
+ * @param {string} type - The type of asset to retrieve ('images' for main process assets).
  * @param {any[]} args - The arguments to pass to the respective handler.
- * @returns {Promise<any>} The requested asset or data.
+ * @returns {Promise<any>} The requested asset path.
  */
 async function getAsset(type, ...args) {
     switch (type) {
         case "images": {
+            // Only for main process assets like tray icons
             const assetPath = getAssetPath("images", ...args);
             return assetPath;
         }
-        case "models": {
-            const modelPath = getAssetPath("models", ...args);
-            return modelPath;
-        }
-        case "key": {
-            const key = getAccessKey(...args);
-            return key;
-        }
-        case "font": {
-            const fontPath = getAssetPath("fonts", ...args);
-            return fontPath;
-        }
         default: {
-            const errorService = getErrorService();
-            errorService.reportError(
-                `Unknown asset type: ${type}`,
-                "get-asset"
+            throw new Error(
+                `Unsupported asset type: ${type}. Only 'images' is supported for main process.`
             );
-            throw new Error(`Unknown asset type: ${type}`);
         }
     }
+}
+
+/**
+ * @description Handler specifically for retrieving credentials/keys.
+ * This is separate from asset retrieval and used by renderer processes.
+ * @param {string} keyName - The name of the key to retrieve.
+ * @returns {Promise<string | null>} The requested credential/key.
+ */
+async function getKey(keyName) {
+    return getAccessKey(keyName);
 }
 
 /**
@@ -47,13 +40,16 @@ async function getAsset(type, ...args) {
  * @returns {Promise<string | null>} The retrieved key.
  */
 function getAccessKey(keyName) {
+    const {
+        getCredentialsService,
+    } = require("../services/user/credentials-service");
     const credentialsService = getCredentialsService();
     return credentialsService.getCredentials(`${keyName}-key`);
 }
 
 /**
- * @description Get the appropriate path for an application asset
- * @param {string} assetType - Type of asset ('images', 'models', 'config')
+ * @description Get the appropriate path for a main process asset (like tray icons)
+ * @param {string} assetType - Type of asset ('images')
  * @param {string} assetName - The name of the asset file
  * @returns {string} Absolute path to the asset
  */
@@ -84,4 +80,5 @@ function getAssetPath(assetType, assetName) {
 
 module.exports = {
     getAsset,
+    getKey,
 };

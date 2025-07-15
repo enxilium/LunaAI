@@ -1,5 +1,4 @@
 const keytar = require("keytar");
-const { getErrorService } = require("../error-service");
 
 const SERVICE_NAME = "Luna";
 
@@ -33,6 +32,16 @@ class CredentialsService {
      */
     async deleteCredentials(key) {
         await keytar.deletePassword(SERVICE_NAME, key);
+    }
+
+    /**
+     * @description Check if a credential exists in the system's keychain.
+     * @param {string} key - The key of the credential to check.
+     * @returns {Promise<boolean>} True if the credential exists, false otherwise.
+     */
+    async credentialExists(key) {
+        const password = await keytar.getPassword(SERVICE_NAME, key);
+        return password !== null;
     }
 }
 

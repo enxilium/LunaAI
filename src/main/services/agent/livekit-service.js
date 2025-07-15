@@ -4,7 +4,6 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const { getPythonPath } = require("./../../utils/get-paths");
-const { getErrorService } = require("../error-service");
 
 /**
  * @class LiveKitService
@@ -39,8 +38,7 @@ class LiveKitService {
         this.serverUrl = process.env.LIVEKIT_URL;
 
         if (!this.apiKey || !this.apiSecret) {
-            console.warn("[LiveKit] API credentials not configured");
-            return false;
+            throw new Error("LiveKit API credentials not configured");
         }
 
         // Initialize Python environment for development mode
@@ -61,7 +59,7 @@ class LiveKitService {
         this.pythonPath = getPythonPath();
 
         if (!this.pythonPath) {
-            this.reportError("No suitable Python path found.");
+            throw new Error("No suitable Python path found.");
         }
     }
 
@@ -70,33 +68,26 @@ class LiveKitService {
      * @returns {Promise<string>} The generated JWT token.
      */
     async generateToken() {
-        try {
-            const roomName = `warmup-${Date.now()}`;
-            const participantName = `warmup-participant-${Date.now()}`;
-            const token = new AccessToken(this.apiKey, this.apiSecret, {
-                identity: participantName,
-                // Give it a long TTL, e.g., 1 hour.
-                ttl: 60 * 60,
-            });
+        const roomName = `warmup-${Date.now()}`;
+        const participantName = `warmup-participant-${Date.now()}`;
+        const token = new AccessToken(this.apiKey, this.apiSecret, {
+            identity: participantName,
+            // Give it a long TTL, e.g., 1 hour.
+            ttl: 60 * 60,
+        });
 
-            this.warmTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour from now
+        this.warmTokenExpiry = Date.now() + 60 * 60 * 1000; // 1 hour from now
 
-            token.addGrant({
-                room: roomName,
-                roomJoin: true,
-                canPublish: true,
-                canSubscribe: true,
-            });
+        token.addGrant({
+            room: roomName,
+            roomJoin: true,
+            canPublish: true,
+            canSubscribe: true,
+        });
 
-            const jwtToken = await token.toJwt();
-
-            this.warmToken = jwtToken;
-
-            return jwtToken;
-        } catch (error) {
-            this.reportError(`Error generating token: ${error.message}`);
-            throw error;
-        }
+        const jwtToken = await token.toJwt();
+        this.warmToken = jwtToken;
+        return jwtToken;
     }
 
     /**
@@ -106,88 +97,60 @@ class LiveKitService {
      */
     async startAgentWorker() {
         if (this.isAgentRunning) {
-            console.log("[LiveKit] Agent worker already running");
             return true;
         }
 
-        try {
-            console.log("[LiveKit] Starting LiveKit agent worker...");
+        // Determine agent script path
+        const agentScript = path.join(
+            process.cwd(),
+            "src",
+            "main",
+            "services",
+            "agent",
+            "agent.py"
+        );
 
-            // Determine agent script path
-            const agentScript = path.join(
+        // Verify the file exists
+        if (!fs.existsSync(agentScript)) {
+            throw new Error(`Agent script not found: ${agentScript}`);
+        }
+
+        // Validate environment variables
+        if (!this.apiKey || !this.apiSecret || !process.env.GEMINI_API_KEY) {
+            throw new Error(
+                "Missing required environment variables (LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GEMINI_API_KEY)"
+            );
+        }
+
+        // Set up environment variables for the agent worker
+        const env = {
+            ...process.env,
+            LIVEKIT_URL: this.serverUrl,
+            LIVEKIT_API_KEY: this.apiKey,
+            LIVEKIT_API_SECRET: this.apiSecret,
+            GOOGLE_API_KEY: process.env.GEMINI_API_KEY,
+            PYTHONPATH: path.join(
                 process.cwd(),
                 "src",
                 "main",
                 "services",
-                "agent",
-                "agent.py"
-            );
+                "agent"
+            ),
+        };
 
-            // Verify the file exists
-            if (!fs.existsSync(agentScript)) {
-                const error = new Error(
-                    `Agent script not found: ${agentScript}`
-                );
-                this.reportError(error.message);
-                throw error;
-            }
+        // Start the Python agent worker process
+        this.pythonProcess = spawn(this.pythonPath, [agentScript, "dev"], {
+            cwd: path.join(process.cwd(), "src", "main", "services", "agent"),
+            env: env,
+            stdio: ["pipe", "pipe", "pipe"],
+        });
 
-            // Validate environment variables
-            if (
-                !this.apiKey ||
-                !this.apiSecret ||
-                !process.env.GEMINI_API_KEY
-            ) {
-                const error = new Error(
-                    "Missing required environment variables (LIVEKIT_API_KEY, LIVEKIT_API_SECRET, GEMINI_API_KEY)"
-                );
-                this.reportError(error.message);
-                throw error;
-            }
+        this.setupAgentProcessHandlers();
+        this.isAgentRunning = true;
 
-            // Set up environment variables for the agent worker
-            const env = {
-                ...process.env,
-                LIVEKIT_URL: this.serverUrl,
-                LIVEKIT_API_KEY: this.apiKey,
-                LIVEKIT_API_SECRET: this.apiSecret,
-                GOOGLE_API_KEY: process.env.GEMINI_API_KEY,
-                PYTHONPATH: path.join(
-                    process.cwd(),
-                    "src",
-                    "main",
-                    "services",
-                    "agent"
-                ),
-            };
-
-            // Start the Python agent worker process
-            this.pythonProcess = spawn(this.pythonPath, [agentScript, "dev"], {
-                cwd: path.join(
-                    process.cwd(),
-                    "src",
-                    "main",
-                    "services",
-                    "agent"
-                ),
-                env: env,
-                stdio: ["pipe", "pipe", "pipe"],
-            });
-
-            this.setupAgentProcessHandlers();
-            this.isAgentRunning = true;
-
-            // Wait a moment for the agent worker to fully register with LiveKit server
-            await new Promise((resolve) => setTimeout(resolve, 2000));
-
-            console.log(
-                "[LiveKit] Agent worker started and registered - ready for auto-dispatch"
-            );
-            return true;
-        } catch (error) {
-            this.reportError(`Failed to start agent worker: ${error.message}`);
-            return false;
-        }
+        // Wait a moment for the agent worker to fully register with LiveKit server
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        return true;
     }
 
     /**
@@ -267,9 +230,9 @@ class LiveKitService {
             logStream.end();
 
             if (code === 0) {
-                console.log(`[LiveKit] Agent worker exited normally`);
+                // Normal exit, no action needed
             } else {
-                this.reportError(`Agent worker exited with error code ${code}`);
+                throw new Error(`Agent worker exited with error code ${code}`);
             }
             this.isAgentRunning = false;
             this.pythonProcess = null;
@@ -280,9 +243,9 @@ class LiveKitService {
             logStream.write(`[${timestamp}] PROCESS ERROR: ${error.message}\n`);
             logStream.uncork(); // Force immediate write
 
-            // Only log process startup errors to console (not Luna Agent runtime errors)
-            this.reportError(`Agent worker process error: ${error.message}`);
+            // Process startup errors should be thrown
             this.isAgentRunning = false;
+            throw new Error(`Agent worker process error: ${error.message}`);
         });
     }
 
@@ -335,16 +298,6 @@ class LiveKitService {
             apiSecret: this.apiSecret,
         };
     }
-
-    /**
-     * @description Report an error to the error service.
-     * @param {string|Error} error - Error object or message to report.
-     */
-    reportError(error) {
-        const errorService = getErrorService();
-        const errorMessage = error instanceof Error ? error.message : error;
-        errorService.reportError(errorMessage, "LiveKitService");
-    }
 }
 
 let liveKitService = null;
@@ -361,4 +314,16 @@ async function getLiveKitService() {
     return liveKitService;
 }
 
-module.exports = { getLiveKitService };
+async function getLiveKitToken() {
+    const livekitService = await getLiveKitService();
+    return livekitService.warmToken
+        ? livekitService.warmToken
+        : await livekitService.generateToken();
+}
+
+async function getLiveKitServerUrl() {
+    const livekitService = await getLiveKitService();
+    return livekitService.serverUrl;
+}
+
+module.exports = { getLiveKitService, getLiveKitToken, getLiveKitServerUrl };

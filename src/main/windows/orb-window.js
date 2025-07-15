@@ -1,6 +1,5 @@
 const { BrowserWindow, screen, app, ipcMain } = require("electron");
 const { getResourcePath } = require("../utils/get-paths");
-const { getErrorService } = require("../services/error-service");
 
 const ORB_MARGIN = 30;
 let orbWindow = null;
@@ -52,23 +51,25 @@ async function createOrbWindow() {
         // Reject promise if there's an error
         orbWindow.webContents.on(
             "did-fail-load",
-            (_, errorCode, errorDescription) => {
+            async (_, errorCode, errorDescription) => {
                 const error = new Error(
                     `Failed to load orb window: ${errorDescription} (${errorCode})`
                 );
-                const errorService = getErrorService();
-                errorService.reportError(error.message, "orb-window");
+                const {
+                    getEventsService,
+                } = require("../services/events-service");
+
+                const eventsService = await getEventsService();
+                eventsService.logError(error.message, "orb-window");
                 reject(error);
             }
         );
 
         // Load the orb window
         if (process.env.NODE_ENV === "development") {
-            orbWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY + "?window=orb");
+            orbWindow.loadURL(ORB_WINDOW_WEBPACK_ENTRY);
         } else {
-            orbWindow.loadURL(
-                `file://${getResourcePath("app/index.html")}?window=orb`
-            );
+            orbWindow.loadFile(getResourcePath("orb_window/index.html"));
         }
 
         orbWindow.hide(); // Start hidden

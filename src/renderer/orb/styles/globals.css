@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-backgroundColor: 20 20 25; /* Main color for primary elements */
+    --color-backgroundColor2: 25 25 32; /* Secondary background color for contrast */
+    --color-borderColor: 40 40 45; /* Border color for elements */
+    --color-accent: 136 98 227; /* Accent color for highlights and headers*/
+    --color-textColor: 188 162 247;  /* Text color for readability */
+  }
+}
