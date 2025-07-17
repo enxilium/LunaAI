@@ -5,6 +5,12 @@ const {
     updateSetting,
     getAllSettings,
     getSetting,
+    getScreenSources,
+    getPrimaryScreenSource,
+    startScreenCapture,
+    stopScreenCapture,
+    getScreenCaptureStatus,
+    getMediaConstraints,
 } = require("../communication");
 const { getAccessKey } = require("../utils/get-paths");
 const {
@@ -58,10 +64,16 @@ class EventsService extends EventEmitter {
         const invokeHandlers = {
             "get-all-settings": getAllSettings,
             "get-setting": getSetting,
-            "error": this.logError,
+            error: this.logError,
             "get-key": getAccessKey,
             "livekit:get-token": getLiveKitToken,
             "livekit:get-server-url": getLiveKitServerUrl,
+            "screen-capturer:get-sources": getScreenSources,
+            "screen-capturer:get-primary-source": getPrimaryScreenSource,
+            "screen-capturer:start-capture": startScreenCapture,
+            "screen-capturer:stop-capture": stopScreenCapture,
+            "screen-capturer:get-status": getScreenCaptureStatus,
+            "screen-capturer:get-media-constraints": getMediaConstraints,
         };
 
         for (const [name, handler] of Object.entries(invokeHandlers)) {

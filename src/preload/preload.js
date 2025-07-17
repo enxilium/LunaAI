@@ -13,8 +13,6 @@ const validChannels = {
     send: ["show-orb", "hide-orb", "update-setting"],
 
     receive: ["error"],
-
-    invoke: ["get-asset", "livekit:get-token", "livekit:get-server-url"],
 };
 
 // Standard API exposure
@@ -135,6 +133,60 @@ contextBridge.exposeInMainWorld("electron", {
      */
     getLiveKitServerUrl: () => {
         return ipcRenderer.invoke("livekit:get-server-url");
+    },
+
+    // Screen sharing methods
+    /**
+     * @description Get available screen sources for capture
+     * @returns {Promise<Array>} Array of screen sources
+     */
+    getScreenSources: () => {
+        return ipcRenderer.invoke("screen-capturer:get-sources");
+    },
+
+    /**
+     * @description Get the primary screen source
+     * @returns {Promise<Object>} Primary screen source
+     */
+    getPrimaryScreenSource: () => {
+        return ipcRenderer.invoke("screen-capturer:get-primary-source");
+    },
+
+    /**
+     * @description Start screen capture
+     * @param {string} sourceId - Optional source ID, defaults to primary screen
+     * @returns {Promise<Object>} Screen capture result
+     */
+    startScreenCapture: (sourceId = null) => {
+        return ipcRenderer.invoke("screen-capturer:start-capture", sourceId);
+    },
+
+    /**
+     * @description Stop screen capture
+     * @returns {Promise<Object>} Screen capture stop result
+     */
+    stopScreenCapture: () => {
+        return ipcRenderer.invoke("screen-capturer:stop-capture");
+    },
+
+    /**
+     * @description Get screen capture status
+     * @returns {Promise<Object>} Screen capture status
+     */
+    getScreenCaptureStatus: () => {
+        return ipcRenderer.invoke("screen-capturer:get-status");
+    },
+
+    /**
+     * @description Get media constraints for screen capture
+     * @param {string} sourceId - The source ID for constraints
+     * @returns {Promise<Object>} Media constraints
+     */
+    getMediaConstraints: (sourceId) => {
+        return ipcRenderer.invoke(
+            "screen-capturer:get-media-constraints",
+            sourceId
+        );
     },
 });
 

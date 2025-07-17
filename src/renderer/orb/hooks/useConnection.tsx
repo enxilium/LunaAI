@@ -7,7 +7,8 @@ import React, {
     useMemo,
     useCallback,
 } from "react";
-import { Room, RoomEvent } from "livekit-client";
+import { Room, RoomEvent, Track } from "livekit-client";
+import { useScreenShare } from "./useScreenShare";
 
 type ConnectionData = {
     room: Room;
@@ -20,11 +21,17 @@ type ConnectionData = {
 
 const ConnectionContext = createContext<ConnectionData | undefined>(undefined);
 
-export const ConnectionProvider = ({children}: {children: React.ReactNode;}) => {
+export const ConnectionProvider = ({
+    children,
+}: {
+    children: React.ReactNode;
+}) => {
     const room = useMemo(() => new Room({}), []);
     const [shouldConnect, setShouldConnect] = useState<boolean>(false);
     const [wsUrl, setWsUrl] = useState<string>("");
     const [token, setToken] = useState<string>("");
+
+    const { startScreenShare, stopScreenShare } = useScreenShare();
 
     useEffect(() => {
         const getWsUrl = async () => {
@@ -47,6 +54,56 @@ export const ConnectionProvider = ({children}: {children: React.ReactNode;}) => 
 
         prewarmConnection();
     }, [wsUrl, room]);
+
+    // Register RPC method for screen sharing
+    useEffect(() => {
+        if (!room || !room.localParticipant) {
+            return;
+        }
+
+        const handleScreenShareRequest = async (data: any) => {
+            try {
+                console.log("[RPC] Screen share request received:", data);
+                const { enable } = JSON.parse(data.payload);
+
+                if (enable) {
+                    const screenStream = await startScreenShare();
+
+                    if (!screenStream) {
+                        throw new Error("Failed to start screen capture");
+                    }
+
+                    // Create a LocalVideoTrack from the stream
+                    const videoTrack = screenStream.getVideoTracks()[0];
+                    await room.localParticipant.publishTrack(videoTrack, {
+                        source: Track.Source.ScreenShare,
+                        name: "screen-share",
+                    });
+                } else {
+                    stopScreenShare();
+                }
+
+                return JSON.stringify({ success: true });
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                console.error("[RPC] Screen sharing error:", errorMessage);
+                window.electron.reportError(
+                    `Screen sharing RPC error: ${errorMessage}`,
+                    "useConnection"
+                );
+                return JSON.stringify({ success: false, error: errorMessage });
+            }
+        };
+
+        // Register the RPC method
+        room.registerRpcMethod("start_screen_share", handleScreenShareRequest);
+
+        // Cleanup function
+        return () => {
+            room.unregisterRpcMethod("start_screen_share");
+        };
+    }, [room]);
 
     const connect = useCallback(async () => {
         if (shouldConnect || !token) {

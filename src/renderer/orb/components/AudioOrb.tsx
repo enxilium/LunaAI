@@ -20,16 +20,6 @@ const AudioOrb: React.FC<AudioOrbProps> = ({ color }) => {
         bands: 25, // Use 15 bands for more detailed visualization
     });
 
-    // Debug logging
-    useEffect(() => {
-        if (volumeBands.length > 0) {
-            console.log(
-                "[AudioOrb] Volume bands:",
-                volumeBands.map((v) => v.toFixed(3))
-            );
-        }
-    }, [volumeBands]); // Remove volumeBands from dependencies to reduce logging
-
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d");
