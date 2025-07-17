@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import OrbContainer from "./components/orb/OrbContainer";
+import OrbContainer from "./components/OrbContainer";
 import "./styles/globals.css";
 import React from "react";
 import { ConnectionProvider } from "./hooks/useConnection";

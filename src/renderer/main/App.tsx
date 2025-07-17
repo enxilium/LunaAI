@@ -15,14 +15,18 @@ function App() {
         setPage("configuration");
     };
 
+    const toHomePage = () => {
+        setPage("");
+    };
+
     let pageComponent;
 
     switch (page) {
         case "settings":
-            pageComponent = <SettingsPage />;
+            pageComponent = <SettingsPage goBack={toHomePage} />;
             break;
         case "configuration":
-            pageComponent = <Configuration />;
+            pageComponent = <Configuration goBack={toHomePage} />;
             break;
         default:
             // Home page
