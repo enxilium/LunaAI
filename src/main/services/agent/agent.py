@@ -25,7 +25,7 @@ from livekit.agents import (
     mcp
 )
 from livekit.plugins import google
-from livekit import agents
+from livekit import agents, rtc
 
 # Load environment variables
 load_dotenv()
@@ -40,19 +40,6 @@ shutdown_in_progress = False
 # Global session reference for cleanup
 active_session = None
 
-@dataclass
-class LunaSessionData:
-    """Data structure for storing session-specific information including auth tokens"""
-    auth_tokens: Dict[str, str] = None  # service_name -> token
-    user_preferences: Dict[str, Any] = None
-    session_id: str = None
-    
-    def __post_init__(self):
-        if self.auth_tokens is None:
-            self.auth_tokens = {}
-        if self.user_preferences is None:
-            self.user_preferences = {}
-
 class LunaAgent(Agent):
     """
     Luna AI Agent with integrated authentication for MCP services.
@@ -64,7 +51,7 @@ class LunaAgent(Agent):
     - No explicit auth tools exposed to the LLM
     """
     
-    def __init__(self) -> None:
+    def __init__(self, room: rtc.Room) -> None:
         # AGENT INSTRUCTIONS: These define Luna's core personality and behavior
         # These instructions persist throughout the agent's lifecycle and define
         # the fundamental character of the agent. They are used as the system
@@ -81,6 +68,9 @@ class LunaAgent(Agent):
         super().__init__(
             instructions=instructions,
         )
+        
+        # Store room reference for RPC calls
+        self._room = room
 
     async def on_enter(self):
         """Called when the agent enters the room"""
@@ -102,6 +92,50 @@ class LunaAgent(Agent):
         
         # Schedule cleanup after speech completes
         asyncio.create_task(self._cleanup_after_speech(speech_handle))
+
+    @function_tool()
+    async def start_screen_share(self, enable: bool = True):
+        """
+        Start or stop screen sharing by sending an RPC request to the client.
+        
+        Args:
+            enable (bool): True to start screen sharing, False to stop it.
+        """
+        try:
+            # Find the client participant (non-agent participant)
+            client_participant = None
+            for participant in self._room.remote_participants.values():
+                if participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_STANDARD:
+                    client_participant = participant
+                    break
+            
+            if not client_participant:
+                logger.warning("[Luna Agent] No client participant found for screen sharing")
+                return f"Unable to start screen sharing: No client connected"
+            
+            # Send RPC request to client
+            logger.info(f"[Luna Agent] Sending screen share RPC to {client_participant.identity}")
+            
+            payload = {"enable": enable}
+            response = await self._room.local_participant.perform_rpc(
+                destination_identity=client_participant.identity,
+                method="start_screen_share",
+                payload=json.dumps(payload)
+            )
+            
+            response_data = json.loads(response)
+            if response_data.get("success"):
+                action = "started" if enable else "stopped"
+                logger.info(f"[Luna Agent] Screen sharing {action} successfully")
+                return f"Screen sharing {action} successfully"
+            else:
+                error_msg = response_data.get("error", "Unknown error")
+                logger.error(f"[Luna Agent] Screen sharing failed: {error_msg}")
+                return f"Screen sharing failed: {error_msg}"
+                
+        except Exception as e:
+            logger.error(f"[Luna Agent] Error initiating screen sharing: {e}")
+            return f"Unable to start screen sharing: {str(e)}"
 
     def _on_speech_created(self, event):
         """Handle speech creation events to monitor completion"""
@@ -157,15 +191,12 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"[Luna Agent] Joining room: {ctx.room.name}")
     
     # Initialize session with userdata for storing auth tokens
-    session = AgentSession[LunaSessionData](
+    session = AgentSession(
         llm=google.beta.realtime.RealtimeModel(
             model="gemini-live-2.5-flash-preview",
             voice="Aoede",
             temperature=0.8,
         ),
-        userdata=LunaSessionData(),
-        # Note: We'll create our own MCP servers dynamically with auth
-        # mcp_servers will be empty initially
     )
     
     # Store session reference for cleanup
@@ -173,7 +204,7 @@ async def entrypoint(ctx: JobContext):
 
     await session.start(
         room=ctx.room,
-        agent=LunaAgent(),
+        agent=LunaAgent(ctx.room),
         room_input_options=RoomInputOptions(
             video_enabled=True,
         ),

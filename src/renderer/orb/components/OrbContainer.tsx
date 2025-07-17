@@ -4,18 +4,15 @@ import useKeywordDetection from "../hooks/useKeywordDetection";
 import { useConnection } from "../hooks/useConnection";
 import { useKey } from "../hooks/useAssets";
 import AudioOrb from "./AudioOrb";
+import { useScreenShare } from "../hooks/useScreenShare";
 
 const OrbContainer: React.FC = () => {
     const { room, wsUrl, token, shouldConnect, connect, disconnect } =
         useConnection();
     const [isConnecting, setIsConnecting] = useState(false);
 
-    // Simple key loading with built-in loading state
     const { key: accessKey } = useKey("picovoice");
-
     const { keywordDetection } = useKeywordDetection(accessKey);
-
-    // Note: Key errors are handled centrally by useKey hook
 
     useEffect(() => {
         const handleWakeWord = () => {
@@ -34,15 +31,12 @@ const OrbContainer: React.FC = () => {
         }
     }, [shouldConnect]);
 
-    if (!shouldConnect) {
-        return <h1>Waiting for wake word...</h1>;
-    }
-
     return (
         <LiveKitRoom
             room={room}
             serverUrl={wsUrl}
             token={token}
+            connect={shouldConnect}
             audio={true}
             video={false}
             onConnected={() => {

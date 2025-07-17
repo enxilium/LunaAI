@@ -2,7 +2,7 @@ import React from "react";
 import SettingsPage from "./pages/SettingsPage";
 import Configuration from "./pages/Configuration";
 import "./styles/globals.css";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 function App() {
     const [page, setPage] = useState("");
