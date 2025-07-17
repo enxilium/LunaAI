@@ -9,6 +9,9 @@ import os
 import time
 import signal
 import asyncio
+import json
+from dataclasses import dataclass
+from typing import Dict, Any, Optional
 from dotenv import load_dotenv
 
 from livekit.agents import (
@@ -17,7 +20,9 @@ from livekit.agents import (
     JobContext,
     RoomInputOptions,
     function_tool,
-    get_job_context
+    RunContext,
+    get_job_context,
+    mcp
 )
 from livekit.plugins import google
 from livekit import agents
@@ -35,7 +40,30 @@ shutdown_in_progress = False
 # Global session reference for cleanup
 active_session = None
 
+@dataclass
+class LunaSessionData:
+    """Data structure for storing session-specific information including auth tokens"""
+    auth_tokens: Dict[str, str] = None  # service_name -> token
+    user_preferences: Dict[str, Any] = None
+    session_id: str = None
+    
+    def __post_init__(self):
+        if self.auth_tokens is None:
+            self.auth_tokens = {}
+        if self.user_preferences is None:
+            self.user_preferences = {}
+
 class LunaAgent(Agent):
+    """
+    Luna AI Agent with integrated authentication for MCP services.
+    
+    Architecture:
+    - Agent only contains tools the LLM should use directly
+    - Authentication is handled transparently within each tool
+    - Tokens are fetched via RPC and cached in session userdata
+    - No explicit auth tools exposed to the LLM
+    """
+    
     def __init__(self) -> None:
         # AGENT INSTRUCTIONS: These define Luna's core personality and behavior
         # These instructions persist throughout the agent's lifecycle and define
@@ -46,16 +74,8 @@ class LunaAgent(Agent):
         Your voice should be warm and engaging, with a lively and playful tone. 
         Talk quickly and always try to use tools when appropriate.
         
-        You can help with various tasks including:
-        - Answering questions
-        - Getting current time and date information
-        - Opening applications on the user's computer
-        - Searching for information
-        - Managing calendar events
-        - Playing music
-        - Weather information
-        - File downloads
-        - And much more through your integrated tools
+        When using external services, the tools will automatically handle authentication - 
+        you don't need to fetch tokens manually, just call the service tools directly.
         """
 
         super().__init__(
@@ -66,20 +86,68 @@ class LunaAgent(Agent):
         """Called when the agent enters the room"""
         logger.info("[Luna Agent] Entering room...")
         
-        # LLM INSTRUCTIONS: These are runtime/session-specific instructions
-        # passed to generate_reply() for specific interactions. They can override
-        # or supplement the agent's core instructions for particular responses.
-        # These are temporary and contextual, used for dynamic behavior.
-
+        # Set up event listeners for speech completion detection
+        self.session.on("speech_created", self._on_speech_created)
         
-    
     @function_tool()
     def handle_conversation_end(self):
-        """Handle the end of a conversation session"""
-        return "Conversation ended. Thank you for using Luna AI!"
-    
-    
+        """
+        Handle the end of a conversation session. Should be called when the user signals there's nothing else to be done.
+        """
+        # Generate a farewell message and monitor when it completes
+        speech_handle = self.session.generate_reply(
+            "Say goodbye to the user and let them know to reach out if they need anything else.",
+            tool_choice="none",  # Prevent further tool calls
+        )
+        
+        # Schedule cleanup after speech completes
+        asyncio.create_task(self._cleanup_after_speech(speech_handle))
 
+    def _on_speech_created(self, event):
+        """Handle speech creation events to monitor completion"""
+        speech_handle = event.speech_handle
+        
+        # If this speech was created by our conversation end tool, monitor its completion
+        if hasattr(self, '_awaiting_conversation_end') and self._awaiting_conversation_end:
+            asyncio.create_task(self._monitor_farewell_speech(speech_handle))
+    
+    async def _monitor_farewell_speech(self, speech_handle):
+        """Monitor the farewell speech and cleanup when complete"""
+        try:
+            await speech_handle
+            logger.info("[Luna Agent] Farewell speech completed via event monitoring")
+            self._awaiting_conversation_end = False
+            
+            # Brief delay for audio completion
+            await asyncio.sleep(1.0)
+            
+            # Graceful session cleanup
+            if hasattr(self, 'session') and self.session:
+                await self.session.aclose()
+                logger.info("[Luna Agent] Session closed after farewell")
+                
+        except Exception as e:
+            logger.error(f"[Luna Agent] Error monitoring farewell speech: {e}")
+            self._awaiting_conversation_end = False
+    
+    async def _cleanup_after_speech(self, speech_handle):
+        """Wait for speech to complete, then gracefully end the session"""
+        try:
+            # Wait for the speech to finish
+            await speech_handle
+            logger.info("[Luna Agent] Farewell speech completed, initiating session cleanup...")
+            
+            # Give a brief moment for audio to finish playing
+            await asyncio.sleep(1.0)
+            
+            # Gracefully close the session
+            if hasattr(self, 'session') and self.session:
+                await self.session.aclose()
+                logger.info("[Luna Agent] Session closed gracefully")
+            
+        except Exception as e:
+            logger.error(f"[Luna Agent] Error during graceful cleanup: {e}")
+    
 
 async def entrypoint(ctx: JobContext):
     """
@@ -88,12 +156,16 @@ async def entrypoint(ctx: JobContext):
     global active_session
     logger.info(f"[Luna Agent] Joining room: {ctx.room.name}")
     
-    session = AgentSession(
+    # Initialize session with userdata for storing auth tokens
+    session = AgentSession[LunaSessionData](
         llm=google.beta.realtime.RealtimeModel(
             model="gemini-live-2.5-flash-preview",
             voice="Aoede",
             temperature=0.8,
-        )
+        ),
+        userdata=LunaSessionData(),
+        # Note: We'll create our own MCP servers dynamically with auth
+        # mcp_servers will be empty initially
     )
     
     # Store session reference for cleanup

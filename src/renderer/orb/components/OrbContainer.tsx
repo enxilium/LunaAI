@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { LiveKitRoom, RoomAudioRenderer } from "@livekit/components-react";
-import useKeywordDetection from "../../hooks/useKeywordDetection";
-import { useConnection } from "../../hooks/useConnection";
-import { useKey } from "../../hooks/useAssets";
-import Orb from "./Orb";
+import useKeywordDetection from "../hooks/useKeywordDetection";
+import { useConnection } from "../hooks/useConnection";
+import { useKey } from "../hooks/useAssets";
+import AudioOrb from "./AudioOrb";
 
 const OrbContainer: React.FC = () => {
     const { room, wsUrl, token, shouldConnect, connect, disconnect } =
@@ -11,9 +11,7 @@ const OrbContainer: React.FC = () => {
     const [isConnecting, setIsConnecting] = useState(false);
 
     // Simple key loading with built-in loading state
-    const {
-        key: accessKey,
-    } = useKey("picovoice");
+    const { key: accessKey } = useKey("picovoice");
 
     const { keywordDetection } = useKeywordDetection(accessKey);
 
@@ -66,7 +64,7 @@ const OrbContainer: React.FC = () => {
             }}
         >
             <RoomAudioRenderer />
-            <Orb />
+            <AudioOrb color="rgb(150, 50, 255)" />
         </LiveKitRoom>
     );
 };

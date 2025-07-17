@@ -1,7 +1,6 @@
 const { BrowserWindow, screen, app, ipcMain } = require("electron");
 const { getResourcePath } = require("../utils/get-paths");
 
-const ORB_MARGIN = 0;
 let orbWindow = null;
 let recentlyDragged = false;
 let dragTimeout = null;
@@ -143,7 +142,6 @@ function setOrbWindow(args) {
  */
 function preventOffscreenMovement(window) {
     const bounds = window.getBounds();
-    const workArea = screen.getPrimaryDisplay().workAreaSize;
 
     // Calculate constrained position
     let newX = bounds.x;
