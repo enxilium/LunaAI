@@ -13,6 +13,25 @@ const validChannels = {
     send: ["show-orb", "hide-orb", "update-setting"],
 
     receive: ["error"],
+
+    invoke: [
+        "get-all-settings",
+        "get-setting",
+        "error",
+        "get-key",
+        "get-asset",
+        "livekit:get-token",
+        "livekit:get-server-url",
+        "screen-capturer:get-sources",
+        "screen-capturer:get-primary-source",
+        "screen-capturer:start-capture",
+        "screen-capturer:stop-capture",
+        "screen-capturer:get-status",
+        "screen-capturer:get-media-constraints",
+        "text-typing:check-active",
+        "text-typing:type-text",
+        "text-typing:clear-field",
+    ],
 };
 
 // Standard API exposure
@@ -187,6 +206,32 @@ contextBridge.exposeInMainWorld("electron", {
             "screen-capturer:get-media-constraints",
             sourceId
         );
+    },
+
+    // Text typing methods
+    /**
+     * @description Check if there's an active text input field
+     * @returns {Promise<{success: boolean, isActive: boolean, message: string}>} Status of active text input
+     */
+    checkActiveTextInput: () => {
+        return ipcRenderer.invoke("text-typing:check-active");
+    },
+
+    /**
+     * @description Type text into the currently focused text field
+     * @param {string} text - The text to type
+     * @returns {Promise<{success: boolean, message: string}>} Result of typing operation
+     */
+    typeText: (text) => {
+        return ipcRenderer.invoke("text-typing:type-text", text);
+    },
+
+    /**
+     * @description Clear the currently focused text field
+     * @returns {Promise<{success: boolean, message: string}>} Result of clear operation
+     */
+    clearTextField: () => {
+        return ipcRenderer.invoke("text-typing:clear-field");
     },
 });
 

@@ -62,6 +62,20 @@ declare global {
                     };
                 };
             }>;
+            // Text typing methods
+            checkActiveTextInput: () => Promise<{
+                success: boolean;
+                isActive: boolean;
+                message: string;
+            }>;
+            typeText: (text: string) => Promise<{
+                success: boolean;
+                message: string;
+            }>;
+            clearTextField: () => Promise<{
+                success: boolean;
+                message: string;
+            }>;
         };
     }
 }

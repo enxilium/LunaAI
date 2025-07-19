@@ -10,9 +10,14 @@ const {
     startScreenCapture,
     stopScreenCapture,
     getScreenCaptureStatus,
-    getMediaConstraints
+    getMediaConstraints,
 } = require("./screen-capture");
 
+const {
+    checkActiveTextInput,
+    typeText,
+    clearTextField,
+} = require("./text-typing");
 
 /**
  * @description Exports all invoke handlers for IPC communication between renderer and main processes.
@@ -28,4 +33,7 @@ module.exports = {
     stopScreenCapture,
     getScreenCaptureStatus,
     getMediaConstraints,
+    checkActiveTextInput,
+    typeText,
+    clearTextField,
 };

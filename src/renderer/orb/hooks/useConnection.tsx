@@ -8,7 +8,8 @@ import React, {
     useCallback,
 } from "react";
 import { Room, RoomEvent, Track } from "livekit-client";
-import { useScreenShare } from "./useScreenShare";
+import { useScreenShare } from "./rpc/useScreenShare";
+import { useTextTyping } from "./rpc/useTextTyping";
 
 type ConnectionData = {
     room: Room;
@@ -32,6 +33,7 @@ export const ConnectionProvider = ({
     const [token, setToken] = useState<string>("");
 
     const { startScreenShare, stopScreenShare } = useScreenShare();
+    const { typeText, clearText } = useTextTyping();
 
     useEffect(() => {
         const getWsUrl = async () => {
@@ -104,6 +106,57 @@ export const ConnectionProvider = ({
             room.unregisterRpcMethod("start_screen_share");
         };
     }, [room]);
+
+    // Register RPC method for text typing
+    useEffect(() => {
+        if (!room || !room.localParticipant) {
+            return;
+        }
+
+        const handleTextTypingRequest = async (data: any) => {
+            try {
+                console.log("[RPC] Text typing request received:", data);
+                const { action, text } = JSON.parse(data.payload);
+
+                let result;
+                switch (action) {
+                    case "type":
+                        if (!text) {
+                            throw new Error("No text provided for typing");
+                        }
+                        result = await typeText(text);
+                        break;
+                    case "clear":
+                        result = await clearText();
+                        break;
+                    default:
+                        throw new Error(`Unknown action: ${action}`);
+                }
+
+                return JSON.stringify(result);
+            } catch (error) {
+                const errorMessage =
+                    error instanceof Error ? error.message : String(error);
+                console.error("[RPC] Text typing error:", errorMessage);
+                window.electron.reportError(
+                    `Text typing RPC error: ${errorMessage}`,
+                    "useConnection"
+                );
+                return JSON.stringify({
+                    success: false,
+                    message: errorMessage,
+                });
+            }
+        };
+
+        // Register the RPC method
+        room.registerRpcMethod("text_typing", handleTextTypingRequest);
+
+        // Cleanup function
+        return () => {
+            room.unregisterRpcMethod("text_typing");
+        };
+    }, [room, typeText, clearText]);
 
     const connect = useCallback(async () => {
         if (shouldConnect || !token) {
