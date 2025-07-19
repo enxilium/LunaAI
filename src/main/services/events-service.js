@@ -11,6 +11,9 @@ const {
     stopScreenCapture,
     getScreenCaptureStatus,
     getMediaConstraints,
+    checkActiveTextInput,
+    typeText,
+    clearTextField,
 } = require("../communication");
 const { getAccessKey } = require("../utils/get-paths");
 const {
@@ -74,6 +77,9 @@ class EventsService extends EventEmitter {
             "screen-capturer:stop-capture": stopScreenCapture,
             "screen-capturer:get-status": getScreenCaptureStatus,
             "screen-capturer:get-media-constraints": getMediaConstraints,
+            "text-typing:check-active": checkActiveTextInput,
+            "text-typing:type-text": typeText,
+            "text-typing:clear-field": clearTextField,
         };
 
         for (const [name, handler] of Object.entries(invokeHandlers)) {
@@ -115,8 +121,7 @@ class EventsService extends EventEmitter {
      * @param {any} data - Event data
      */
     sendToRenderer(windowName, channel, data) {
-        const window =
-            windowName === "main" ? getMainWindow() : getOrbWindow();
+        const window = windowName === "main" ? getMainWindow() : getOrbWindow();
 
         if (!window || window.isDestroyed()) {
             throw new Error(`Window ${windowName} not found`);

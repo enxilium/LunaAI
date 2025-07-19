@@ -4,7 +4,6 @@ import useKeywordDetection from "../hooks/useKeywordDetection";
 import { useConnection } from "../hooks/useConnection";
 import { useKey } from "../hooks/useAssets";
 import AudioOrb from "./AudioOrb";
-import { useScreenShare } from "../hooks/useScreenShare";
 
 const OrbContainer: React.FC = () => {
     const { room, wsUrl, token, shouldConnect, connect, disconnect } =
