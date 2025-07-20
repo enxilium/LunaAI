@@ -1,3 +1,5 @@
+const CopyWebpackPlugin = require("copy-webpack-plugin");
+
 module.exports = {
     /**
      * This is the main entry point for your application, it's the first file
@@ -8,6 +10,29 @@ module.exports = {
     module: {
         rules: require("./webpack.rules"),
     },
+    plugins: [
+        new CopyWebpackPlugin({
+            patterns: [
+                {
+                    from: "src/main/services/*.py",
+                    to: "[name][ext]",
+                },
+                {
+                    from: "src/main/services/agent/*.py",
+                    to: "agent/[name][ext]",
+                },
+                {
+                    from: "requirements.txt",
+                    to: "requirements.txt",
+                },
+                {
+                    from: ".env",
+                    to: ".env",
+                    noErrorOnMissing: true,
+                },
+            ],
+        }),
+    ],
     externals: {
         "@ffmpeg-installer/ffmpeg": "commonjs @ffmpeg-installer/ffmpeg",
         "fluent-ffmpeg": "commonjs fluent-ffmpeg",

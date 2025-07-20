@@ -11,4 +11,7 @@ module.exports = {
         extensions: [".tsx", ".ts", ".js", ".jsx"],
         modules: [path.resolve(__dirname, "node_modules"), "node_modules"],
     },
+    plugins: [
+        
+    ],
 };
