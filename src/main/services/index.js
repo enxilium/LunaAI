@@ -2,7 +2,21 @@ const { getSettingsService } = require("./user/settings-service.js");
 const { getCredentialsService } = require("./user/credentials-service.js");
 const { getDataService } = require("./user/data-service.js");
 const { getEventsService } = require("./events-service.js");
-const { getLiveKitService } = require("./agent/livekit-service.js");
+const { StreamingServerService } = require("./streaming-server-service.js");
+
+// Global streaming server instance
+let streamingServerService = null;
+
+/**
+ * @description Gets or creates the streaming server service instance.
+ * @returns {StreamingServerService} The streaming server service instance.
+ */
+function getStreamingServerService() {
+    if (!streamingServerService) {
+        streamingServerService = new StreamingServerService();
+    }
+    return streamingServerService;
+}
 
 /**
  * @description Initializes all application services.
@@ -17,16 +31,21 @@ async function initializeServices() {
 
     const settingsService = getSettingsService();
     const dataService = getDataService();
+    const streamingServerService = getStreamingServerService();
 
-    // Initialize LiveKit service
-    const liveKitService = await getLiveKitService();
+    // Start the streaming server
+    console.log("[Services] Starting streaming server...");
+    const serverStarted = await streamingServerService.startServer();
+    if (!serverStarted) {
+        console.error("[Services] Failed to start streaming server");
+    }
 
     return {
         credentialsService,
         settingsService,
         dataService,
         eventsService,
-        liveKitService,
+        streamingServerService,
     };
 }
 
@@ -61,5 +80,5 @@ module.exports = {
     getSettingsService,
     getDataService,
     getEventsService,
-    getLiveKitService,
+    getStreamingServerService,
 };

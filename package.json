@@ -9,7 +9,10 @@
         "package": "electron-forge package",
         "make": "electron-forge make",
         "publish": "electron-forge publish",
-        "lint": "echo \"No linting configured\""
+        "lint": "echo \"No linting configured\"",
+        "install-python-deps": "python install_dependencies.py",
+        "check-python-deps": "python check_dependencies.py",
+        "setup-streaming": "python install_dependencies.py && echo \"✅ Luna AI streaming setup complete!\""
     },
     "keywords": [],
     "author": {
@@ -24,8 +27,6 @@
         "@google/genai": "^1.8.0",
         "@langchain/core": "^0.3.58",
         "@langchain/google-genai": "^0.2.12",
-        "@livekit/components-react": "^2.9.13",
-        "@livekit/components-styles": "^1.1.6",
         "@material/web": "^2.3.0",
         "@picovoice/porcupine-react": "^3.0.3",
         "@picovoice/porcupine-web": "^3.0.3",
@@ -44,8 +45,6 @@
         "googleapis": "^150.0.1",
         "keytar": "^7.9.0",
         "langchain": "^0.3.28",
-        "livekit-client": "^2.15.2",
-        "livekit-server-sdk": "^2.13.1",
         "mic": "^2.1.2",
         "node-cache": "^5.1.2",
         "node-fetch": "^3.3.2",
@@ -54,6 +53,7 @@
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
         "react-icons": "^5.5.0",
+        "robotjs": "^0.6.0",
         "spotify-web-api-node": "^5.0.2",
         "styled-components": "^6.1.17",
         "uuid": "^11.1.0",

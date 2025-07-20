@@ -34,7 +34,7 @@ app.whenReady().then(() => {
                 // WARNING: The current Content-Security-Policy is permissive and should be
                 // tightened for production.
                 "Content-Security-Policy": [
-                    "default-src 'self' 'unsafe-inline'; connect-src 'self' file: luna-asset: ws://localhost:* wss://localhost:* wss://*.livekit.cloud https://*.livekit.cloud https://*.picovoice.ai https://*.picovoice.net https://kmp1.picovoice.net wss://*.picovoice.ai wss://*.picovoice.net https://generativelanguage.googleapis.com https://*.googleapis.com; media-src 'self' blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:3000 blob:; script-src-elem 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;",
+                    "default-src 'self' 'unsafe-inline'; connect-src 'self' file: luna-asset: ws://localhost:* wss://localhost:* https://*.picovoice.ai https://*.picovoice.net https://kmp1.picovoice.net wss://*.picovoice.ai wss://*.picovoice.net https://generativelanguage.googleapis.com https://*.googleapis.com; media-src 'self' blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' http://localhost:3000 blob:; script-src-elem 'self' 'unsafe-inline' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;",
                 ],
             },
         });

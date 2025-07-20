@@ -14,12 +14,9 @@ const {
     checkActiveTextInput,
     typeText,
     clearTextField,
+    controlMouse,
 } = require("../communication");
 const { getAccessKey } = require("../utils/get-paths");
-const {
-    getLiveKitToken,
-    getLiveKitServerUrl,
-} = require("./agent/livekit-service");
 
 let eventsService = null;
 
@@ -69,8 +66,6 @@ class EventsService extends EventEmitter {
             "get-setting": getSetting,
             error: this.logError,
             "get-key": getAccessKey,
-            "livekit:get-token": getLiveKitToken,
-            "livekit:get-server-url": getLiveKitServerUrl,
             "screen-capturer:get-sources": getScreenSources,
             "screen-capturer:get-primary-source": getPrimaryScreenSource,
             "screen-capturer:start-capture": startScreenCapture,
@@ -80,6 +75,7 @@ class EventsService extends EventEmitter {
             "text-typing:check-active": checkActiveTextInput,
             "text-typing:type-text": typeText,
             "text-typing:clear-field": clearTextField,
+            "mouse-control:control": controlMouse,
         };
 
         for (const [name, handler] of Object.entries(invokeHandlers)) {

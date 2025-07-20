@@ -15,8 +15,6 @@ declare global {
             getSetting: (key: string) => Promise<any>;
             updateSetting: (key: string, value: any) => void;
             reportError: (error: string, source: string) => Promise<void>;
-            getLiveKitToken: () => Promise<string>;
-            getLiveKitServerUrl: () => Promise<string>;
             // Screen sharing methods
             getScreenSources: () => Promise<
                 Array<{
@@ -75,6 +73,28 @@ declare global {
             clearTextField: () => Promise<{
                 success: boolean;
                 message: string;
+            }>;
+            // Mouse control methods
+            controlMouse: (params: {
+                action:
+                    | "click"
+                    | "move"
+                    | "scroll"
+                    | "doubleclick"
+                    | "drag"
+                    | "release";
+                x?: number;
+                y?: number;
+                button?: "left" | "right" | "middle";
+                scrollDirection?: "up" | "down";
+                scroll_amount?: number;
+                reasoning?: string;
+            }) => Promise<{
+                success: boolean;
+                message: string;
+                action?: string;
+                coordinates?: { x: number; y: number };
+                button?: string;
             }>;
         };
     }

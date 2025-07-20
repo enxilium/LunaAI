@@ -1,24 +1,18 @@
 import React, { useEffect, useRef } from "react";
-import {
-    useVoiceAssistant,
-    useMultibandTrackVolume,
-} from "@livekit/components-react";
 
 interface AudioOrbProps {
     color: string;
+    isActive?: boolean;
+    onDeactivate?: () => void;
 }
 
-const AudioOrb: React.FC<AudioOrbProps> = ({ color }) => {
+const AudioOrb: React.FC<AudioOrbProps> = ({
+    color,
+    isActive = false,
+    onDeactivate,
+}) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const animationFrameRef = useRef<number | null>(null);
-
-    // Get the agent's audio track and state from LiveKit
-    const { audioTrack, state } = useVoiceAssistant();
-
-    // Get real-time volume data from the audio track
-    const volumeBands = useMultibandTrackVolume(audioTrack, {
-        bands: 25, // Use 15 bands for more detailed visualization
-    });
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -29,125 +23,105 @@ const AudioOrb: React.FC<AudioOrbProps> = ({ color }) => {
         canvas.width = 300;
         canvas.height = 300;
 
-        const drawCircle = (
-            x: number,
-            y: number,
-            radius: number,
-            fillStyle: string,
-            shadowBlur: number = 10,
-            shadowColor: string = fillStyle
-        ) => {
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fillStyle = fillStyle;
-            ctx.shadowBlur = shadowBlur;
-            ctx.shadowColor = shadowColor;
-            ctx.fill();
-        };
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const baseRadius = 50;
 
-        const draw = () => {
-            animationFrameRef.current = requestAnimationFrame(draw);
+        let time = 0;
 
-            const scaledBands = volumeBands.map((v) => v * 255); // Scale to 0-255 range
-
-            const lowFreqs = scaledBands.slice(0, 8); // First 8 bands (low frequencies)
-            const highFreqs = scaledBands.slice(8, 17); // Next 9 bands (high frequencies)
-
-            const avgLow =
-                lowFreqs.length > 0
-                    ? lowFreqs.reduce((a, b) => a + b, 0) / lowFreqs.length
-                    : 0;
-            const avgHigh =
-                highFreqs.length > 0
-                    ? highFreqs.reduce((a, b) => a + b, 0) / highFreqs.length
-                    : 0;
-
-            const pulseLow = avgLow / 255; // Normalize back to 0-1
-            const pulseHigh = avgHigh / 255; // Normalize back to 0-1
-
+        const drawOrb = () => {
+            // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw based on state with volume reactivity
-            if (state !== "disconnected" && state !== "connecting") {
-                // Main orb elements - using the same structure as your AudioContext version
-                drawCircle(150, 150 + pulseLow * 30, 20 + pulseLow * 5, color);
-                drawCircle(
-                    150 + pulseLow * 20,
-                    150 + pulseLow * 20,
-                    5 + pulseLow * 20,
-                    color
-                );
-                drawCircle(
-                    150 - pulseLow * 20,
-                    150 + pulseLow * 20,
-                    5 + pulseLow * 20,
-                    color
-                );
+            // Parse color
+            const colorMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+            const [r, g, b] = colorMatch
+                ? [
+                      parseInt(colorMatch[1]),
+                      parseInt(colorMatch[2]),
+                      parseInt(colorMatch[3]),
+                  ]
+                : [150, 50, 255]; // fallback
 
-                drawCircle(
-                    150,
-                    150 - pulseHigh * 20,
-                    20 + pulseHigh * 5,
-                    color
-                );
-                drawCircle(
-                    150 - pulseHigh * 20,
-                    150 - pulseHigh * 10,
-                    5 + pulseHigh * 10,
-                    color
-                );
-                drawCircle(
-                    150 + pulseHigh * 20,
-                    150 - pulseHigh * 10,
-                    5 + pulseHigh * 10,
-                    color
-                );
+            if (isActive) {
+                // Animated pulsing effect when active
+                const pulseRadius = baseRadius + Math.sin(time * 0.1) * 10;
 
-                // Core orb
-                drawCircle(
-                    150,
-                    150,
-                    40 + pulseLow * 10,
-                    color,
-                    20 + pulseLow * 10
+                // Create gradient
+                const gradient = ctx.createRadialGradient(
+                    centerX,
+                    centerY,
+                    0,
+                    centerX,
+                    centerY,
+                    pulseRadius + 20
                 );
-                drawCircle(
-                    150,
-                    150,
-                    20 + pulseHigh * 15,
-                    "rgba(200, 120, 255,0.5)",
-                    10,
-                    "white"
+                gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.9)`);
+                gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.4)`);
+                gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.1)`);
+
+                // Draw main orb
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, pulseRadius, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw outer glow
+                const glowGradient = ctx.createRadialGradient(
+                    centerX,
+                    centerY,
+                    pulseRadius,
+                    centerX,
+                    centerY,
+                    pulseRadius + 30
                 );
+                glowGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.3)`);
+                glowGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, pulseRadius + 30, 0, 2 * Math.PI);
+                ctx.fill();
             } else {
-                // Static orb when disconnected
-                drawCircle(150, 150, 40, color, 20);
-                drawCircle(
-                    150,
-                    150,
-                    20,
-                    "rgba(200, 120, 255,0.5)",
-                    10,
-                    "white"
-                );
+                // Static orb when inactive
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, baseRadius, 0, 2 * Math.PI);
+                ctx.fill();
             }
+
+            time++;
+            animationFrameRef.current = requestAnimationFrame(drawOrb);
         };
 
-        draw();
+        drawOrb();
 
         return () => {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
         };
-    }, [color, state, volumeBands]); // Re-run when state or volume changes
+    }, [color, isActive]);
+
+    const handleClick = () => {
+        if (isActive && onDeactivate) {
+            onDeactivate();
+        }
+    };
 
     return (
-        <div className="relative">
-            <canvas
-                ref={canvasRef}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-            />
+        <div
+            style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                height: "100vh",
+                width: "100vw",
+                cursor: isActive ? "pointer" : "default",
+            }}
+            onClick={handleClick}
+        >
+            <canvas ref={canvasRef} />
         </div>
     );
 };

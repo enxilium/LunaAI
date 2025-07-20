@@ -20,8 +20,6 @@ const validChannels = {
         "error",
         "get-key",
         "get-asset",
-        "livekit:get-token",
-        "livekit:get-server-url",
         "screen-capturer:get-sources",
         "screen-capturer:get-primary-source",
         "screen-capturer:start-capture",
@@ -31,6 +29,7 @@ const validChannels = {
         "text-typing:check-active",
         "text-typing:type-text",
         "text-typing:clear-field",
+        "mouse-control:control",
     ],
 };
 
@@ -137,23 +136,6 @@ contextBridge.exposeInMainWorld("electron", {
         ipcRenderer.removeAllListeners(channel);
     },
 
-    // LiveKit and Agent methods
-    /**
-     * @description Get a LiveKit token for connecting to the room.
-     * @returns {Promise<{url: string, token: string, roomName: string}>} LiveKit connection details
-     */
-    getLiveKitToken: () => {
-        return ipcRenderer.invoke("livekit:get-token");
-    },
-
-    /**
-     * @description Get a LiveKit server URL for connecting to the room.
-     * @returns {Promise<string>} LiveKit server URL
-     */
-    getLiveKitServerUrl: () => {
-        return ipcRenderer.invoke("livekit:get-server-url");
-    },
-
     // Screen sharing methods
     /**
      * @description Get available screen sources for capture
@@ -232,6 +214,21 @@ contextBridge.exposeInMainWorld("electron", {
      */
     clearTextField: () => {
         return ipcRenderer.invoke("text-typing:clear-field");
+    },
+
+    // Mouse control methods
+    /**
+     * @description Control the mouse for clicking, moving, and scrolling
+     * @param {Object} params - Mouse control parameters
+     * @param {string} params.action - Action type (click, move, scroll)
+     * @param {number} params.x - X coordinate
+     * @param {number} params.y - Y coordinate
+     * @param {string} params.button - Mouse button (left, right, middle)
+     * @param {string} params.scrollDirection - Scroll direction (up, down)
+     * @returns {Promise<{success: boolean, message: string}>} Result of mouse control operation
+     */
+    controlMouse: (params) => {
+        return ipcRenderer.invoke("mouse-control:control", params);
     },
 });
 
