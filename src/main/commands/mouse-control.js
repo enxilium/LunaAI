@@ -1,4 +1,5 @@
 const robot = require("robotjs");
+const logger = require("../utils/logger");
 
 // Set robot speed and delay for smoother movements
 robot.setMouseDelay(2);
@@ -70,8 +71,9 @@ async function controlMouse(params) {
             reasoning = "",
         } = params;
 
-        console.log(
-            `Mouse control action: ${action} at (${x}, ${y}) with button: ${button}. Reason: ${reasoning}`
+        logger.debug(
+            "MouseControl",
+            `${action} at (${x}, ${y}) with button: ${button}. Reason: ${reasoning}`
         );
 
         // Get current mouse position for smooth movement

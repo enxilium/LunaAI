@@ -1,5 +1,5 @@
-const { BrowserWindow } = require("electron");
-const { getResourcePath } = require("../utils/get-paths");
+const { BrowserWindow, app } = require("electron");
+const { getAsset } = require("../utils/get-asset");
 
 let mainWindow = null;
 
@@ -32,17 +32,15 @@ function createMainWindow() {
                 const error = new Error(
                     `Failed to load main window: ${errorDescription} (${errorCode})`
                 );
-                const { getEventsService } = require("../services/events-service");
-                const eventsService = await getEventsService();
-                eventsService.logError(error.message, "main-window");
+
                 reject(error);
             }
         );
 
-        if (process.env.NODE_ENV === "development") {
+        if (!app.isPackaged) {
             mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
         } else {
-            mainWindow.loadFile(getResourcePath("app/index.html"));
+            mainWindow.loadFile(getAsset("main/index.html"));
         }
 
         mainWindow.on("closed", () => {

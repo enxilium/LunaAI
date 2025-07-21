@@ -9,7 +9,10 @@ declare global {
             ) => void;
             receive: (channel: "error", func: (...args: any[]) => void) => void;
             removeListener: (channel: string) => void;
-            getAsset: (type: "images", ...args: any[]) => Promise<any>; // Only supports 'images' for main process assets
+            getAsset: (
+                assetName: string,
+                assetType?: string | null
+            ) => Promise<string>; // Unified asset/resource path getter
             getKey: (keyName: string) => Promise<string | null>; // Separate method for credentials
             getAllSettings: () => Promise<any>;
             getSetting: (key: string) => Promise<any>;

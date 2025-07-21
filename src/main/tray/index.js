@@ -1,5 +1,5 @@
 const { app, Menu, Tray } = require("electron");
-const { getImagePath } = require("../utils/get-paths");
+const { getAsset } = require("../utils/get-asset");
 const { getMainWindow, createMainWindow } = require("../windows/main-window");
 
 /**
@@ -8,7 +8,7 @@ const { getMainWindow, createMainWindow } = require("../windows/main-window");
  * @throws {Error} If tray creation fails.
  */
 async function createTray() {
-    const iconPath = await getImagePath("luna-tray.png");
+    const iconPath = getAsset("luna-tray.png", "images");
     const tray = new Tray(iconPath);
     tray.setToolTip("Luna Assistant");
     tray.setContextMenu(

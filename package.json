@@ -32,6 +32,7 @@
         "@picovoice/porcupine-web": "^3.0.3",
         "@picovoice/web-voice-processor": "^4.0.9",
         "axios": "^1.10.0",
+        "chalk": "^4.1.2",
         "clipboardy": "^4.0.0",
         "date-fns": "^4.1.0",
         "dotenv": "^16.5.0",
