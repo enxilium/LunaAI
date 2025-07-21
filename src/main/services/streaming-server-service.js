@@ -1,8 +1,10 @@
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
+const { app } = require("electron");
+const logger = require("../utils/logger");
 
-const isDev = process.env.NODE_ENV === "development";
+const isPackaged = app.isPackaged;
 
 class StreamingServerService {
     constructor() {
@@ -20,7 +22,7 @@ class StreamingServerService {
      * Uses the same pattern as other utilities in the app
      */
     getServerScriptPath() {
-        if (isDev) {
+        if (!isPackaged) {
             // In development: use source file
             return path.join(
                 process.cwd(),
@@ -40,23 +42,11 @@ class StreamingServerService {
      */
     async startServer() {
         if (this.isRunning) {
-            console.log("[StreamingServer] Server is already running");
+            logger.warn("StreamingServer", "Server is already running");
             return true;
         }
 
         try {
-            console.log(
-                `[StreamingServer] Starting Python streaming server...`
-            );
-            console.log(
-                `[StreamingServer] Using script: ${this.serverScriptPath}`
-            );
-            console.log(
-                `[StreamingServer] Environment: ${
-                    isDev ? "development" : "production"
-                }`
-            );
-
             // Check if the server script exists
             if (!fs.existsSync(this.serverScriptPath)) {
                 throw new Error(
@@ -81,12 +71,13 @@ class StreamingServerService {
             await this.waitForServerReady();
 
             this.isRunning = true;
-            console.log(
-                `[StreamingServer] Server started successfully on ${this.serverHost}:${this.serverPort}`
+            logger.success(
+                "StreamingServer",
+                `Server started successfully on ${this.serverHost}:${this.serverPort}`
             );
             return true;
         } catch (error) {
-            console.error("[StreamingServer] Failed to start server:", error);
+            logger.error("StreamingServer", "Failed to start server:", error);
             this.cleanup();
             return false;
         }
@@ -97,11 +88,9 @@ class StreamingServerService {
      */
     stopServer() {
         if (!this.isRunning || !this.serverProcess) {
-            console.log("[StreamingServer] Server is not running");
+            logger.warn("StreamingServer", "Server is not running");
             return;
         }
-
-        console.log("[StreamingServer] Stopping Python streaming server...");
 
         try {
             // Gracefully terminate the process
@@ -110,8 +99,9 @@ class StreamingServerService {
             // If it doesn't stop gracefully, force kill after timeout
             setTimeout(() => {
                 if (this.serverProcess && !this.serverProcess.killed) {
-                    console.log(
-                        "[StreamingServer] Force killing server process"
+                    logger.warn(
+                        "StreamingServer",
+                        "Force killing server process"
                     );
                     this.serverProcess.kill("SIGKILL");
                 }
@@ -127,27 +117,35 @@ class StreamingServerService {
     setupEventHandlers() {
         if (!this.serverProcess) return;
 
-        this.serverProcess.stdout.on("data", (data) => {
-            const output = data.toString().trim();
-            if (output) {
-                console.log("[StreamingServer]", output);
-            }
-        });
+        // Handle stdout (info messages, print statements)
+        if (this.serverProcess.stdout) {
+            this.serverProcess.stdout.on("data", (data) => {
+                const output = data.toString().trim();
+                if (output) {
+                    // Log Python stdout messages with [PYTHON] prefix
+                    logger.info("StreamingServer", `[PYTHON] ${output}`);
+                }
+            });
+        }
 
-        this.serverProcess.stderr.on("data", (data) => {
-            const error = data.toString().trim();
-            if (error) {
-                console.error("[StreamingServer Error]", error);
-            }
-        });
+        // Handle stderr (error messages, warnings)
+        if (this.serverProcess.stderr) {
+            this.serverProcess.stderr.on("data", (data) => {
+                const error = data.toString().trim();
+                if (error) {
+                    // Log Python stderr messages as warnings/errors
+                    logger.error("StreamingServer", `[PYTHON ERROR] ${error}`);
+                }
+            });
+        }
 
         this.serverProcess.on("close", (code) => {
-            console.log(`[StreamingServer] Process exited with code ${code}`);
+            logger.info("StreamingServer", `Process exited with code ${code}`);
             this.cleanup();
         });
 
         this.serverProcess.on("error", (error) => {
-            console.error("[StreamingServer] Process error:", error);
+            logger.error("StreamingServer", error);
             this.cleanup();
         });
     }
@@ -214,4 +212,18 @@ class StreamingServerService {
     }
 }
 
-module.exports = { StreamingServerService };
+// Global streaming server instance
+let streamingServerService = null;
+
+/**
+ * @description Gets or creates the streaming server service instance.
+ * @returns {StreamingServerService} The streaming server service instance.
+ */
+function getStreamingServerService() {
+    if (!streamingServerService) {
+        streamingServerService = new StreamingServerService();
+    }
+    return streamingServerService;
+}
+
+module.exports = { getStreamingServerService };

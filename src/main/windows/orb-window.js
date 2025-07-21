@@ -1,5 +1,6 @@
 const { BrowserWindow, screen, app, ipcMain } = require("electron");
-const { getResourcePath } = require("../utils/get-paths");
+const { getAsset } = require("../utils/get-asset");
+const logger = require("../utils/logger");
 
 let orbWindow = null;
 let recentlyDragged = false;
@@ -39,7 +40,7 @@ async function createOrbWindow() {
         orbWindow.setAlwaysOnTop(true, "floating");
 
         // Only open DevTools in development when needed (reduces console noise)
-        if (process.env.NODE_ENV === "development") {
+        if (!app.isPackaged) {
             orbWindow.webContents.openDevTools({ mode: "detach" });
         }
 
@@ -55,21 +56,16 @@ async function createOrbWindow() {
                 const error = new Error(
                     `Failed to load orb window: ${errorDescription} (${errorCode})`
                 );
-                const {
-                    getEventsService,
-                } = require("../services/events-service");
-
-                const eventsService = await getEventsService();
-                eventsService.logError(error.message, "orb-window");
+                
                 reject(error);
             }
         );
 
         // Load the orb window
-        if (process.env.NODE_ENV === "development") {
+        if (!app.isPackaged) {
             orbWindow.loadURL(ORB_WINDOW_WEBPACK_ENTRY);
         } else {
-            orbWindow.loadFile(getResourcePath("orb_window/index.html"));
+            orbWindow.loadFile(getAsset("orb/index.html"));
         }
 
         orbWindow.hide(); // Start hidden
@@ -99,8 +95,9 @@ async function createOrbWindow() {
 
         // Handle close event - hide instead of close
         orbWindow.on("close", (event) => {
-            console.log(
-                `[OrbWindow] close event, app.isQuitting: ${app.isQuitting}`
+            logger.info(
+                "OrbWindow",
+                `close event, app.isQuitting: ${app.isQuitting}`
             );
             // If app is not quitting, prevent window closure
             if (!app.isQuitting) {

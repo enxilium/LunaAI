@@ -1,10 +1,4 @@
 const {
-    updateSetting,
-    getAllSettings,
-    getSetting,
-} = require("./manage-settings");
-
-const {
     getScreenSources,
     getPrimaryScreenSource,
     startScreenCapture,
@@ -26,9 +20,6 @@ const { controlMouse } = require("./mouse-control");
  * Each key corresponds to an IPC channel name, and the value is the handler function.
  */
 module.exports = {
-    updateSetting,
-    getAllSettings,
-    getSetting,
     getScreenSources,
     getPrimaryScreenSource,
     startScreenCapture,

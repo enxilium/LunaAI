@@ -141,9 +141,7 @@ contextBridge.exposeInMainWorld("electron", {
      * @description Get available screen sources for capture
      * @returns {Promise<Array>} Array of screen sources
      */
-    getScreenSources: () => {
-        return ipcRenderer.invoke("screen-capturer:get-sources");
-    },
+    getScreenSources: () => ipcRenderer.invoke("screen-capturer:get-sources"),
 
     /**
      * @description Get the primary screen source

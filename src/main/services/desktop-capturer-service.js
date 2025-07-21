@@ -1,4 +1,5 @@
-const { desktopCapturer, screen } = require("electron");
+const { desktopCapturer } = require("electron");
+const logger = require("../utils/logger");
 
 /**
  * Screen sharing service using Electron's desktopCapturer API
@@ -15,12 +16,22 @@ class DesktopCapturerService {
      */
     async getScreenSources() {
         try {
+            logger.debug(
+                "DesktopCapturer",
+                "Requesting screen sources from desktopCapturer API"
+            );
+
             const inputSources = await desktopCapturer.getSources({
                 types: ["screen"],
                 thumbnailSize: { width: 300, height: 200 },
             });
 
-            return inputSources.map((source) => ({
+            logger.debug(
+                "DesktopCapturer",
+                `Found ${inputSources.length} screen sources`
+            );
+
+            const mappedSources = inputSources.map((source) => ({
                 id: source.id,
                 name: source.name,
                 display_id: source.display_id,
@@ -28,9 +39,16 @@ class DesktopCapturerService {
                     ? source.thumbnail.toDataURL()
                     : null,
             }));
+
+            logger.success(
+                "DesktopCapturer",
+                `Successfully retrieved ${mappedSources.length} screen sources`
+            );
+            return mappedSources;
         } catch (error) {
-            console.error(
-                "[DesktopCapturer] Error getting screen sources:",
+            logger.error(
+                "DesktopCapturer",
+                "Error getting screen sources:",
                 error
             );
             throw error;
@@ -44,24 +62,21 @@ class DesktopCapturerService {
     async getPrimaryScreenSource() {
         try {
             const sources = await this.getScreenSources();
-            // Find the primary screen or return the first screen source
-            const primaryDisplay = screen.getPrimaryDisplay();
+            // Always select Screen 1
             let primarySource = sources.find(
-                (source) => source.display_id === primaryDisplay.id.toString()
+                (source) => source.name === "Screen 1"
             );
 
             if (!primarySource) {
                 // Fallback to first screen source
-                primarySource =
-                    sources.find((source) =>
-                        source.name.includes("Entire screen")
-                    ) || sources[0];
+                primarySource = sources[0];
             }
 
             return primarySource;
         } catch (error) {
-            console.error(
-                "[DesktopCapturer] Error getting primary screen:",
+            logger.error(
+                "DesktopCapturer",
+                "Error getting primary screen:",
                 error
             );
             throw error;
@@ -94,8 +109,9 @@ class DesktopCapturerService {
 
             this.isCapturing = true;
 
-            console.log(
-                `[DesktopCapturer] Starting screen capture for source: ${targetSource.name}`
+            logger.success(
+                "DesktopCapturer",
+                `Starting screen capture for source: ${targetSource.name}`
             );
 
             return {
@@ -106,8 +122,9 @@ class DesktopCapturerService {
                 message: `Screen capture started for ${targetSource.name}`,
             };
         } catch (error) {
-            console.error(
-                "[DesktopCapturer] Error starting screen capture:",
+            logger.error(
+                "DesktopCapturer",
+                "Error starting screen capture:",
                 error
             );
             this.isCapturing = false;
@@ -128,15 +145,16 @@ class DesktopCapturerService {
             this.isCapturing = false;
             this.currentStream = null;
 
-            console.log("[DesktopCapturer] Screen capture stopped");
+            logger.info("DesktopCapturer", "Screen capture stopped");
 
             return {
                 success: true,
                 message: "Screen capture stopped",
             };
         } catch (error) {
-            console.error(
-                "[DesktopCapturer] Error stopping screen capture:",
+            logger.error(
+                "DesktopCapturer",
+                "Error stopping screen capture:",
                 error
             );
             throw error;
@@ -178,11 +196,13 @@ class DesktopCapturerService {
     }
 }
 
+let desktopCapturerService = null;
+
 function getDesktopCapturerService() {
-    if (!this.desktopCapturerService) {
-        this.desktopCapturerService = new DesktopCapturerService();
+    if (!desktopCapturerService) {
+        desktopCapturerService = new DesktopCapturerService();
     }
-    return this.desktopCapturerService;
+    return desktopCapturerService;
 }
 
 module.exports = {

@@ -2,6 +2,7 @@ const { app, session, BrowserWindow } = require("electron");
 const { createTray } = require("./tray");
 const { createWindows } = require("./windows");
 const { initializeServices } = require("./services");
+const logger = require("./utils/logger");
 
 require("dotenv").config();
 
@@ -10,19 +11,18 @@ require("dotenv").config();
  * @returns {Promise<void>} A promise that resolves when initialization is complete.
  */
 async function initialize() {
-    console.log("[Main] Starting Luna AI initialization...");
+    logger.info("Main", "Starting Luna AI initialization...");
 
-    await initializeServices().then(async () => {
-        console.log("[Main] Services initialized");
-        await createWindows().then(async () => {
-            console.log("[Main] Windows created");
-            await createTray().then(() => {
-                console.log("[Main] Tray created");
-            });
-        });
-    });
+    try {
+        await initializeServices();
+        await createWindows();
+        await createTray();
+    } catch (error) {
+        logger.error("Main", `Initialization failed: ${error.message}`);
+        app.quit();
+    }
 
-    console.log("[Main] Luna AI initialized and ready");
+    logger.success("Main", "Luna AI initialized and ready");
 }
 
 // Entry point

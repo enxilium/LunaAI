@@ -1,10 +1,9 @@
 const { EventEmitter } = require("events");
-const { ipcMain } = require("electron");
+const { ipcMain, app } = require("electron");
 const { getMainWindow, getOrbWindow } = require("../windows");
+const logger = require("../utils/logger");
+
 const {
-    updateSetting,
-    getAllSettings,
-    getSetting,
     getScreenSources,
     getPrimaryScreenSource,
     startScreenCapture,
@@ -15,8 +14,16 @@ const {
     typeText,
     clearTextField,
     controlMouse,
-} = require("../communication");
-const { getAccessKey } = require("../utils/get-paths");
+} = require("../commands");
+
+const { getKey } = require("../utils/get-key");
+const { getAsset } = require("../utils/get-asset");
+
+const { 
+    updateSetting,
+    getAllSettings,
+    getSetting
+} = require("../utils/manage-settings");
 
 let eventsService = null;
 
@@ -34,7 +41,7 @@ class EventsService extends EventEmitter {
     constructor() {
         super();
 
-        this.debugMode = process.env.NODE_ENV === "development";
+        this.debugMode = !app.isPackaged;
     }
 
     /**
@@ -52,8 +59,7 @@ class EventsService extends EventEmitter {
     logError(error, source = "unknown") {
         const errorMessage = error instanceof Error ? error.message : error;
 
-        // Console logging for development
-        console.error(`[${source}] Error ❌:`, errorMessage);
+        logger.error(`${source}`, `${errorMessage}`);
     }
 
     /**
@@ -64,8 +70,9 @@ class EventsService extends EventEmitter {
         const invokeHandlers = {
             "get-all-settings": getAllSettings,
             "get-setting": getSetting,
-            error: this.logError,
-            "get-key": getAccessKey,
+            "error": this.logError,
+            "get-key": getKey,
+            "get-asset": (type, ...args) => getAsset(args[0], type),
             "screen-capturer:get-sources": getScreenSources,
             "screen-capturer:get-primary-source": getPrimaryScreenSource,
             "screen-capturer:start-capture": startScreenCapture,

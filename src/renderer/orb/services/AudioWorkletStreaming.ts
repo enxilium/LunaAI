@@ -13,6 +13,7 @@ class AudioWorkletStreaming {
     private isConnected = false;
     private isStreaming = false;
     private clientId: string;
+    private outputVolume = 1.0; // Output volume control (0.0 to 1.0)
 
     // Configuration
     private readonly serverUrl = "ws://localhost:8765";
@@ -24,16 +25,49 @@ class AudioWorkletStreaming {
     public onStreamingStop: (() => void) | null = null;
     public onError: ((error: string) => void) | null = null;
 
+    // New callbacks for audio data and agent state
+    public onInputAudioData: ((audioData: Float32Array) => void) | null = null;
+    public onOutputAudioData: ((audioData: Float32Array) => void) | null = null;
+    public onAgentStateChange:
+        | ((state: "listening" | "processing" | "speaking") => void)
+        | null = null;
+
     constructor() {
         this.clientId =
             Math.random().toString(36).substring(2, 15) +
             Math.random().toString(36).substring(2, 15);
     }
 
+    /**
+     * Pre-warm the audio system and WebSocket connection for faster startStreaming()
+     * This initializes audio but doesn't start streaming yet
+     */
+    async preWarm(): Promise<boolean> {
+        try {
+            // Initialize audio system if not already done
+            if (!this.audioContext) {
+                const success = await this.initialize();
+                if (!success) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (error) {
+            console.warn("Audio pre-warming failed:", error);
+            return false;
+        }
+    }
+
+    /**
+     * Set output volume for audio playback
+     */
+    setOutputVolume(volume: number): void {
+        this.outputVolume = Math.max(0.0, Math.min(1.0, volume));
+    }
+
     async initialize(): Promise<boolean> {
         try {
-            console.log("[AudioWorklet] Initializing audio system...");
-
             // Create audio context
             this.audioContext = new AudioContext({
                 sampleRate: this.sampleRate,
@@ -60,7 +94,6 @@ class AudioWorkletStreaming {
             // Create audio nodes
             await this.createAudioNodes();
 
-            console.log("[AudioWorklet] ✓ Audio system initialized");
             return true;
         } catch (error) {
             console.error("[AudioWorklet] Failed to initialize:", error);
@@ -223,19 +256,14 @@ class AudioWorkletStreaming {
 
         // Connect the audio graph
         this.micSource.connect(this.recorderNode);
-
-        console.log("[AudioWorklet] ✓ Audio nodes created and connected");
     }
 
     async startStreaming(): Promise<void> {
         if (this.isStreaming) {
-            console.log("[AudioWorklet] Already streaming");
             return;
         }
 
         try {
-            console.log("[AudioWorklet] Starting streaming...");
-
             // Initialize audio if needed
             if (!this.audioContext) {
                 const success = await this.initialize();
@@ -250,15 +278,11 @@ class AudioWorkletStreaming {
             // Clear any leftover audio to prevent jumbled playback
             if (this.playerNode) {
                 this.playerNode.port.postMessage({ type: "clear" });
-                console.log(
-                    "[AudioWorklet] Cleared audio queue for fresh start"
-                );
             }
 
             this.isStreaming = true;
             if (this.onStreamingStart) this.onStreamingStart();
-
-            console.log("[AudioWorklet] ✓ Streaming started");
+            if (this.onAgentStateChange) this.onAgentStateChange("listening");
         } catch (error) {
             console.error("[AudioWorklet] Failed to start streaming:", error);
             if (this.onError) {
@@ -271,7 +295,6 @@ class AudioWorkletStreaming {
     async stopStreaming(): Promise<void> {
         if (!this.isStreaming) return;
 
-        console.log("[AudioWorklet] Stopping streaming...");
         this.isStreaming = false;
 
         // Close WebSocket
@@ -309,19 +332,15 @@ class AudioWorkletStreaming {
         this.isConnected = false;
         if (this.onConnectionChange) this.onConnectionChange(false);
         if (this.onStreamingStop) this.onStreamingStop();
-
-        console.log("[AudioWorklet] ✓ Streaming stopped");
     }
 
     private async connectWebSocket(): Promise<void> {
         return new Promise((resolve, reject) => {
             const wsUrl = `${this.serverUrl}/ws/${this.clientId}?is_audio=true`;
-            console.log("[WebSocket] Connecting to:", wsUrl);
 
             this.websocket = new WebSocket(wsUrl);
 
             this.websocket.onopen = () => {
-                console.log("[WebSocket] ✓ Connected");
                 this.isConnected = true;
                 if (this.onConnectionChange) this.onConnectionChange(true);
                 resolve();
@@ -332,7 +351,6 @@ class AudioWorkletStreaming {
             };
 
             this.websocket.onclose = () => {
-                console.log("[WebSocket] Connection closed");
                 this.isConnected = false;
                 if (this.onConnectionChange) this.onConnectionChange(false);
             };
@@ -351,19 +369,20 @@ class AudioWorkletStreaming {
 
             // Handle audio from agent
             if (message.mime_type === "audio/pcm" && message.data) {
-                console.log(
-                    "[Agent Audio] Received audio data:",
-                    message.data.length,
-                    "characters"
-                );
+                // Agent is speaking when we receive audio
+                if (this.onAgentStateChange) {
+                    this.onAgentStateChange("speaking");
+                }
+
                 this.playAudioFromAgent(message.data);
             } else if (message.turn_complete || message.interrupted) {
-                console.log("[Agent] Turn complete or interrupted:", message);
+                // Agent finished speaking, back to listening
+                if (this.onAgentStateChange) {
+                    this.onAgentStateChange("listening");
+                }
+
                 if (this.playerNode) {
                     this.playerNode.port.postMessage({ type: "clear" });
-                    console.log(
-                        "[AudioWorklet] Cleared audio queue due to turn completion/interruption"
-                    );
                 }
             }
             // Handle other message types...
@@ -378,6 +397,21 @@ class AudioWorkletStreaming {
         }
 
         try {
+            // Calculate volume for visualization
+            const volume = this.calculateVolume(audioData);
+
+            // Convert to Float32 for callback
+            const float32Data = new Float32Array(audioData.length);
+            for (let i = 0; i < audioData.length; i++) {
+                float32Data[i] =
+                    audioData[i] / (audioData[i] < 0 ? 0x8000 : 0x7fff);
+            }
+
+            // Call input audio callback for visualization
+            if (this.onInputAudioData) {
+                this.onInputAudioData(float32Data);
+            }
+
             const uint8Array = new Uint8Array(audioData.buffer);
             const base64Data = btoa(String.fromCharCode(...uint8Array));
 
@@ -391,6 +425,21 @@ class AudioWorkletStreaming {
         } catch (error) {
             console.error("[AudioWorklet] Failed to send audio:", error);
         }
+    }
+
+    /**
+     * Calculate volume level from audio data (RMS)
+     */
+    private calculateVolume(audioData: Int16Array | Float32Array): number {
+        let sum = 0;
+        for (let i = 0; i < audioData.length; i++) {
+            const normalized =
+                audioData instanceof Int16Array
+                    ? audioData[i] / 32768
+                    : audioData[i];
+            sum += normalized * normalized;
+        }
+        return Math.sqrt(sum / audioData.length);
     }
 
     private playAudioFromAgent(base64Data: string) {
@@ -408,15 +457,37 @@ class AudioWorkletStreaming {
             // Convert to Int16Array
             const int16Array = new Int16Array(uint8Array.buffer);
 
-            // Send to player worklet immediately - no buffering delays
+            // Calculate volume for visualization
+            const volume = this.calculateVolume(int16Array);
+
+            // Convert to Float32 for callback and apply volume control
+            const float32Data = new Float32Array(int16Array.length);
+            const volumeAdjustedInt16 = new Int16Array(int16Array.length);
+
+            for (let i = 0; i < int16Array.length; i++) {
+                // Convert to float and apply volume
+                const floatValue =
+                    int16Array[i] / (int16Array[i] < 0 ? 0x8000 : 0x7fff);
+                const volumeAdjustedFloat = floatValue * this.outputVolume;
+                float32Data[i] = volumeAdjustedFloat;
+
+                // Convert back to int16 for playback with volume applied
+                volumeAdjustedInt16[i] = Math.round(
+                    volumeAdjustedFloat *
+                        (volumeAdjustedFloat < 0 ? 0x8000 : 0x7fff)
+                );
+            }
+
+            // Call output audio callback for visualization (with volume applied)
+            if (this.onOutputAudioData) {
+                this.onOutputAudioData(float32Data);
+            }
+
+            // Send volume-adjusted audio to player worklet
             this.playerNode.port.postMessage({
                 type: "audioData",
-                data: int16Array,
+                data: volumeAdjustedInt16,
             });
-
-            console.log(
-                `[AudioWorklet] Queued ${int16Array.length} audio samples for playback`
-            );
         } catch (error) {
             console.error("[AudioWorklet] Failed to play agent audio:", error);
         }
@@ -429,6 +500,13 @@ class AudioWorkletStreaming {
             clientId: this.clientId,
             contextState: this.audioContext?.state || null,
         };
+    }
+
+    /**
+     * Get the WebSocket connection for external services
+     */
+    getWebSocket(): WebSocket | null {
+        return this.websocket;
     }
 
     async destroy() {

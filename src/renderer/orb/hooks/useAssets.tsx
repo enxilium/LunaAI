@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getKeyService } from "../services/key-service";
+import { getKeyService } from "../services/KeyService";
 
 /**
  * Hook for key/credential management only
