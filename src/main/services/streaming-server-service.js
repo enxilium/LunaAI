@@ -15,6 +15,9 @@ class StreamingServerService {
 
         // Path to the streaming server Python script - deterministic based on environment
         this.serverScriptPath = this.getServerScriptPath();
+
+        // Path to the Python executable - uses venv in development
+        this.pythonExecutablePath = this.getPythonExecutablePath();
     }
 
     /**
@@ -38,6 +41,36 @@ class StreamingServerService {
     }
 
     /**
+     * Get the correct Python executable path
+     * Uses virtual environment in development, system Python in production
+     */
+    getPythonExecutablePath() {
+        if (!isPackaged) {
+            // In development: use virtual environment Python
+            const venvPythonPath = path.join(
+                process.cwd(),
+                ".venv",
+                "Scripts",
+                "python.exe"
+            );
+
+            // Check if venv Python exists, fall back to system Python if not
+            if (fs.existsSync(venvPythonPath)) {
+                return venvPythonPath;
+            } else {
+                logger.warn(
+                    "StreamingServer",
+                    "Virtual environment Python not found, falling back to system Python"
+                );
+                return "python";
+            }
+        } else {
+            // In production: use system Python
+            return "python";
+        }
+    }
+
+    /**
      * Start the Python streaming server
      */
     async startServer() {
@@ -54,15 +87,28 @@ class StreamingServerService {
                 );
             }
 
+            logger.info(
+                "StreamingServer",
+                `Using Python executable: ${this.pythonExecutablePath}`
+            );
+            logger.info(
+                "StreamingServer",
+                `Using script: ${this.serverScriptPath}`
+            );
+
             // Spawn the Python process
-            this.serverProcess = spawn("python", [this.serverScriptPath], {
-                cwd: path.dirname(this.serverScriptPath),
-                stdio: ["pipe", "pipe", "pipe"],
-                env: {
-                    ...process.env,
-                    PYTHONPATH: path.dirname(this.serverScriptPath),
-                },
-            });
+            this.serverProcess = spawn(
+                this.pythonExecutablePath,
+                [this.serverScriptPath],
+                {
+                    cwd: path.dirname(this.serverScriptPath),
+                    stdio: ["pipe", "pipe", "pipe"],
+                    env: {
+                        ...process.env,
+                        PYTHONPATH: path.dirname(this.serverScriptPath),
+                    },
+                }
+            );
 
             // Set up event handlers
             this.setupEventHandlers();
@@ -133,7 +179,6 @@ class StreamingServerService {
             this.serverProcess.stderr.on("data", (data) => {
                 const error = data.toString().trim();
                 if (error) {
-                    // Log Python stderr messages as warnings/errors
                     logger.error("StreamingServer", `[PYTHON ERROR] ${error}`);
                 }
             });
