@@ -10,10 +10,6 @@ const {
     stopScreenCapture,
     getScreenCaptureStatus,
     getMediaConstraints,
-    checkActiveTextInput,
-    typeText,
-    clearTextField,
-    controlMouse,
 } = require("../commands");
 
 const { getKey } = require("../utils/get-key");
@@ -79,10 +75,6 @@ class EventsService extends EventEmitter {
             "screen-capturer:stop-capture": stopScreenCapture,
             "screen-capturer:get-status": getScreenCaptureStatus,
             "screen-capturer:get-media-constraints": getMediaConstraints,
-            "text-typing:check-active": checkActiveTextInput,
-            "text-typing:type-text": typeText,
-            "text-typing:clear-field": clearTextField,
-            "mouse-control:control": controlMouse,
         };
 
         for (const [name, handler] of Object.entries(invokeHandlers)) {

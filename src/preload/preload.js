@@ -26,10 +26,6 @@ const validChannels = {
         "screen-capturer:stop-capture",
         "screen-capturer:get-status",
         "screen-capturer:get-media-constraints",
-        "text-typing:check-active",
-        "text-typing:type-text",
-        "text-typing:clear-field",
-        "mouse-control:control",
     ],
 };
 
@@ -186,47 +182,6 @@ contextBridge.exposeInMainWorld("electron", {
             "screen-capturer:get-media-constraints",
             sourceId
         );
-    },
-
-    // Text typing methods
-    /**
-     * @description Check if there's an active text input field
-     * @returns {Promise<{success: boolean, isActive: boolean, message: string}>} Status of active text input
-     */
-    checkActiveTextInput: () => {
-        return ipcRenderer.invoke("text-typing:check-active");
-    },
-
-    /**
-     * @description Type text into the currently focused text field
-     * @param {string} text - The text to type
-     * @returns {Promise<{success: boolean, message: string}>} Result of typing operation
-     */
-    typeText: (text) => {
-        return ipcRenderer.invoke("text-typing:type-text", text);
-    },
-
-    /**
-     * @description Clear the currently focused text field
-     * @returns {Promise<{success: boolean, message: string}>} Result of clear operation
-     */
-    clearTextField: () => {
-        return ipcRenderer.invoke("text-typing:clear-field");
-    },
-
-    // Mouse control methods
-    /**
-     * @description Control the mouse for clicking, moving, and scrolling
-     * @param {Object} params - Mouse control parameters
-     * @param {string} params.action - Action type (click, move, scroll)
-     * @param {number} params.x - X coordinate
-     * @param {number} params.y - Y coordinate
-     * @param {string} params.button - Mouse button (left, right, middle)
-     * @param {string} params.scrollDirection - Scroll direction (up, down)
-     * @returns {Promise<{success: boolean, message: string}>} Result of mouse control operation
-     */
-    controlMouse: (params) => {
-        return ipcRenderer.invoke("mouse-control:control", params);
     },
 });
 
