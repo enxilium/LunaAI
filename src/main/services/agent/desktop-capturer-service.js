@@ -1,5 +1,5 @@
 const { desktopCapturer } = require("electron");
-const logger = require("../utils/logger");
+const logger = require("../../utils/logger");
 
 /**
  * Screen sharing service using Electron's desktopCapturer API

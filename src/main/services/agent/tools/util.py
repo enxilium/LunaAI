@@ -10,6 +10,6 @@ def stop_streaming(function_name: str):
 
 stop_streaming_tool = FunctionTool(stop_streaming)
 
-utilTools = [
+util_tools = [
     stop_streaming_tool
 ]

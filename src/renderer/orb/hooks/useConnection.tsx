@@ -28,11 +28,6 @@ type ConnectionData = {
     setMicrophoneMuted: (muted: boolean) => void; // Mute/unmute during session
     setOutputVolume: (volume: number) => void; // 0.0 to 1.0
 
-    // UI Task controls for complex automation
-    startUITask: () => void; // Start buffering video for UI automation
-    stopUITask: () => void; // Stop video buffering
-    isUITaskActive: boolean; // Whether UI automation is active
-
     // Error handling
     error: string | null;
 };
@@ -251,35 +246,6 @@ export const ConnectionProvider = ({
         );
     }, []);
 
-    // UI Task controls
-    const startUITask = useCallback(async () => {
-        if (!videoStreamingRef.current) {
-            videoStreamingRef.current = new VideoStreamingService();
-            const initialized = await videoStreamingRef.current.initialize();
-            if (!initialized) {
-                console.error("❌ Failed to initialize video streaming");
-                setError("Failed to initialize video capture");
-                return;
-            }
-        }
-
-        if (streamingManagerRef.current?.getWebSocket()) {
-            setIsUITaskActive(true);
-            videoStreamingRef.current.startCapture(
-                streamingManagerRef.current.getWebSocket()!
-            );
-            console.log("🎬 UI Task started - video capture active");
-        }
-    }, []);
-
-    const stopUITask = useCallback(() => {
-        if (videoStreamingRef.current) {
-            setIsUITaskActive(false);
-            videoStreamingRef.current.stopCapture();
-            console.log("⏹️ UI Task stopped - video capture paused");
-        }
-    }, []);
-
     const contextValue: ConnectionData = {
         // Simple states
         isConnected,
@@ -294,11 +260,6 @@ export const ConnectionProvider = ({
         stopSession,
         setMicrophoneMuted,
         setOutputVolume,
-
-        // UI Task controls
-        startUITask,
-        stopUITask,
-        isUITaskActive,
 
         // Error handling
         error,

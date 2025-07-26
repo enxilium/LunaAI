@@ -2,7 +2,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const { app } = require("electron");
-const logger = require("../utils/logger");
+const logger = require("../../utils/logger");
 
 const isPackaged = app.isPackaged;
 
@@ -32,6 +32,7 @@ class StreamingServerService {
                 "src",
                 "main",
                 "services",
+                "agent",
                 "streaming_server.py"
             );
         } else {
@@ -87,30 +88,36 @@ class StreamingServerService {
                 );
             }
 
-            logger.info(
-                "StreamingServer",
-                `Using Python executable: ${this.pythonExecutablePath}`
-            );
-            logger.info(
-                "StreamingServer",
-                `Using script: ${this.serverScriptPath}`
-            );
-
-            // Spawn the Python process
+            // Spawn the Python process with stdio capture for our explicit log_info/log_error calls
             this.serverProcess = spawn(
                 this.pythonExecutablePath,
                 [this.serverScriptPath],
                 {
                     cwd: path.dirname(this.serverScriptPath),
-                    stdio: ["pipe", "pipe", "pipe"],
+                    stdio: ["pipe", "pipe", "pipe"], // Capture stdout/stderr for our explicit logs
                     env: {
                         ...process.env,
                         PYTHONPATH: path.dirname(this.serverScriptPath),
+                        // Suppress Python warnings that go to subprocess stdio
+                        PYTHONWARNINGS: "ignore",
+                        // Ensure unbuffered output
+                        PYTHONUNBUFFERED: "1",
+                        // Set UTF-8 encoding
+                        PYTHONIOENCODING: "utf-8",
+                        // Suppress Google ADK debug output at subprocess level
+                        GOOGLE_ADK_DEBUG: "false",
+                        GOOGLE_ADK_LOG_LEVEL: "CRITICAL",
+                        // Suppress general Google library debug output
+                        GOOGLE_APPLICATION_CREDENTIALS_DEBUG: "false",
+                        // Set Python logging level to suppress verbosity
+                        PYTHONLOGGING: "CRITICAL",
+                        // Additional MCP suppression
+                        MCP_LOG_LEVEL: "CRITICAL",
                     },
                 }
             );
 
-            // Set up event handlers
+            // Set up event handlers to capture our explicit log_info/log_error calls
             this.setupEventHandlers();
 
             // Wait for server to start up
@@ -159,27 +166,29 @@ class StreamingServerService {
 
     /**
      * Set up event handlers for the server process
+     * Now only receives our explicit log_info/log_error calls since library output is redirected to devnull
      */
     setupEventHandlers() {
         if (!this.serverProcess) return;
 
-        // Handle stdout (info messages, print statements)
+        // Handle stdout (our explicit log_info calls)
         if (this.serverProcess.stdout) {
             this.serverProcess.stdout.on("data", (data) => {
                 const output = data.toString().trim();
                 if (output) {
-                    // Log Python stdout messages with [PYTHON] prefix
+                    // All stdout is now intentional info messages from log_info()
                     logger.info("StreamingServer", `[PYTHON] ${output}`);
                 }
             });
         }
 
-        // Handle stderr (error messages, warnings)
+        // Handle stderr (our explicit log_error calls)
         if (this.serverProcess.stderr) {
             this.serverProcess.stderr.on("data", (data) => {
-                const error = data.toString().trim();
-                if (error) {
-                    logger.error("StreamingServer", `[PYTHON ERROR] ${error}`);
+                const output = data.toString().trim();
+                if (output) {
+                    // All stderr is now intentional error messages from log_error()
+                    logger.error("StreamingServer", `[PYTHON ERROR] ${output}`);
                 }
             });
         }

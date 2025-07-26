@@ -1,6 +1,6 @@
 const {
     getDesktopCapturerService,
-} = require("../services/desktop-capturer-service");
+} = require("../services/agent/desktop-capturer-service");
 const logger = require("../utils/logger");
 
 /**

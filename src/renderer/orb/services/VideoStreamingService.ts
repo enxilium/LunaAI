@@ -19,16 +19,19 @@ class VideoStreamingService {
     public onFrameCaptured: ((frameCount: number) => void) | null = null;
 
     /**
-     * Initialize video capture using Electron's desktopCapturer
+     * Initialize video capture using Electron's desktopCapturer (lazy initialization)
      */
     async initialize(): Promise<boolean> {
         try {
+            console.log("[VideoStreaming] Starting initialization...");
+
             // Check if Electron API is available
             if (!(window as any).electron?.getScreenSources) {
                 throw new Error("Electron screen capture API not available");
             }
 
-            // Request desktop capture via Electron API
+            // Request desktop capture via Electron API (only when actually needed)
+            console.log("[VideoStreaming] Requesting screen sources...");
             const sources = await (window as any).electron.getScreenSources();
             if (!sources || sources.length === 0) {
                 throw new Error("No screen sources available");
