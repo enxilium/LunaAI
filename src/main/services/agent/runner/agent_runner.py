@@ -19,8 +19,8 @@ from google.adk.agents import LiveRequestQueue
 from google.adk.agents.run_config import RunConfig
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
 
-# Import async agent creation function
-from .agent import get_agent_async
+# Import async agent creation function from parent agent module
+from ..agent import get_agent_async
 
 # Application constants
 APP_NAME = "luna_ai_streaming"
@@ -51,7 +51,7 @@ class AgentRunner:
     async def initialize_components(self) -> None:
         """Pre-warm components for faster session startup"""
         if self.pre_warmed_runner is None:
-            # Create agent asynchronously to properly initialize MCP tools
+            # Create agent asynchronously with MCP tools
             async_agent = await get_agent_async()
             
             self.pre_warmed_runner = Runner(
@@ -62,25 +62,8 @@ class AgentRunner:
     
     async def create_session(self, user_id: str) -> Tuple:
         """Creates an agent session and returns (live_events, live_request_queue)"""
-        try:
-            async_agent = await get_agent_async()
-        except Exception as e:
-            if self.log_error:
-                self.log_error(f"[AGENT] Failed to create async agent: {e}")
-            # Fall back to a minimal agent without MCP tools
-            from google.adk.agents import Agent
-            from google.adk.tools import google_search
-            from .tools.util import util_tools
-            
-            async_agent = Agent(
-                name="luna_fallback",
-                model="gemini-2.5-flash-live-preview",
-                description="A fallback AI agent with basic functionality.",
-                instruction="You are a helpful assistant. Some advanced features may not be available in this fallback mode.",
-                tools=[google_search] + util_tools
-            )
-            if self.log_info:
-                self.log_info("[AGENT] Created fallback agent without MCP tools")
+        # Create agent asynchronously with all tools including MCP
+        async_agent = await get_agent_async()
         
         # Use pre-warmed runner or create new one with async agent
         if self.pre_warmed_runner is None:

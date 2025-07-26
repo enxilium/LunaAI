@@ -4,10 +4,10 @@ const { getDataService } = require("./user/data-service.js");
 const { getEventsService } = require("./events-service.js");
 const {
     getStreamingServerService,
-} = require("./agent/streaming-server-service.js");
+} = require("./agent/runner/streaming-server-service.js");
 const {
     getDesktopCapturerService,
-} = require("./agent/desktop-capturer-service.js");
+} = require("./agent/runner/desktop-capturer-service.js");
 const logger = require("../utils/logger");
 
 /**

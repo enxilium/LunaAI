@@ -2,7 +2,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const { app } = require("electron");
-const logger = require("../../utils/logger");
+const logger = require("../../../utils/logger");
 
 const isPackaged = app.isPackaged;
 
@@ -33,6 +33,7 @@ class StreamingServerService {
                 "main",
                 "services",
                 "agent",
+                "runner",
                 "streaming_server.py"
             );
         } else {

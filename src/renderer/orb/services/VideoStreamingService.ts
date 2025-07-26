@@ -10,9 +10,8 @@ class VideoStreamingService {
     private websocket: WebSocket | null = null;
 
     private isCapturing = false;
-    private readonly captureFrameRate = 1; // 5fps for real-time performance (balanced)
+    private readonly captureFrameRate = 1;
     private frameCount = 0;
-    private lastLogTime = 0;
 
     // Callbacks
     public onError: ((error: string) => void) | null = null;
@@ -108,7 +107,6 @@ class VideoStreamingService {
         this.websocket = websocket;
         this.isCapturing = true;
         this.frameCount = 0;
-        this.lastLogTime = Date.now();
 
         this.captureInterval = setInterval(() => {
             try {
@@ -171,7 +169,7 @@ class VideoStreamingService {
     }
 
     /**
-     * Send video frame to server - Updated for base64 string input
+     * Send video frame to server.
      */
     private sendFrame(base64Data: string): void {
         if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
@@ -182,7 +180,6 @@ class VideoStreamingService {
         }
 
         try {
-            // Send directly - no need for ArrayBuffer conversion
             const message = {
                 type: "video",
                 mime_type: "image/jpeg",
@@ -195,18 +192,6 @@ class VideoStreamingService {
         } catch (error) {
             console.error("[VideoStreaming] Failed to send frame:", error);
         }
-    }
-
-    /**
-     * Convert ArrayBuffer to base64 string
-     */
-    private arrayBufferToBase64(buffer: ArrayBuffer): string {
-        let binary = "";
-        const bytes = new Uint8Array(buffer);
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
     }
 
     /**
