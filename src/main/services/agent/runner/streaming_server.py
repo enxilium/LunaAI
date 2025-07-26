@@ -58,7 +58,7 @@ def log_error(message: str):
 
 # Now import our modules after logging is configured
 # Add the parent directory to Python path to enable absolute imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from .agent_runner import AgentRunner
 from .websocket_server import WebSocketServer
