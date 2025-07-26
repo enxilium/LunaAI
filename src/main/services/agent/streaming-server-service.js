@@ -88,12 +88,12 @@ class StreamingServerService {
                 );
             }
 
-            // Spawn the Python process with stdio capture for our explicit log_info/log_error calls
+            // Spawn the Python process as a module to support relative imports
             this.serverProcess = spawn(
                 this.pythonExecutablePath,
-                [this.serverScriptPath],
+                ["-m", "src.main.services.agent.streaming_server"],
                 {
-                    cwd: path.dirname(this.serverScriptPath),
+                    cwd: process.cwd(), // Run from project root for module imports
                     stdio: ["pipe", "pipe", "pipe"], // Capture stdout/stderr for our explicit logs
                     env: {
                         ...process.env,
