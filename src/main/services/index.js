@@ -2,11 +2,13 @@ const { getSettingsService } = require("./user/settings-service.js");
 const { getCredentialsService } = require("./user/credentials-service.js");
 const { getDataService } = require("./user/data-service.js");
 const { getEventsService } = require("./events-service.js");
-const { getStreamingServerService } = require("./streaming-server-service.js");
-const { getDesktopCapturerService } = require("./desktop-capturer-service.js");
+const {
+    getStreamingServerService,
+} = require("./agent/streaming-server-service.js");
+const {
+    getDesktopCapturerService,
+} = require("./agent/desktop-capturer-service.js");
 const logger = require("../utils/logger");
-
-
 
 /**
  * @description Initializes all application services.
@@ -35,7 +37,7 @@ async function initializeServices() {
         dataService,
         eventsService,
         streamingServerService,
-        desktopCapturerService
+        desktopCapturerService,
     };
 }
 
