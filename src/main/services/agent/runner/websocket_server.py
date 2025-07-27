@@ -5,7 +5,7 @@ import json
 import asyncio
 import base64
 import time
-from typing import Dict, Callable
+from typing import Callable
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 
@@ -18,18 +18,54 @@ class WebSocketServer:
         self.agent_runner = agent_runner
         self.app = FastAPI(title="Luna AI Streaming Server")
         
-        # Active connections tracking
-        self.active_connections: Dict[str, WebSocket] = {}
-        
-        # Video frame rate limiting
-        self.last_video_frame_time = 0
-        self.video_frame_interval = 0.2  # Minimum 200ms between frames (5fps max)
+        # Single connection tracking (Luna AI only has one Electron renderer)
+        self.current_websocket: WebSocket = None
+        self.current_client_id: str = None
         
         # Logger functions (will be injected by main)
         self.log_info = None
         self.log_error = None
         
         self.setup_routes()
+    
+    def terminate_client_connection(self, client_id: str):
+        """Terminate the current client connection gracefully"""
+        if self.current_websocket:
+            try:
+                # Send a graceful closure message before closing
+                asyncio.create_task(self._send_session_end_message(self.current_websocket, client_id))
+            except Exception as e:
+                if self.log_error:
+                    self.log_error(f"[WEBSOCKET] Error terminating connection for {client_id}: {e}")
+    
+    async def _send_session_end_message(self, websocket: WebSocket, client_id: str):
+        """Send session end message and close connection gracefully"""
+        try:
+            # Send session end notification
+            end_message = {
+                "type": "session_end",
+                "reason": "user_initiated",
+                "message": "Session ended gracefully"
+            }
+            await websocket.send_text(json.dumps(end_message))
+            
+            # Small delay to ensure message is sent
+            await asyncio.sleep(0.1)
+            
+            # Close the connection
+            await websocket.close(code=1000, reason="Session ended by user")
+            
+            if self.log_info:
+                self.log_info(f"[WEBSOCKET] Gracefully closed connection for {client_id}")
+                
+        except Exception as e:
+            if self.log_error:
+                self.log_error(f"[WEBSOCKET] Error sending session end message to {client_id}: {e}")
+            # Force close if graceful close fails
+            try:
+                await websocket.close()
+            except:
+                pass
     
     def set_loggers(self, log_info: Callable[[str], None], log_error: Callable[[str], None]):
         """Inject logging functions"""
@@ -43,14 +79,11 @@ class WebSocketServer:
         async def websocket_endpoint(websocket: WebSocket, client_id: str):
             """Main WebSocket endpoint for audio and video streaming"""
             await websocket.accept()
-            self.active_connections[client_id] = websocket
+            self.current_websocket = websocket
+            self.current_client_id = client_id
             
             try:
-                # Start agent session (multimodal: audio + video for Luna)
-                session_start_time = time.time()
-                user_id_str = str(client_id)
-                live_events, live_request_queue = await self.agent_runner.create_session(user_id_str)
-                session_init_time = time.time() - session_start_time
+                live_events, live_request_queue = await self.agent_runner.start_conversation()
                 
                 # Create message sender callback for the agent
                 async def message_sender(message: dict):
@@ -80,18 +113,20 @@ class WebSocketServer:
                 if self.log_error:
                     self.log_error(f"[WEBSOCKET] Error with client {client_id}: {e}")
             finally:
-                # Clean up
-                if live_request_queue:
-                    live_request_queue.close()
-                if client_id in self.active_connections:
-                    del self.active_connections[client_id]
+                await self.agent_runner.end_conversation()
+                
+                # Clear connection references
+                self.current_websocket = None
+                self.current_client_id = None
+                    
                 if self.log_info:
-                    self.log_info(f"[WEBSOCKET] Client {client_id} disconnected")
+                    self.log_info(f"[WEBSOCKET] Client {client_id} cleanup completed")
 
         @self.app.get("/health")
         async def health_check():
             """Health check endpoint"""
-            return {"status": "healthy", "active_connections": len(self.active_connections)}
+            connection_count = 1 if self.current_websocket else 0
+            return {"status": "healthy", "active_connections": connection_count}
 
     async def handle_client_messages(self, websocket: WebSocket, live_request_queue) -> None:
         """Receive client messages and forward to agent"""
@@ -113,13 +148,6 @@ class WebSocketServer:
                 
                 # Handle video frame input (JPEG images for desktop capture)
                 elif message_type == "video" and mime_type == "image/jpeg":
-                    # Frame rate limiting to prevent queue buildup
-                    current_time = time.time()
-                    if current_time - self.last_video_frame_time < self.video_frame_interval:
-                        # Drop frame to prevent queue buildup
-                        continue
-                    
-                    self.last_video_frame_time = current_time
                     
                     # Send video frame to agent - optimized path
                     decoded_data = base64.b64decode(data)
@@ -137,9 +165,6 @@ class WebSocketServer:
 
     async def start_server_async(self, host: str = "localhost", port: int = 8765):
         """Start the FastAPI server asynchronously"""
-        # Pre-warm agent components
-        await self.agent_runner.initialize_components()
-        
         config = uvicorn.Config(
             self.app,
             host=host,
@@ -153,10 +178,6 @@ class WebSocketServer:
     
     def start_server(self, host: str = "localhost", port: int = 8765):
         """Start the FastAPI server in sync mode"""
-        # Pre-warm components before starting server
-        import asyncio
-        asyncio.run(self.agent_runner.initialize_components())
-        
         # Start uvicorn in completely silent mode
         uvicorn.run(
             self.app,

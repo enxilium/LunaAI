@@ -1,161 +1,321 @@
 """
 AgentRunner - Handles all agent-related operations and ADK session management
 """
-import json
 import asyncio
-import time
 from typing import Dict, Optional, Tuple, Callable
 from pathlib import Path
 
 from google.genai.types import (
     Part,
-    Content,
-    Blob,
     Modality,
 )
 
 from google.adk.runners import Runner
 from google.adk.agents import LiveRequestQueue
-from google.adk.agents.run_config import RunConfig
-from google.adk.sessions.in_memory_session_service import InMemorySessionService
+from google.adk.agents.run_config import RunConfig, StreamingMode
+from google.adk.sessions import InMemorySessionService
+from google.adk.artifacts import InMemoryArtifactService
+from google.genai import types
 
 # Import async agent creation function from parent agent module
 from ..agent import get_agent_async
 
 # Application constants
-APP_NAME = "luna_ai_streaming"
+APP_NAME = "LUNA"
 
 class AgentRunner:
-    """Handles agent creation, session management, and ADK event processing"""
+    """
+    Handles agent creation, session management, and ADK event processing.
+    """
     
     def __init__(self):
-        # Session service
+        """Initialize AgentRunner with basic setup. Call initialize() after construction for async setup."""
         self.session_service = InMemorySessionService()
+        self.artifact_service = InMemoryArtifactService()
         
-        # Pre-warmed session components (for faster initialization)
-        self.pre_warmed_runner = None
+        # These will be set during initialize()
+        self.current_session = None
+        self.agent = None
+        self.runner = None
         
-        # Session cache for repeat users (keeps sessions warm)
-        self.session_cache: Dict[str, tuple] = {}  # user_id -> (session, last_used_time)
-        self.session_cache_ttl = 300  # 5 minutes
-        
-        # Logger functions (will be injected by main)
+        self.live_request_queue = LiveRequestQueue()
+        self.runConfig = RunConfig(
+            response_modalities=[Modality.AUDIO],
+            speech_config=types.SpeechConfig(
+                language_code="en-US", #TODO: Update to dynamic.
+                voice_config=types.VoiceConfig(
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                        voice_name="Aoede" #TODO: Update to dynamic.
+                    )
+                ),
+            ),
+            support_cfc=True,
+            streaming_mode=StreamingMode.BIDI,
+        )
+
         self.log_info = None
         self.log_error = None
+        
+        # Flag to track when end_conversation_session tool has been called
+        self.pendingClose = False
     
+    async def initialize(self):
+        """Async initialization - call this after creating AgentRunner instance"""
+        self.current_session = await self.session_service.create_session(
+            app_name=APP_NAME,
+            user_id="default",
+            state={}
+        )
+
+        self.agent = await get_agent_async()
+
+        self.runner = Runner(
+            app_name=APP_NAME,
+            agent=self.agent,
+            session_service=self.session_service,
+            artifact_service=self.artifact_service
+        )
+    
+
     def set_loggers(self, log_info: Callable[[str], None], log_error: Callable[[str], None]):
-        """Inject logging functions"""
+        """
+        Inject logging functions from streaming server.
+        """
         self.log_info = log_info
         self.log_error = log_error
-        
-    async def initialize_components(self) -> None:
-        """Pre-warm components for faster session startup"""
-        if self.pre_warmed_runner is None:
-            # Create agent asynchronously with MCP tools
-            async_agent = await get_agent_async()
-            
-            self.pre_warmed_runner = Runner(
-                app_name=APP_NAME,
-                agent=async_agent,
-                session_service=self.session_service,
-            )
     
-    async def create_session(self, user_id: str) -> Tuple:
-        """Creates an agent session and returns (live_events, live_request_queue)"""
-        # Create agent asynchronously with all tools including MCP
-        async_agent = await get_agent_async()
-        
-        # Use pre-warmed runner or create new one with async agent
-        if self.pre_warmed_runner is None:
-            if self.log_info:
-                self.log_info("[AGENT] Creating new Runner (first time initialization)")
-            self.pre_warmed_runner = Runner(
-                app_name=APP_NAME,
-                agent=async_agent,
-                session_service=self.session_service,
-            )
-        else:
-            if self.log_info:
-                self.log_info("[AGENT] Updating Runner with fresh async agent")
-            # Create a new runner with the fresh async agent to avoid MCP connection reuse issues
-            self.pre_warmed_runner = Runner(
-                app_name=APP_NAME,
-                agent=async_agent,
-                session_service=self.session_service,
-            )
-        
-        # Create a Session (this is still per-user)
-        session = await self.session_service.create_session(
-            app_name=APP_NAME,
-            user_id=user_id,
-        )
-        
-        # Set response modality (AUDIO for Luna)
-        modality = [Modality.AUDIO]
-        run_config = RunConfig(response_modalities=modality)
-        
-        # Create a LiveRequestQueue for this session
-        live_request_queue = LiveRequestQueue()
-        
-        # Start agent session - using user_id and session_id instead of deprecated session parameter
-        live_events = self.pre_warmed_runner.run_live(
-            user_id=user_id,
-            session_id=session.id,
-            live_request_queue=live_request_queue,
-            run_config=run_config,
-        )
-        
-        return live_events, live_request_queue
 
-    def classify_event(self, event) -> str:
-        """Classify event type and content based on ADK documentation patterns"""
+    async def start_conversation(self) -> Tuple:
+        """
+        Begins a conversation and returns (live_events, live_request_queue)
+        """
+        
+        live_events = self.runner.run_live(
+            user_id="default",
+            session_id=self.current_session.id,
+            live_request_queue=self.live_request_queue,
+            run_config=self.runConfig,
+        )
+
+        return live_events, self.live_request_queue
+    
+    async def end_conversation(self):
+        """
+        Ends the current conversation and cleans up resources.
+        """
+        await self.session_service.delete_session(
+            app_name=APP_NAME,
+            user_id="default",
+            session_id=self.current_session.id
+        )
+    
+    async def process_events(self, live_events, message_sender: Callable) -> None:
+        """
+        Process ADK events using classify_event for all logic and send messages via callback
+        """
+        async for event in live_events:
+            event_result = self.classify_event(event)
+
+            if event_result["type"] == "log_only":
+                self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
+                continue
+            
+            match event_result["type"]:
+                case "audio":
+                    # Skip logging audio chunks
+                    await message_sender(event_result["websocket_message"])
+
+                case "status":
+                    self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
+                    await message_sender(event_result["websocket_message"])
+
+                case "close_connection":
+                    self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
+                    await message_sender(event_result["websocket_message"])
+                    break
+
+        # End the conversation after processing all events.  
+        await self.end_conversation()
+    
+
+    def classify_event(self, event) -> dict:
+        """
+        Classify event type and handle all processing logic, returning structured data for process_events
+        """
         author = getattr(event, 'author', 'unknown')
         
-        # Check for control signals first
-        if hasattr(event, 'turn_complete') and event.turn_complete:
-            return f"TURN_COMPLETE from {author}"
-        if hasattr(event, 'interrupted') and event.interrupted:
-            return f"INTERRUPTED from {author}"
+        # Handle turn completion/interruption events
+        if (hasattr(event, 'turn_complete') and event.turn_complete) or (hasattr(event, 'interrupted') and event.interrupted):
+            # Check if we should close connection after turn completes
+            if self.pendingClose and hasattr(event, 'turn_complete') and event.turn_complete:
+                return {
+                    "type": "close_connection",
+                    "log_message": f"TURN_COMPLETE from {author} - CLOSING_CONNECTION",
+                    "websocket_message": {
+                        "type": "status",
+                        "turn_complete": True,
+                        "interrupted": False,
+                        "close_connection": True
+                    }
+                }
+            
+            return {
+                "type": "status",
+                "log_message": f"TURN_COMPLETE from {author}" if hasattr(event, 'turn_complete') else f"INTERRUPTED from {author}",
+                "websocket_message": {
+                    "type": "status",
+                    "turn_complete": hasattr(event, 'turn_complete'),
+                    "interrupted": hasattr(event, 'interrupted'),
+                }
+            }
         
-        # Check if event has content
+        # Handle error events
+        if hasattr(event, 'error') and event.error:
+            error_type = getattr(event.error, 'type', 'unknown')
+            error_message = getattr(event.error, 'message', 'no message')[:50]
+            return {
+                "type": "log_only",
+                "log_message": f"ERROR from {author}: {error_type} - {error_message}"
+            }
+        
+        # Handle session state events
+        if hasattr(event, 'session_state'):
+            state = getattr(event.session_state, 'status', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"SESSION_STATE from {author}: {state}"
+            }
+        
+        # Handle tool execution events
+        if hasattr(event, 'tool_execution'):
+            tool_name = getattr(event.tool_execution, 'tool_name', 'unknown')
+            status = getattr(event.tool_execution, 'status', 'unknown')
+            
+            # Check for end_conversation_session tool execution
+            if tool_name == "end_conversation_session":
+                self.pendingClose = True
+                return {
+                    "type": "log_only",
+                    "log_message": f"TOOL_EXECUTION from {author}: {tool_name} - {status} - PENDING_CLOSE_SET"
+                }
+            
+            return {
+                "type": "log_only",
+                "log_message": f"TOOL_EXECUTION from {author}: {tool_name} - {status}"
+            }
+        
+        # Handle model processing events
+        if hasattr(event, 'model_processing'):
+            status = getattr(event.model_processing, 'status', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"MODEL_PROCESSING from {author}: {status}"
+            }
+        
+        # Handle plugin events
+        if hasattr(event, 'plugin_event'):
+            plugin_name = getattr(event.plugin_event, 'name', 'unknown')
+            event_type = getattr(event.plugin_event, 'type', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"PLUGIN_EVENT from {author}: {plugin_name} - {event_type}"
+            }
+        
+        # Handle memory events
+        if hasattr(event, 'memory_operation'):
+            operation = getattr(event.memory_operation, 'type', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"MEMORY_OPERATION from {author}: {operation}"
+            }
+        
+        # Handle user input events
+        if hasattr(event, 'user_input'):
+            input_type = getattr(event.user_input, 'type', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"USER_INPUT from {author}: {input_type}"
+            }
+        
+        # Handle system events
+        if hasattr(event, 'system_event'):
+            event_type = getattr(event.system_event, 'type', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"SYSTEM_EVENT from {author}: {event_type}"
+            }
+        
+        # Handle function calls (tool requests)
+        if hasattr(event, 'get_function_calls'):
+            try:
+                function_calls = event.get_function_calls()
+                if function_calls:
+                    call_names = [call.name for call in function_calls if hasattr(call, 'name')]
+                    
+                    # Check for end_conversation_session tool call
+                    if any(name == "end_conversation_session" for name in call_names):
+                        self.pendingClose = True
+                        return {
+                            "type": "log_only",
+                            "log_message": f"TOOL_CALL from {author}: {', '.join(call_names)} - PENDING_CLOSE_SET"
+                        }
+                    
+                    return {
+                        "type": "log_only",
+                        "log_message": f"TOOL_CALL from {author}: {', '.join(call_names)}"
+                    }
+            except:
+                pass
+        
+        # Handle function responses (tool results)
+        if hasattr(event, 'get_function_responses'):
+            try:
+                function_responses = event.get_function_responses()
+                if function_responses:
+                    response_names = [resp.name for resp in function_responses if hasattr(resp, 'name')]
+                    
+                    # Check for end_conversation_session tool response
+                    if any(name == "end_conversation_session" for name in response_names):
+                        self.pendingClose = True
+                        return {
+                            "type": "log_only",
+                            "log_message": f"TOOL_RESULT from {author}: {', '.join(response_names)} - PENDING_CLOSE_SET"
+                        }
+                    
+                    return {
+                        "type": "log_only",
+                        "log_message": f"TOOL_RESULT from {author}: {', '.join(response_names)}"
+                    }
+            except:
+                pass
+        
+        # Handle audio content (main content type for AUDIO modality)
         if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts') and event.content.parts:
-            # Check for function calls (tool requests)
-            if hasattr(event, 'get_function_calls'):
-                try:
-                    function_calls = event.get_function_calls()
-                    if function_calls:
-                        call_names = [call.name for call in function_calls if hasattr(call, 'name')]
-                        return f"TOOL_CALL from {author}: {', '.join(call_names)}"
-                except:
-                    pass
-            
-            # Check for function responses (tool results)
-            if hasattr(event, 'get_function_responses'):
-                try:
-                    function_responses = event.get_function_responses()
-                    if function_responses:
-                        response_names = [resp.name for resp in function_responses if hasattr(resp, 'name')]
-                        return f"TOOL_RESULT from {author}: {', '.join(response_names)}"
-                except:
-                    pass
-            
-            # Check for text content
             first_part = event.content.parts[0]
-            if hasattr(first_part, 'text') and first_part.text:
-                is_partial = getattr(event, 'partial', False)
-                text_preview = first_part.text[:50] + "..." if len(first_part.text) > 50 else first_part.text
-                if is_partial:
-                    return f"STREAMING_TEXT from {author}: '{text_preview}'"
-                else:
-                    return f"COMPLETE_TEXT from {author}: '{text_preview}'"
-            
-            # Check for other content types
             if hasattr(first_part, 'inline_data') and first_part.inline_data:
                 mime_type = getattr(first_part.inline_data, 'mime_type', 'unknown')
                 data_size = len(getattr(first_part.inline_data, 'data', b''))
-                return f"MEDIA_CONTENT from {author}: {mime_type} ({data_size} bytes)"
+                
+                # Process audio data for WebSocket transmission
+                try:
+                    audio_data = first_part.inline_data.data
+                    import base64
+                    return {
+                        "type": "audio",
+                        "log_message": f"AUDIO_CONTENT from {author}: {mime_type} ({data_size} bytes)",
+                        "websocket_message": {
+                            "type": "audio",
+                            "mime_type": "audio/pcm",
+                            "data": base64.b64encode(audio_data).decode("ascii")
+                        }
+                    }
+                except (AttributeError, IndexError) as e:
+                    return {
+                        "type": "log_only",
+                        "log_message": f"AUDIO_CONTENT_ERROR from {author}: Failed to process audio data - {e}"
+                    }
         
-        # Check for actions (state/artifact updates)
+        # Handle actions (state/artifact updates)
         if hasattr(event, 'actions') and event.actions:
             actions = []
             if hasattr(event.actions, 'state_delta') and event.actions.state_delta:
@@ -166,104 +326,49 @@ class AgentRunner:
                 actions.append(f"transfer_to_{event.actions.transfer_to_agent}")
             if hasattr(event.actions, 'escalate') and event.actions.escalate:
                 actions.append("escalate")
+            if hasattr(event.actions, 'memory_save') and event.actions.memory_save:
+                actions.append("memory_save")
+            if hasattr(event.actions, 'context_update') and event.actions.context_update:
+                actions.append("context_update")
             if actions:
-                return f"ACTION from {author}: {', '.join(actions)}"
+                return {
+                    "type": "log_only",
+                    "log_message": f"ACTION from {author}: {', '.join(actions)}"
+                }
         
-        # Check for final response indicator
+        # Handle streaming events
+        if hasattr(event, 'streaming') and event.streaming:
+            stream_type = getattr(event.streaming, 'type', 'unknown')
+            return {
+                "type": "log_only",
+                "log_message": f"STREAMING from {author}: {stream_type}"
+            }
+        
+        # Handle final response indicator
         if hasattr(event, 'is_final_response') and callable(event.is_final_response):
             try:
                 if event.is_final_response():
-                    return f"FINAL_RESPONSE from {author}"
+                    return {
+                        "type": "log_only",
+                        "log_message": f"FINAL_RESPONSE from {author}"
+                    }
             except:
                 pass
         
-        # Default case
-        return f"OTHER_EVENT from {author}"
-
-    async def process_events(self, live_events, message_sender: Callable) -> None:
-        """Process ADK events and send messages via callback with comprehensive event logging and robust error handling"""
-        try:
-            async for event in live_events:
-                try:
-                    # Log notable events based on ADK patterns
-                    event_classification = self.classify_event(event)
-                    if "MEDIA_CONTENT" not in event_classification and self.log_info:
-                        self.log_info(f"[AGENT_EVENT] {event_classification}")
-
-                    # Handle turn completion/interruption
-                    if hasattr(event, 'turn_complete') and hasattr(event, 'interrupted'):
-                        if event.turn_complete or event.interrupted:
-                            message = {
-                                "type": "status",
-                                "turn_complete": event.turn_complete,
-                                "interrupted": event.interrupted,
-                            }
-                            try:
-                                await message_sender(message)
-                            except Exception as ws_e:
-                                if self.log_error:
-                                    self.log_error(f"[AGENT] Message send error: {ws_e}")
-                            continue
-                    
-                    # Safely extract the first part from event content
-                    part: Part = None
-                    try:
-                        if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts') and event.content.parts:
-                            part = event.content.parts[0]
-                    except (AttributeError, IndexError, TypeError) as content_e:
-                        if self.log_error:
-                            self.log_error(f"[AGENT] Error accessing event content: {content_e}")
-                        continue
-                    
-                    if not part:
-                        continue
-                    
-                    # Handle audio data with robust error checking
-                    try:
-                        is_audio = (hasattr(part, 'inline_data') and 
-                                   part.inline_data and 
-                                   hasattr(part.inline_data, 'mime_type') and 
-                                   part.inline_data.mime_type.startswith("audio/pcm"))
-                        
-                        if is_audio:
-                            audio_data = getattr(part.inline_data, 'data', None)
-                            if audio_data:
-                                import base64
-                                message = {
-                                    "type": "audio",
-                                    "mime_type": "audio/pcm",
-                                    "data": base64.b64encode(audio_data).decode("ascii")
-                                }
-                                try:
-                                    await message_sender(message)
-                                except Exception as ws_e:
-                                    if self.log_error:
-                                        self.log_error(f"[AGENT] Message send error for audio: {ws_e}")
-                                continue
-                    except Exception as audio_e:
-                        if self.log_error:
-                            self.log_error(f"[AGENT] Error processing audio data: {audio_e}")
-                        continue
-                
-                except Exception as inner_e:
-                    # Catch any individual event processing errors and continue with next event
-                    if self.log_error:
-                        self.log_error(f"[AGENT] Error processing individual event: {type(inner_e).__name__}: {inner_e}")
-                    continue
-                
-        except asyncio.CancelledError:
-            if self.log_info:
-                self.log_info("[AGENT] Event processing cancelled")
-            raise  # Re-raise CancelledError to properly handle task cancellation
-        except Exception as e:
-            # Handle TaskGroup and other async errors more gracefully
-            error_type = type(e).__name__
-            if self.log_error:
-                self.log_error(f"[AGENT] Error in process_events ({error_type}): {e}")
-                
-                # For TaskGroup errors, log additional context
-                if "TaskGroup" in error_type or "unhandled errors" in str(e):
-                    self.log_error("[AGENT] TaskGroup error detected - this may be due to MCP tool failures or ADK session issues")
-            
-            # Don't re-raise - let the connection cleanup handle this gracefully
-            # This prevents the entire WebSocket connection from crashing
+        # Default case - include diagnostic information
+        event_metadata = []
+        if hasattr(event, 'timestamp'):
+            event_metadata.append(f"timestamp={getattr(event, 'timestamp', 'unknown')}")
+        if hasattr(event, 'event_id'):
+            event_metadata.append(f"id={getattr(event, 'event_id', 'unknown')}")
+        if hasattr(event, 'event_type'):
+            event_metadata.append(f"type={getattr(event, 'event_type', 'unknown')}")
+        
+        metadata_str = f" ({', '.join(event_metadata)})" if event_metadata else ""
+        event_attrs = [attr for attr in dir(event) if not attr.startswith('_') and not callable(getattr(event, attr, None))]
+        attrs_preview = ', '.join(event_attrs[:5])  # Show first 5 attributes
+        
+        return {
+            "type": "log_only",
+            "log_message": f"OTHER_EVENT from {author}: attrs=[{attrs_preview}]{metadata_str}"
+        }

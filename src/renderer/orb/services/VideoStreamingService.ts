@@ -173,9 +173,6 @@ class VideoStreamingService {
      */
     private sendFrame(base64Data: string): void {
         if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-            console.warn(
-                "[VideoStreaming] WebSocket not available for frame transmission"
-            );
             return;
         }
 

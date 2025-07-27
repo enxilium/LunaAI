@@ -367,6 +367,33 @@ class AudioWorkletStreaming {
         try {
             const message = JSON.parse(data);
 
+            // Handle session end message (graceful disconnection)
+            if (message.type === "session_end") {
+                console.log(
+                    "🏁 [Session] Agent ended session gracefully:",
+                    message.message || "Session completed"
+                );
+
+                // Stop streaming gracefully
+                this.stopStreaming();
+
+                // Don't treat this as an error - it's a natural session end
+                return;
+            }
+
+            // Handle close_connection message from end_conversation_session tool
+            if (message.close_connection === true) {
+                console.log(
+                    "🏁 [Session] Agent requested connection close via end_conversation_session tool"
+                );
+
+                // Stop streaming gracefully
+                this.stopStreaming();
+
+                // Don't treat this as an error - it's a natural session end
+                return;
+            }
+
             // Handle audio from agent
             if (message.mime_type === "audio/pcm" && message.data) {
                 // Agent is speaking when we receive audio

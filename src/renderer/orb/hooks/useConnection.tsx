@@ -44,7 +44,6 @@ export const ConnectionProvider = ({
     const [agentState, setAgentState] = useState<AgentState>("listening");
     const [isMicrophoneMuted, setIsMicrophoneMuted] = useState(true); // Start muted!
     const [isSessionActive, setIsSessionActive] = useState(false); // Track if we have an active session
-    const [isUITaskActive, setIsUITaskActive] = useState(false); // Track if UI automation is active
 
     // Audio data for visualization
     const [inputAudioData, setInputAudioData] = useState<Float32Array | null>(
@@ -120,8 +119,6 @@ export const ConnectionProvider = ({
             ) => {
                 setAgentState(state);
             };
-
-            // DON'T auto-start streaming - wait for wake word!
 
             // Pre-warm audio system for faster wake word response
             streamingManagerRef.current.preWarm().then((success) => {
