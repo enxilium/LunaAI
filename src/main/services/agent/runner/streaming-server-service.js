@@ -99,36 +99,21 @@ class StreamingServerService {
                     env: {
                         ...process.env,
                         PYTHONPATH: path.dirname(this.serverScriptPath),
-                        // Suppress Python warnings that go to subprocess stdio
-                        PYTHONWARNINGS: "ignore",
-                        // Ensure unbuffered output
-                        PYTHONUNBUFFERED: "1",
-                        // Set UTF-8 encoding
-                        PYTHONIOENCODING: "utf-8",
-                        // Suppress Google ADK debug output at subprocess level
-                        GOOGLE_ADK_DEBUG: "false",
-                        GOOGLE_ADK_LOG_LEVEL: "CRITICAL",
-                        // Suppress general Google library debug output
-                        GOOGLE_APPLICATION_CREDENTIALS_DEBUG: "false",
-                        // Set Python logging level to suppress verbosity
-                        PYTHONLOGGING: "CRITICAL",
-                        // Additional MCP suppression
-                        MCP_LOG_LEVEL: "CRITICAL",
                     },
                 }
             );
 
-            // Set up event handlers to capture our explicit log_info/log_error calls
             this.setupEventHandlers();
 
-            // Wait for server to start up
             await this.waitForServerReady();
 
             this.isRunning = true;
+
             logger.success(
                 "StreamingServer",
                 `Server started successfully on ${this.serverHost}:${this.serverPort}`
             );
+            
             return true;
         } catch (error) {
             logger.error("StreamingServer", "Failed to start server:", error);

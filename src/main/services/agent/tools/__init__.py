@@ -6,4 +6,4 @@ async def get_async_tools():
     """Get all tools including async MCP tools"""
     # Combine utility tools and MCP servers
     # MCP servers are configured as ADK MCPToolset instances
-    return util_tools + mcp_servers
+    return util_tools 

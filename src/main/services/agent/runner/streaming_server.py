@@ -17,29 +17,14 @@ def configure_logging():
     """Configure selective logging - silence libraries but preserve our explicit logs"""
     global original_stdout, original_stderr
     
-    # Save original streams before redirection
     original_stdout = sys.stdout
     original_stderr = sys.stderr
     
-    # Suppress ALL warnings and library output
-    import warnings
-    warnings.filterwarnings("ignore")
-    
-    # Set environment variables to suppress all possible debug output and subprocess inheritance
-    os.environ['GOOGLE_ADK_DEBUG'] = 'false'
-    os.environ['GOOGLE_ADK_LOG_LEVEL'] = 'CRITICAL'
-    os.environ['PYTHONWARNINGS'] = 'ignore'
-    os.environ['PYTHONIOENCODING'] = 'utf-8'  # Prevent encoding issues
-    
-    # Completely disable all logging from all libraries
-    logging.disable(logging.CRITICAL)
-    
-    # Redirect library stdout/stderr to devnull (but preserve originals for our logs)
     devnull = open(os.devnull, 'w')
-    sys.stdout = devnull
-    sys.stderr = devnull
 
-# Configure logging immediately, before any other imports
+    # sys.stdout = devnull
+    # sys.stderr = devnull
+
 configure_logging()
 
 def log_info(message: str):
@@ -56,37 +41,33 @@ def log_error(message: str):
     else:
         print(message, file=sys.stderr, flush=True)
 
-# Now import our modules after logging is configured
-# Add the parent directory to Python path to enable absolute imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
 from .agent_runner import AgentRunner
 from .websocket_server import WebSocketServer
 
-# Load environment variables
 load_dotenv()
 
-# Application constants
 PORT = 8765
 
-def create_server():
+async def create_server():
     """Create and configure the server components"""
-    # Create agent runner
+    # Create AgentRunner instance first (regular constructor)
     agent_runner = AgentRunner()
+    
+    # Then initialize async components
+    await agent_runner.initialize()
+    
     agent_runner.set_loggers(log_info, log_error)
     
-    # Create WebSocket server with agent runner
     websocket_server = WebSocketServer(agent_runner)
     websocket_server.set_loggers(log_info, log_error)
     
     return websocket_server
 
-# Global server instance
-streaming_server = create_server()
-
 async def start_streaming_server_async(host: str = "localhost", port: int = PORT):
     """Async method to start the server with minimal output"""
+    streaming_server = await create_server()
     await streaming_server.start_server_async(host, port)
 
 if __name__ == "__main__":
-    streaming_server.start_server()
+    import asyncio
+    asyncio.run(start_streaming_server_async())
