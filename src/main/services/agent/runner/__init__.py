@@ -2,7 +2,7 @@
 Luna AI Runner Package - Server and connection infrastructure
 
 This package contains the server logic and connection handling components:
-- streaming_server.py: Main entry point and configuration
+- streaming_server.py: Main entry point and configuration (run as module, not imported)
 - agent_runner.py: Agent operations and session management
 - websocket_server.py: WebSocket server and message handling
 """

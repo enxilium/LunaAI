@@ -23,7 +23,7 @@ def configure_logging():
     devnull = open(os.devnull, 'w')
 
     # sys.stdout = devnull
-    # sys.stderr = devnull
+    # sys.stderr = devnull # TODO:Re-enable
 
 configure_logging()
 
@@ -56,17 +56,15 @@ async def create_server():
     # Then initialize async components
     await agent_runner.initialize()
     
-    agent_runner.set_loggers(log_info, log_error)
-    
-    websocket_server = WebSocketServer(agent_runner)
-    websocket_server.set_loggers(log_info, log_error)
+    # Create WebSocketServer with loggers directly
+    websocket_server = WebSocketServer(agent_runner, log_info, log_error)
     
     return websocket_server
 
 async def start_streaming_server_async(host: str = "localhost", port: int = PORT):
     """Async method to start the server with minimal output"""
     streaming_server = await create_server()
-    await streaming_server.start_server_async(host, port)
+    await streaming_server.start_server(host, port)
 
 if __name__ == "__main__":
     import asyncio

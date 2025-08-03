@@ -8,8 +8,7 @@ import React, {
     useRef,
     useCallback,
 } from "react";
-import AudioWorkletStreaming from "../services/AudioWorkletStreaming";
-import VideoStreamingService from "../services/VideoStreamingService";
+import ConnectionManager from "../services/ConnectionManager";
 
 type AgentState = "listening" | "speaking" | "processing";
 
@@ -43,7 +42,6 @@ export const ConnectionProvider = ({
     const [isConnected, setIsConnected] = useState(false);
     const [agentState, setAgentState] = useState<AgentState>("listening");
     const [isMicrophoneMuted, setIsMicrophoneMuted] = useState(true); // Start muted!
-    const [isSessionActive, setIsSessionActive] = useState(false); // Track if we have an active session
 
     // Audio data for visualization
     const [inputAudioData, setInputAudioData] = useState<Float32Array | null>(
@@ -53,193 +51,146 @@ export const ConnectionProvider = ({
         null
     );
 
-    // Error handling
+    // Error state
     const [error, setError] = useState<string | null>(null);
 
-    // Audio streaming manager (internal complexity)
-    const streamingManagerRef = useRef<AudioWorkletStreaming | null>(null);
-    const videoStreamingRef = useRef<VideoStreamingService | null>(null);
-    const outputVolumeRef = useRef<number>(1.0);
+    // Connection manager reference
+    const connectionManagerRef = useRef<ConnectionManager | null>(null);
 
-    // Initialize the streaming manager (always connected when possible)
+    // Initialize connection manager
     useEffect(() => {
-        if (!streamingManagerRef.current) {
-            streamingManagerRef.current = new AudioWorkletStreaming();
+        const initializeManager = async () => {
+            try {
+                
+                connectionManagerRef.current = new ConnectionManager();
 
-            // Connection management (don't auto-connect!)
-            streamingManagerRef.current.onConnectionChange = (connected) => {
-                // Only log connection issues, not regular connected status
-                if (!connected && isSessionActive) {
-                    console.error("🔴 [Connection] Lost connection to server");
-                    setError("Lost connection to server");
+                // Set up event listeners
+                connectionManagerRef.current.on(
+                    "connectionChange",
+                    (connected: boolean) => {
+                        setIsConnected(connected);
+                        if (!connected) {
+                            setAgentState("listening");
+                        }
+                    }
+                );
+
+                connectionManagerRef.current.on(
+                    "agentStateChange",
+                    (state: string) => {
+                        setAgentState(state as AgentState);
+                    }
+                );
+
+                connectionManagerRef.current.on(
+                    "inputAudioData",
+                    (audioData: Float32Array) => {
+                        setInputAudioData(audioData);
+                    }
+                );
+
+                connectionManagerRef.current.on(
+                    "outputAudioData",
+                    (audioData: Float32Array) => {
+                        setOutputAudioData(audioData);
+                    }
+                );
+
+                connectionManagerRef.current.on(
+                    "error",
+                    (errorMessage: string) => {
+                        setError(errorMessage);
+                        console.error(
+                            "[ConnectionProvider] ConnectionManager error:",
+                            errorMessage
+                        );
+                    }
+                );
+
+                // Initialize the manager
+                const initialized =
+                    await connectionManagerRef.current.initialize();
+                if (!initialized) {
+                    throw new Error("Failed to initialize ConnectionManager");
                 }
-            };
 
-            streamingManagerRef.current.onStreamingStart = () => {
-                console.log("🎤 Luna activated");
-                setIsConnected(true);
-                setIsSessionActive(true);
-                setAgentState("listening");
-                setError(null);
-            };
+            } catch (error) {
+                console.error(
+                    "[ConnectionProvider] Failed to initialize ConnectionManager:",
+                    error
+                );
+                setError(`Initialization failed: ${error}`);
+            }
+        };
 
-            streamingManagerRef.current.onStreamingStop = () => {
-                console.log("🔇 Luna deactivated");
-                setIsConnected(false);
-                setIsSessionActive(false);
-                setAgentState("listening"); // Reset to listening for next session
-                setInputAudioData(null);
-                setOutputAudioData(null);
-            };
-
-            streamingManagerRef.current.onError = (errorMessage) => {
-                console.error("❌ [Connection] Error:", errorMessage);
-                setError(errorMessage);
-            };
-
-            // Audio data callbacks (no volume calculation, just raw data)
-            streamingManagerRef.current.onInputAudioData = (
-                audioData: Float32Array
-            ) => {
-                if (!isMicrophoneMuted) {
-                    setInputAudioData(new Float32Array(audioData));
-                }
-            };
-
-            streamingManagerRef.current.onOutputAudioData = (
-                audioData: Float32Array
-            ) => {
-                // Audio data already has volume applied by AudioWorkletStreaming
-                setOutputAudioData(new Float32Array(audioData));
-                setAgentState("speaking");
-            };
-
-            streamingManagerRef.current.onAgentStateChange = (
-                state: "listening" | "speaking" | "processing"
-            ) => {
-                setAgentState(state);
-            };
-
-            // Pre-warm audio system for faster wake word response
-            streamingManagerRef.current.preWarm().then((success) => {
-                if (!success) {
-                    console.warn("⚠️ Audio pre-warming failed");
-                }
-            });
-        }
+        initializeManager();
 
         // Cleanup on unmount
         return () => {
-            if (streamingManagerRef.current) {
-                streamingManagerRef.current.stopStreaming();
-            }
-            if (videoStreamingRef.current) {
-                videoStreamingRef.current.destroy();
+            if (connectionManagerRef.current) {
+                connectionManagerRef.current.destroy();
+                connectionManagerRef.current = null;
             }
         };
     }, []);
 
-    // Control methods
+    // Session controls
     const startSession = useCallback(async () => {
-        if (streamingManagerRef.current && !isSessionActive) {
-            try {
-                setError(null);
-                await streamingManagerRef.current.startStreaming();
-                setIsMicrophoneMuted(false); // Unmute when session starts
-
-                // Auto-start video streaming for multimodal experience
-                if (!videoStreamingRef.current) {
-                    console.log("🎬 Initializing video streaming...");
-                    videoStreamingRef.current = new VideoStreamingService();
-                    const initialized =
-                        await videoStreamingRef.current.initialize();
-                    if (!initialized) {
-                        console.warn(
-                            "⚠️ Video streaming initialization failed, continuing with audio only"
-                        );
-                    } else {
-                        console.log(
-                            "✅ Video streaming initialized successfully"
-                        );
-                    }
-                }
-
-                // Start video capture if we have a WebSocket and video is initialized
-                if (
-                    videoStreamingRef.current &&
-                    streamingManagerRef.current?.getWebSocket()
-                ) {
-                    const websocket =
-                        streamingManagerRef.current.getWebSocket();
-                    if (websocket) {
-                        videoStreamingRef.current.startCapture(websocket);
-                        console.log(
-                            "🎬 Video streaming started - desktop capture active"
-                        );
-                    }
-                }
-            } catch (err) {
-                const errorMessage =
-                    err instanceof Error ? err.message : "Unknown error";
-                console.error("❌ Failed to start Luna:", errorMessage);
-                setError(`Failed to start session: ${errorMessage}`);
-                throw err;
-            }
+        if (!connectionManagerRef.current) {
+            setError("ConnectionManager not initialized");
+            return;
         }
-    }, [isSessionActive]);
+
+        try {
+            setError(null);
+            await connectionManagerRef.current.startStreaming();
+            setIsMicrophoneMuted(false); // Unmute when session starts
+            console.log("[ConnectionProvider] Session started successfully");
+        } catch (error) {
+            console.error(
+                "[ConnectionProvider] Failed to start session:",
+                error
+            );
+            setError(`Failed to start session: ${error}`);
+        }
+    }, []);
 
     const stopSession = useCallback(async () => {
-        if (streamingManagerRef.current && isSessionActive) {
-            try {
-                // Stop video streaming first
-                if (videoStreamingRef.current) {
-                    videoStreamingRef.current.stopCapture();
-                    console.log("🎬 Video streaming stopped");
-                }
+        if (!connectionManagerRef.current) return;
 
-                await streamingManagerRef.current.stopStreaming();
-                setIsMicrophoneMuted(true); // Mute when session stops
-            } catch (err) {
-                const errorMessage =
-                    err instanceof Error ? err.message : "Unknown error";
-                console.error("❌ Failed to stop Luna:", errorMessage);
-                setError(`Failed to stop session: ${errorMessage}`);
-                throw err;
-            }
-        }
-    }, [isSessionActive]);
-
-    const setMicrophoneMuted = useCallback(
-        (muted: boolean) => {
-            if (!isSessionActive && !muted) {
-                // If no session and trying to unmute, start a session instead
-                startSession().catch(console.error);
-                return;
-            }
-
-            setIsMicrophoneMuted(muted);
-            if (muted) {
-                setInputAudioData(null); // Clear input data when muted
-            }
-            console.log(
-                muted ? "🔇 Microphone muted" : "🎤 Microphone unmuted"
+        try {
+            setError(null);
+            await connectionManagerRef.current.stopStreaming();
+            setIsMicrophoneMuted(true); // Mute when session stops
+            setAgentState("listening");
+            console.log("[ConnectionProvider] Session stopped successfully");
+        } catch (error) {
+            console.error(
+                "[ConnectionProvider] Failed to stop session:",
+                error
             );
-        },
-        [isSessionActive, startSession]
-    );
+            setError(`Failed to stop session: ${error}`);
+        }
+    }, []);
+
+    const setMicrophoneMuted = useCallback((muted: boolean) => {
+        if (!connectionManagerRef.current) return;
+
+        connectionManagerRef.current.setMuted(muted);
+        setIsMicrophoneMuted(muted);
+        console.log(
+            `[ConnectionProvider] Microphone ${muted ? "muted" : "unmuted"}`
+        );
+    }, []);
 
     const setOutputVolume = useCallback((volume: number) => {
-        // Clamp volume between 0.0 and 1.0
-        const clampedVolume = Math.max(0.0, Math.min(1.0, volume));
-        outputVolumeRef.current = clampedVolume;
+        if (!connectionManagerRef.current) return;
 
-        // Apply volume to the audio streaming service
-        if (streamingManagerRef.current) {
-            streamingManagerRef.current.setOutputVolume(clampedVolume);
-        }
-
+        connectionManagerRef.current.setOutputVolume(volume);
         console.log(
-            `🔊 Output volume set to ${Math.round(clampedVolume * 100)}%`
+            `[ConnectionProvider] Output volume set to ${Math.round(
+                volume * 100
+            )}%`
         );
     }, []);
 

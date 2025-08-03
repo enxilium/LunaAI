@@ -134,8 +134,9 @@ dev-debug.log
 *.sw?
 # OS specific
 
+.taskmaster
+.github
+
 # Task files
 # tasks.json
 # tasks/ 
-.taskmaster
-.github
