@@ -116,11 +116,11 @@ class AgentRunner:
         async for event in live_events:
             event_result = self.classify_event(event)
 
-            if event_result["type"] == "log_only":
-                self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
-                continue
-            
             match event_result["type"]:
+                case "log_only":
+                    self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
+                    continue
+
                 case "audio":
                     # Skip logging audio chunks
                     await message_sender(event_result["websocket_message"])
@@ -133,6 +133,9 @@ class AgentRunner:
                     self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
                     await message_sender(event_result["websocket_message"])
                     break
+                    
+                case _:
+                    self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
 
         # End the conversation after processing all events.  
         await self.end_conversation()
