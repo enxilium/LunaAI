@@ -9,16 +9,15 @@ const OrbContainer: React.FC = () => {
     const { keywordDetection } = useKeywordDetection(accessKey);
     const {
         connectionState,
-        audioRef,
         startListening,
         stopListening,
-        toggleVideoStreaming,
+        toggleMute,
+        toggleScreenShare,
+        sendMessage,
     } = useConnection();
 
-    const { isConnected, isListening, error, isStreamingVideo } =
-        connectionState;
+    const { isSpeaking, isMuted, isSharingScreen, audioData, isConnected } = connectionState;
 
-    // Handle wake word detection
     useEffect(() => {
         const handleWakeWord = async () => {
             if (keywordDetection && !isConnected) {
@@ -34,105 +33,41 @@ const OrbContainer: React.FC = () => {
         };
 
         handleWakeWord();
-    }, [keywordDetection, isConnected, startListening]);
+    }, [keywordDetection]);
 
-    // Handle manual deactivation
-    const handleDeactivate = async () => {
+    const stopSession = async () => {
         try {
+            sendMessage("stop-session");
             await stopListening();
             window.electron.send("hide-orb");
         } catch (err) {
-            console.error("❌ Failed to stop session:", err);
-        }
-    };
-
-    // Handle manual activation (for testing)
-    const handleManualActivate = async () => {
-        if (!isConnected) {
-            try {
-                await startListening();
-                window.electron.send("show-orb");
-            } catch (err) {
-                console.error("❌ Failed to start session:", err);
-            }
+            console.error("Failed to stop session:", err);
         }
     };
 
     return (
         <div className="orb-container">
-            {/* Hidden audio ref for AudioWorklet */}
-            <div ref={audioRef} style={{ display: "none" }} />
-
-            {error && (
-                <div
-                    style={{
-                        color: "red",
-                        marginBottom: "10px",
-                        fontSize: "12px",
-                    }}
-                >
-                    {error}
-                </div>
-            )}
-
             <div style={{ marginBottom: "10px", fontSize: "12px" }}>
-                <div>Connected: {isConnected ? "✅ Yes" : "❌ No"}</div>
-                <div>
-                    Listening: {isListening ? "🎤 Active" : "⚪ Inactive"}
-                </div>
-                <div>Video: {isStreamingVideo ? "� Streaming" : "� Off"}</div>
+                <div>Speaking: {isSpeaking ? "🗣️ Yes" : "⚪ No"}</div>
+                <div>Microphone: {isMuted ? "🔇 Muted" : "🎤 Active"}</div>
+                <div>Screen Share: {isSharingScreen ? "📹 On" : "📵 Off"}</div>
             </div>
 
             <AudioOrb
                 color="rgb(150, 50, 255)"
-                isActive={isListening}
-                onDeactivate={handleDeactivate}
+                isSpeaking={isSpeaking}
+                audioData={audioData}
+                onDeactivate={stopSession}
             />
 
             {/* Manual controls for testing */}
             <div style={{ marginTop: "10px" }}>
-                {!isListening && (
-                    <button
-                        onClick={handleManualActivate}
-                        style={{
-                            padding: "4px 8px",
-                            margin: "2px",
-                            background: "rgb(150, 50, 255)",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "10px",
-                        }}
-                    >
-                        Start Listening
-                    </button>
-                )}
-
-                {isListening && (
-                    <button
-                        onClick={handleDeactivate}
-                        style={{
-                            padding: "4px 8px",
-                            margin: "2px",
-                            background: "red",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "10px",
-                        }}
-                    >
-                        Stop Listening
-                    </button>
-                )}
-
                 <button
-                    onClick={toggleVideoStreaming}
+                    onClick={stopSession}
                     style={{
                         padding: "4px 8px",
                         margin: "2px",
-                        background: isStreamingVideo ? "orange" : "green",
+                        background: "red",
                         color: "white",
                         border: "none",
                         borderRadius: "4px",
@@ -140,7 +75,41 @@ const OrbContainer: React.FC = () => {
                         fontSize: "10px",
                     }}
                 >
-                    {isStreamingVideo ? "Stop Video" : "Start Video"}
+                    Stop Session
+                </button>
+
+                <button
+                    onClick={toggleMute}
+                    style={{
+                        padding: "4px 8px",
+                        margin: "2px",
+                        background: isMuted ? "orange" : "green",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "10px",
+                    }}
+                >
+                    {isMuted ? "Unmute" : "Mute"}
+                </button>
+
+                <button
+                    onClick={toggleScreenShare}
+                    style={{
+                        padding: "4px 8px",
+                        margin: "2px",
+                        background: isSharingScreen ? "blue" : "gray",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "10px",
+                    }}
+                >
+                    {isSharingScreen
+                        ? "Stop Screen Share"
+                        : "Start Screen Share"}
                 </button>
             </div>
         </div>

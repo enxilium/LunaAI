@@ -1,0 +1,2 @@
+# Known Issues
+- Agent claims it's still able to see your screen even after you've stopped screensharing. This is a problem on Gemini's end in their architecture; it thinks it can still see your screen because of the conversation history. Rest assured, current frames are not being sent at all, and if you ask the agent what it sees, it will describe the screen prior to shutting down the stream.

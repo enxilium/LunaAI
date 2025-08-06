@@ -4,15 +4,9 @@ WebSocketServer - Handles FastAPI setup, WebSocket connections, and message rout
 import json
 import asyncio
 import base64
-import warnings
 from typing import Callable
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
-
-# Suppress deprecation warnings from Google ADK and related libraries
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="google.*")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic.*")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets.*")
 
 from google.genai.types import Blob
 
@@ -35,12 +29,12 @@ class WebSocketServer:
     def _setup_routes(self):
         """Set up WebSocket routes"""
         
-        @self.app.websocket("/ws/{client_id}")
-        async def websocket_endpoint(websocket: WebSocket, client_id: str):
+        @self.app.websocket("/ws")
+        async def websocket_endpoint(websocket: WebSocket):
             """Main WebSocket endpoint for audio and video streaming"""
             await websocket.accept()
             self.current_websocket = websocket
-            self.current_client_id = client_id
+            self.current_client_id = "luna"  # Fixed client ID since Luna is single-user
             
             try:
                 live_events, live_request_queue = await self.agent_runner.start_conversation()
@@ -50,8 +44,7 @@ class WebSocketServer:
                     try:
                         await websocket.send_text(json.dumps(message))
                     except Exception as e:
-                        if self.log_error:
-                            self.log_error(f"[WEBSOCKET] Send error: {e}")
+                        self.log_error(f"[WEBSOCKET] Send error: {e}")
                 
                 # Start bidirectional communication tasks
                 agent_to_client_task = asyncio.create_task(
@@ -62,20 +55,30 @@ class WebSocketServer:
                 )
                 
                 # Wait until the websocket is disconnected or an error occurs
-                await asyncio.wait([agent_to_client_task, client_to_agent_task], return_when=asyncio.FIRST_EXCEPTION)
+                try:
+                    await asyncio.wait([agent_to_client_task, client_to_agent_task])
+                finally:
+                    # Cancel any remaining tasks when connection closes
+                    if not agent_to_client_task.done():
+                        agent_to_client_task.cancel()
+                    if not client_to_agent_task.done():
+                        client_to_agent_task.cancel()
+                    
+                    # Wait for tasks to complete cancellation
+                    try:
+                        await asyncio.gather(agent_to_client_task, client_to_agent_task, return_exceptions=True)
+                    except Exception:
+                        pass  # Ignore cancellation exceptions
                 
             except WebSocketDisconnect:
-                if self.log_info:
-                    self.log_info(f"[WEBSOCKET] Client {client_id} disconnected")
+                self.log_info(f"[WEBSOCKET] Client luna disconnected")
             except Exception as e:
-                if self.log_error:
-                    self.log_error(f"[WEBSOCKET] Error with client {client_id}: {e}")
+                self.log_error(f"[WEBSOCKET] Error with client luna: {e}")
             finally:
                 await self.agent_runner.end_conversation()
                 self.current_websocket = None
                 self.current_client_id = None
-                if self.log_info:
-                    self.log_info(f"[WEBSOCKET] Client {client_id} cleanup completed")
+                self.log_info(f"[WEBSOCKET] Client luna cleanup completed")
 
         @self.app.get("/health")
         async def health_check():
@@ -93,21 +96,23 @@ class WebSocketServer:
                 mime_type = message.get("mime_type", "")
                 data = message.get("data", "")
                 
+                # Handle session control messages
+                if message_type == "stop_session":
+                    self.log_info("[WEBSOCKET] Frontend requested session stop")
+                    break  # Exit the message loop to trigger cleanup
+                
                 # Handle both audio and video data
-                if (message_type == "audio" and mime_type == "audio/pcm") or \
-                   (message_type == "video" and mime_type == "image/jpeg"):
+                elif (message_type == "audio" and mime_type == "audio/pcm") or \
+                     (message_type == "video" and mime_type == "image/jpeg"):
                     decoded_data = base64.b64decode(data)
                     live_request_queue.send_realtime(Blob(data=decoded_data, mime_type=mime_type))
                 else:
-                    if self.log_error:
-                        self.log_error(f"[WEBSOCKET] Unsupported message: {message_type}/{mime_type}")
+                    self.log_error(f"[WEBSOCKET] Unsupported message: {message_type}/{mime_type}")
                     
         except WebSocketDisconnect:
-            if self.log_info:
-                self.log_info("[WEBSOCKET] Client disconnected during messaging")
+            self.log_info("[WEBSOCKET] Client disconnected during messaging")
         except Exception as e:
-            if self.log_error:
-                self.log_error(f"[WEBSOCKET] Error in message handling: {e}")
+            self.log_error(f"[WEBSOCKET] Error in message handling: {e}")
 
     async def start_server(self, host: str = "localhost", port: int = 8765):
         """Start the FastAPI server"""

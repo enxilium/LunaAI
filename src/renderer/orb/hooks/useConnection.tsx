@@ -1,150 +1,152 @@
 import { useState, useRef, useEffect } from "react";
-import AudioWorkletStreaming from "../services/AudioWorkletStreaming";
-import VideoStreamingService from "../services/VideoStreamingService";
+import StreamingService from "../services/StreamingService";
 
 export interface ConnectionState {
+    isSpeaking: boolean;
+    isMuted: boolean;
+    isSharingScreen: boolean;
+    audioData: Float32Array | null;
     isConnected: boolean;
-    isListening: boolean;
-    error: string | null;
-    isStreamingVideo: boolean;
 }
 
 interface UseConnectionReturn {
     connectionState: ConnectionState;
-    audioRef: React.RefObject<HTMLDivElement | null>;
     startListening: () => Promise<void>;
     stopListening: () => Promise<void>;
-    toggleVideoStreaming: () => Promise<void>;
+    toggleMute: () => void;
+    toggleScreenShare: () => Promise<void>;
+    sendMessage: (type: string) => void;
 }
 
 export const useConnection = (): UseConnectionReturn => {
     const [connectionState, setConnectionState] = useState<ConnectionState>({
+        isSpeaking: false,
+        isMuted: false,
+        isSharingScreen: true, // TODO: Make this dynamic based on user configuration
+        audioData: null,
         isConnected: false,
-        isListening: false,
-        error: null,
-        isStreamingVideo: false,
     });
 
-    const audioRef = useRef<HTMLDivElement>(null);
-    const audioStreamingRef = useRef<AudioWorkletStreaming | null>(null);
-    const videoStreamingRef = useRef<VideoStreamingService | null>(null);
+    const streamingRef = useRef<StreamingService | null>(null);
 
     useEffect(() => {
-        const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        streamingRef.current = new StreamingService();
 
-        // Initialize audio streaming service
-        audioStreamingRef.current = new AudioWorkletStreaming();
-        audioStreamingRef.current.onError = (error: string) => {
+        // Handle agent speaking state changes
+        streamingRef.current.onAgentStateChange = (
+            state: "listening" | "processing" | "speaking"
+        ) => {
             setConnectionState((prev) => ({
                 ...prev,
-                error,
-                isConnected: false,
-                isListening: false,
+                isSpeaking: state === "speaking",
             }));
         };
-        audioStreamingRef.current.onConnectionChange = (connected: boolean) => {
+
+        // Handle audio data for visualization
+        streamingRef.current.onOutputAudioData = (audioData: Float32Array) => {
+            setConnectionState((prev) => ({
+                ...prev,
+                audioData,
+            }));
+        };
+
+        // Handle connection state changes
+        streamingRef.current.onConnectionChange = (connected: boolean) => {
             setConnectionState((prev) => ({
                 ...prev,
                 isConnected: connected,
-                error: connected ? null : prev.error,
             }));
         };
 
-        // Initialize video streaming service
-        videoStreamingRef.current = new VideoStreamingService(clientId);
-        videoStreamingRef.current.onError = (error: string) => {
-            setConnectionState((prev) => ({
-                ...prev,
-                error,
-                isStreamingVideo: false,
-            }));
+        // Error handling - stop everything on error
+        streamingRef.current.onError = (error: string) => {
+            console.error("Streaming error:", error);
+            // Reset to default state on error
+            setConnectionState({
+                isSpeaking: false,
+                isMuted: false,
+                isSharingScreen: true, // TODO: Make this dynamic based on user configuration
+                audioData: null,
+                isConnected: false,
+            });
         };
 
         return () => {
-            audioStreamingRef.current?.stopStreaming();
-            videoStreamingRef.current?.stopStreaming();
+            streamingRef.current?.stopStreaming();
         };
     }, []);
 
     const startListening = async (): Promise<void> => {
-        try {
-            if (!audioStreamingRef.current) {
-                throw new Error("Audio streaming service not initialized");
-            }
-
-            await audioStreamingRef.current.startStreaming();
-            setConnectionState((prev) => ({
-                ...prev,
-                isListening: true,
-                error: null,
-            }));
-        } catch (error) {
-            setConnectionState((prev) => ({
-                ...prev,
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to start listening",
-                isListening: false,
-            }));
+        if (!streamingRef.current) {
+            throw new Error("Streaming service not initialized");
         }
+
+        await streamingRef.current.startStreaming();
+
+        // Reset states when starting a new session
+        setConnectionState((prev) => ({
+            ...prev,
+            isSpeaking: false,
+            isMuted: false, // Default to unmuted when session starts
+            isConnected: true,
+        }));
     };
 
     const stopListening = async (): Promise<void> => {
-        try {
-            if (!audioStreamingRef.current) {
-                throw new Error("Audio streaming service not initialized");
-            }
+        if (!streamingRef.current) {
+            throw new Error("Streaming service not initialized");
+        }
 
-            await audioStreamingRef.current.stopStreaming();
-            setConnectionState((prev) => ({ ...prev, isListening: false }));
-        } catch (error) {
-            setConnectionState((prev) => ({
-                ...prev,
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to stop listening",
-            }));
+        await streamingRef.current.stopStreaming();
+
+        // Reset all states when stopping
+        setConnectionState({
+            isSpeaking: false,
+            isMuted: false,
+            isSharingScreen: true, // TODO: Make this dynamic based on user configuration
+            audioData: null,
+            isConnected: false,
+        });
+    };
+
+    const toggleMute = (): void => {
+        setConnectionState((prev) => ({
+            ...prev,
+            isMuted: !prev.isMuted,
+        }));
+
+        if (streamingRef.current) {
+            streamingRef.current.setMicrophoneMuted(!connectionState.isMuted);
         }
     };
 
-    const toggleVideoStreaming = async (): Promise<void> => {
-        try {
-            if (!videoStreamingRef.current || !audioStreamingRef.current) {
-                throw new Error("Streaming services not initialized");
-            }
-
-            const newState = !connectionState.isStreamingVideo;
-            if (newState) {
-                // Share the WebSocket connection from audio streaming
-                const audioWebSocket = audioStreamingRef.current.getWebSocket();
-                await videoStreamingRef.current.startStreaming(
-                    audioWebSocket || undefined
-                );
-            } else {
-                await videoStreamingRef.current.stopStreaming();
-            }
-            setConnectionState((prev) => ({
-                ...prev,
-                isStreamingVideo: newState,
-            }));
-        } catch (error) {
-            setConnectionState((prev) => ({
-                ...prev,
-                error:
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to toggle video streaming",
-            }));
+    const toggleScreenShare = async (): Promise<void> => {
+        if (!streamingRef.current) {
+            throw new Error("Streaming service not initialized");
         }
+
+        const newState = !connectionState.isSharingScreen;
+        await streamingRef.current.setVideoEnabled(newState);
+        setConnectionState((prev) => ({
+            ...prev,
+            isSharingScreen: newState,
+        }));
+    };
+
+    const sendMessage = (type: string) => {
+        if (!streamingRef.current) {
+            throw new Error("Streaming service not initialized");
+        }
+
+        streamingRef.current.sendToServer(type);
     };
 
     return {
         connectionState,
-        audioRef,
         startListening,
         stopListening,
-        toggleVideoStreaming,
+        toggleMute,
+        toggleScreenShare,
+        sendMessage,
     };
 };

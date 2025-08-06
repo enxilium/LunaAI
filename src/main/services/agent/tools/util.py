@@ -94,11 +94,12 @@ def end_conversation_session():
     - You're in the middle of a multi-step task
     - User hasn't expressed satisfaction or closure
     
-    This will gracefully close the session, clean up resources, and disconnect the user.
-    Only use when you're confident the conversation has naturally ended.
+    This will mark the session for graceful closure after you finish your current response.
+    The session will end after you complete your turn (e.g., saying "You're welcome, goodbye!").
     """
-    # Simplified - just return a message, no complex session management
-    return "Session ended gracefully. Goodbye!"
+    # Don't actually end the session here - just mark it for ending
+    # The session will end after the agent finishes speaking (TURN_COMPLETE)
+    return "Session marked for graceful closure after current response completes."
 
 util_tools = [
     # search_memory,

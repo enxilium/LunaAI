@@ -2,13 +2,15 @@ import React, { useEffect, useRef } from "react";
 
 interface AudioOrbProps {
     color: string;
-    isActive?: boolean;
+    isSpeaking?: boolean;
+    audioData?: Float32Array | null;
     onDeactivate?: () => void;
 }
 
 const AudioOrb: React.FC<AudioOrbProps> = ({
     color,
-    isActive = false,
+    isSpeaking = false,
+    audioData = null,
     onDeactivate,
 }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -43,9 +45,23 @@ const AudioOrb: React.FC<AudioOrbProps> = ({
                   ]
                 : [150, 50, 255]; // fallback
 
-            if (isActive) {
-                // Animated pulsing effect when active
-                const pulseRadius = baseRadius + Math.sin(time * 0.1) * 10;
+            if (isSpeaking) {
+                // Enhanced visualization when agent is speaking
+                let pulseRadius = baseRadius;
+
+                // Use audio data for visualization if available
+                if (audioData && audioData.length > 0) {
+                    // Calculate RMS from audio data for intensity
+                    let sum = 0;
+                    for (let i = 0; i < audioData.length; i++) {
+                        sum += audioData[i] * audioData[i];
+                    }
+                    const rms = Math.sqrt(sum / audioData.length);
+                    pulseRadius = baseRadius + rms * 100; // Scale the pulse based on audio
+                } else {
+                    // Fallback animated pulse when no audio data
+                    pulseRadius = baseRadius + Math.sin(time * 0.2) * 15;
+                }
 
                 // Create gradient
                 const gradient = ctx.createRadialGradient(
@@ -57,7 +73,7 @@ const AudioOrb: React.FC<AudioOrbProps> = ({
                     pulseRadius + 20
                 );
                 gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.9)`);
-                gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.4)`);
+                gradient.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, 0.6)`);
                 gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.1)`);
 
                 // Draw main orb
@@ -73,20 +89,34 @@ const AudioOrb: React.FC<AudioOrbProps> = ({
                     pulseRadius,
                     centerX,
                     centerY,
-                    pulseRadius + 30
+                    pulseRadius + 40
                 );
-                glowGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.3)`);
+                glowGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.4)`);
                 glowGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
 
                 ctx.fillStyle = glowGradient;
                 ctx.beginPath();
-                ctx.arc(centerX, centerY, pulseRadius + 30, 0, 2 * Math.PI);
+                ctx.arc(centerX, centerY, pulseRadius + 40, 0, 2 * Math.PI);
                 ctx.fill();
             } else {
-                // Static orb when inactive
-                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
+                // Gentle pulsing when listening (not speaking)
+                const gentlePulse = baseRadius + Math.sin(time * 0.05) * 5;
+
+                const gradient = ctx.createRadialGradient(
+                    centerX,
+                    centerY,
+                    0,
+                    centerX,
+                    centerY,
+                    gentlePulse + 10
+                );
+                gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.6)`);
+                gradient.addColorStop(0.8, `rgba(${r}, ${g}, ${b}, 0.3)`);
+                gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.05)`);
+
+                ctx.fillStyle = gradient;
                 ctx.beginPath();
-                ctx.arc(centerX, centerY, baseRadius, 0, 2 * Math.PI);
+                ctx.arc(centerX, centerY, gentlePulse, 0, 2 * Math.PI);
                 ctx.fill();
             }
 
@@ -101,10 +131,10 @@ const AudioOrb: React.FC<AudioOrbProps> = ({
                 cancelAnimationFrame(animationFrameRef.current);
             }
         };
-    }, [color, isActive]);
+    }, [color, isSpeaking, audioData]);
 
     const handleClick = () => {
-        if (isActive && onDeactivate) {
+        if (onDeactivate) {
             onDeactivate();
         }
     };
@@ -117,7 +147,7 @@ const AudioOrb: React.FC<AudioOrbProps> = ({
                 alignItems: "center",
                 height: "100vh",
                 width: "100vw",
-                cursor: isActive ? "pointer" : "default",
+                cursor: "pointer",
             }}
             onClick={handleClick}
         >

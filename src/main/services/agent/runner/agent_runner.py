@@ -1,15 +1,9 @@
 """
 AgentRunner - Handles all agent-related operations and ADK session management
 """
-import asyncio
 import warnings
 from typing import Dict, Optional, Tuple, Callable
 from pathlib import Path
-
-# Suppress deprecation warnings from Google ADK and related libraries
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="google.*")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic.*")
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets.*")
 
 from google.adk.runners import Runner
 from google.adk.agents import LiveRequestQueue
@@ -30,7 +24,7 @@ class AgentRunner:
     Handles agent creation, session management, and ADK event processing.
     """
     
-    def __init__(self):
+    def __init__(self, log_info: Callable[[str], None] = None, log_error: Callable[[str], None] = None):
         """Initialize AgentRunner with basic setup. Call initialize() after construction for async setup."""
         self.session_service = InMemorySessionService()
         self.artifact_service = InMemoryArtifactService()
@@ -57,13 +51,13 @@ class AgentRunner:
             streaming_mode=StreamingMode.BIDI,
         )
 
-        self.log_info = None
-        self.log_error = None
-        
+        self.log_info = log_info
+        self.log_error = log_error
+
         # Flag to track when end_conversation_session tool has been called
         self.pendingClose = False
     
-    async def initialize(self):
+    async def _initialize(self):
         """Async initialization - call this after creating AgentRunner instance"""
         self.current_session = await self.session_service.create_session(
             app_name=APP_NAME,
@@ -79,20 +73,14 @@ class AgentRunner:
             session_service=self.session_service,
             artifact_service=self.artifact_service
         )
-    
-
-    def set_loggers(self, log_info: Callable[[str], None], log_error: Callable[[str], None]):
-        """
-        Inject logging functions from streaming server.
-        """
-        self.log_info = log_info
-        self.log_error = log_error
-    
 
     async def start_conversation(self) -> Tuple:
         """
         Begins a conversation and returns (live_events, live_request_queue)
         """
+        self.log_info("[AGENT] Starting conversation session")
+
+        await self._initialize()
         
         live_events = self.runner.run_live(
             user_id="default",
@@ -139,138 +127,65 @@ class AgentRunner:
                     break
                     
                 case _:
-                    self.log_info(f"[AGENT_EVENT] {event_result['log_message']}")
+                    continue
 
-        # End the conversation after processing all events.  
-        await self.end_conversation()
-    
+        # End the conversation after processing all events.
+        # Note: Only clean up if we didn't break due to close_connection
+        # If pendingClose is True, cleanup should happen via WebSocket server
 
     def classify_event(self, event) -> dict:
         """
         Classify event type and handle all processing logic, returning structured data for process_events
         """
-        author = getattr(event, 'author', 'unknown')
-        
-        # Handle turn completion/interruption events
-        if (hasattr(event, 'turn_complete') and event.turn_complete) or (hasattr(event, 'interrupted') and event.interrupted):
-            # Check if we should close connection after turn completes
-            if self.pendingClose and hasattr(event, 'turn_complete') and event.turn_complete:
+        if (hasattr(event, 'turn_complete') and event.turn_complete):
+            if self.pendingClose:
                 return {
                     "type": "close_connection",
-                    "log_message": f"TURN_COMPLETE from {author} - CLOSING_CONNECTION",
+                    "log_message": "TURN_COMPLETE - CLOSING_CONNECTION",
                     "websocket_message": {
-                        "type": "status",
-                        "turn_complete": True,
-                        "interrupted": False,
-                        "close_connection": True
+                        "status": "close_connection",
                     }
                 }
-            
-            return {
-                "type": "status",
-                "log_message": f"TURN_COMPLETE from {author}" if hasattr(event, 'turn_complete') else f"INTERRUPTED from {author}",
-                "websocket_message": {
-                    "type": "status",
-                    "turn_complete": hasattr(event, 'turn_complete'),
-                    "interrupted": hasattr(event, 'interrupted'),
-                }
-            }
-        
-        # Handle error events
-        if hasattr(event, 'error') and event.error:
-            error_type = getattr(event.error, 'type', 'unknown')
-            error_message = getattr(event.error, 'message', 'no message')[:50]
-            return {
-                "type": "log_only",
-                "log_message": f"ERROR from {author}: {error_type} - {error_message}"
-            }
-        
-        # Handle session state events
-        if hasattr(event, 'session_state'):
-            state = getattr(event.session_state, 'status', 'unknown')
-            return {
-                "type": "log_only",
-                "log_message": f"SESSION_STATE from {author}: {state}"
-            }
-        
-        # Handle tool execution events
-        if hasattr(event, 'tool_execution'):
-            tool_name = getattr(event.tool_execution, 'tool_name', 'unknown')
-            status = getattr(event.tool_execution, 'status', 'unknown')
-            
-            # Check for end_conversation_session tool execution
-            if tool_name == "end_conversation_session":
-                self.pendingClose = True
+            else:
                 return {
-                    "type": "log_only",
-                    "log_message": f"TOOL_EXECUTION from {author}: {tool_name} - {status} - PENDING_CLOSE_SET"
+                    "type": "status",
+                    "log_message": "TURN_COMPLETE",
+                    "websocket_message": {
+                        "status": "turn_complete"
+                    }
                 }
+        
+        if hasattr(event, 'interrupted') and event.interrupted:
+            if self.pendingClose:
+                self.pendingClose = False # In case user wants to make an additional request.
             
             return {
-                "type": "log_only",
-                "log_message": f"TOOL_EXECUTION from {author}: {tool_name} - {status}"
-            }
+                    "type": "status",
+                    "log_message": "INTERRUPTED",
+                    "websocket_message": {
+                        "status": "interrupted"
+                    }
+                }
         
-        # Handle model processing events
-        if hasattr(event, 'model_processing'):
-            status = getattr(event.model_processing, 'status', 'unknown')
+        # Handle error events (ADK uses error_code and error_message)
+        if (hasattr(event, 'error_code') and event.error_code) or (hasattr(event, 'error_message') and event.error_message):
+            error_code = getattr(event, 'error_code', 'unknown')
+            error_message = getattr(event, 'error_message', 'no message')[:50]
             return {
                 "type": "log_only",
-                "log_message": f"MODEL_PROCESSING from {author}: {status}"
-            }
-        
-        # Handle plugin events
-        if hasattr(event, 'plugin_event'):
-            plugin_name = getattr(event.plugin_event, 'name', 'unknown')
-            event_type = getattr(event.plugin_event, 'type', 'unknown')
-            return {
-                "type": "log_only",
-                "log_message": f"PLUGIN_EVENT from {author}: {plugin_name} - {event_type}"
-            }
-        
-        # Handle memory events
-        if hasattr(event, 'memory_operation'):
-            operation = getattr(event.memory_operation, 'type', 'unknown')
-            return {
-                "type": "log_only",
-                "log_message": f"MEMORY_OPERATION from {author}: {operation}"
-            }
-        
-        # Handle user input events
-        if hasattr(event, 'user_input'):
-            input_type = getattr(event.user_input, 'type', 'unknown')
-            return {
-                "type": "log_only",
-                "log_message": f"USER_INPUT from {author}: {input_type}"
-            }
-        
-        # Handle system events
-        if hasattr(event, 'system_event'):
-            event_type = getattr(event.system_event, 'type', 'unknown')
-            return {
-                "type": "log_only",
-                "log_message": f"SYSTEM_EVENT from {author}: {event_type}"
+                "log_message": f"ERROR: {error_code} - {error_message}"
             }
         
         # Handle function calls (tool requests)
-        if hasattr(event, 'get_function_calls'):
+        if hasattr(event, 'get_function_calls') and event.get_function_calls():
             try:
                 function_calls = event.get_function_calls()
-                if function_calls:
-                    call_names = [call.name for call in function_calls if hasattr(call, 'name')]
-                    
-                    # Check for end_conversation_session tool call
-                    if any(name == "end_conversation_session" for name in call_names):
-                        self.pendingClose = True
-                        return {
-                            "type": "log_only",
-                            "log_message": f"TOOL_CALL from {author}: {', '.join(call_names)} - PENDING_CLOSE_SET"
-                        }
-                    
-                    return {
-                        "type": "log_only",
-                        "log_message": f"TOOL_CALL from {author}: {', '.join(call_names)}"
-                    }
+                call_names = [call.name for call in function_calls if hasattr(call, 'name')]
+                
+                return {
+                    "type": "log_only",
+                    "log_message": f"TOOL_CALL: {', '.join(call_names)}"
+                }
             except:
                 pass
         
@@ -286,12 +201,12 @@ class AgentRunner:
                         self.pendingClose = True
                         return {
                             "type": "log_only",
-                            "log_message": f"TOOL_RESULT from {author}: {', '.join(response_names)} - PENDING_CLOSE_SET"
+                            "log_message": f"TOOL_RESULT: {', '.join(response_names)} - PENDING_CLOSE_SET"
                         }
                     
                     return {
                         "type": "log_only",
-                        "log_message": f"TOOL_RESULT from {author}: {', '.join(response_names)}"
+                        "log_message": f"TOOL_RESULT: {', '.join(response_names)}"
                     }
             except:
                 pass
@@ -309,7 +224,7 @@ class AgentRunner:
                     import base64
                     return {
                         "type": "audio",
-                        "log_message": f"AUDIO_CONTENT from {author}: {mime_type} ({data_size} bytes)",
+                        "log_message": f"AUDIO_CONTENT: {mime_type} ({data_size} bytes)",
                         "websocket_message": {
                             "type": "audio",
                             "mime_type": "audio/pcm",
@@ -319,7 +234,7 @@ class AgentRunner:
                 except (AttributeError, IndexError) as e:
                     return {
                         "type": "log_only",
-                        "log_message": f"AUDIO_CONTENT_ERROR from {author}: Failed to process audio data - {e}"
+                        "log_message": f"AUDIO_CONTENT_ERROR: Failed to process audio data - {e}"
                     }
         
         # Handle actions (state/artifact updates)
@@ -333,23 +248,11 @@ class AgentRunner:
                 actions.append(f"transfer_to_{event.actions.transfer_to_agent}")
             if hasattr(event.actions, 'escalate') and event.actions.escalate:
                 actions.append("escalate")
-            if hasattr(event.actions, 'memory_save') and event.actions.memory_save:
-                actions.append("memory_save")
-            if hasattr(event.actions, 'context_update') and event.actions.context_update:
-                actions.append("context_update")
             if actions:
                 return {
                     "type": "log_only",
-                    "log_message": f"ACTION from {author}: {', '.join(actions)}"
+                    "log_message": f"ACTION: {', '.join(actions)}"
                 }
-        
-        # Handle streaming events
-        if hasattr(event, 'streaming') and event.streaming:
-            stream_type = getattr(event.streaming, 'type', 'unknown')
-            return {
-                "type": "log_only",
-                "log_message": f"STREAMING from {author}: {stream_type}"
-            }
         
         # Handle final response indicator
         if hasattr(event, 'is_final_response') and callable(event.is_final_response):
@@ -357,25 +260,12 @@ class AgentRunner:
                 if event.is_final_response():
                     return {
                         "type": "log_only",
-                        "log_message": f"FINAL_RESPONSE from {author}"
+                        "log_message": f"FINAL_RESPONSE"
                     }
             except:
                 pass
-        
-        # Default case - include diagnostic information
-        event_metadata = []
-        if hasattr(event, 'timestamp'):
-            event_metadata.append(f"timestamp={getattr(event, 'timestamp', 'unknown')}")
-        if hasattr(event, 'event_id'):
-            event_metadata.append(f"id={getattr(event, 'event_id', 'unknown')}")
-        if hasattr(event, 'event_type'):
-            event_metadata.append(f"type={getattr(event, 'event_type', 'unknown')}")
-        
-        metadata_str = f" ({', '.join(event_metadata)})" if event_metadata else ""
-        event_attrs = [attr for attr in dir(event) if not attr.startswith('_') and not callable(getattr(event, attr, None))]
-        attrs_preview = ', '.join(event_attrs[:5])  # Show first 5 attributes
-        
+
         return {
-            "type": "log_only",
-            "log_message": f"OTHER_EVENT from {author}: attrs=[{attrs_preview}]{metadata_str}"
+            "type": "general",
+            "log_message": f"GENERAL_EVENT: {event}",
         }
