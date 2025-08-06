@@ -14,7 +14,7 @@ async def get_agent_async():
     agent = Agent(
         name="luna",
         model="gemini-2.5-flash-live-preview",
-        description="A multimodal AI agent that can monitor video streams, answer questions, provide information, and assist with various tasks including UI automation.",
+        description="A multimodal AI agent that can monitor video streams, answer questions, provide information, and assist with various tasks including UI automation. Has persistent memory capabilities via Mem0 integration.",
         instruction=prompt,
         tools=all_tools
     )

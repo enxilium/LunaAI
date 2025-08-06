@@ -1,4 +1,31 @@
-from google.adk.tools.function_tool import FunctionTool
+import os
+from dotenv import load_dotenv
+from mem0 import MemoryClient
+
+load_dotenv()
+
+MEM0_API_KEY = os.getenv("MEM0_API_KEY")
+
+mem0 = MemoryClient(
+    api_key=MEM0_API_KEY,
+)
+
+# TODO: Enable memory features once other things are complete.
+# def search_memory(query: str, user_id: str) -> dict:
+#     """Search through past conversations and memories"""
+#     memories = mem0.search(query, user_id=user_id)
+#     if memories:
+#         memory_context = "\n".join([f"- {mem['memory']}" for mem in memories])
+#         return {"status": "success", "memories": memory_context}
+#     return {"status": "no_memories", "message": "No relevant memories found"}
+
+# def save_memory(content: str, user_id: str) -> dict:
+#     """Save important information to memory"""
+#     try:
+#         mem0.add([{"role": "user", "content": content}], user_id=user_id)
+#         return {"status": "success", "message": "Information saved to memory"}
+#     except Exception as e:
+#         return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
 
 def stop_streaming(function_name: str):
     """Stop the streaming
@@ -39,10 +66,9 @@ def end_conversation_session():
     # Simplified - just return a message, no complex session management
     return "Session ended gracefully. Goodbye!"
 
-stop_streaming_tool = FunctionTool(stop_streaming)
-end_conversation_session_tool = FunctionTool(end_conversation_session)
-
 util_tools = [
-    stop_streaming_tool,
-    end_conversation_session_tool
+    # search_memory,
+    # save_memory,
+    stop_streaming,
+    end_conversation_session
 ]
