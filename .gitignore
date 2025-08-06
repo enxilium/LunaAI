@@ -136,6 +136,7 @@ dev-debug.log
 
 .taskmaster
 .github
+chroma_db
 
 # Task files
 # tasks.json

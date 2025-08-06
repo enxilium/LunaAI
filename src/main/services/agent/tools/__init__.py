@@ -1,4 +1,4 @@
-from .mcp import mcp_servers
+# from .mcp import mcp_servers
 from .util import util_tools
 
 # Async function to get all tools including MCP
