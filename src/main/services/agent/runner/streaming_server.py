@@ -5,8 +5,14 @@ Handles configuration, logging setup, and component wiring
 import os
 import sys
 import logging
+import warnings
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Suppress deprecation warnings from Google ADK and related libraries
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="google.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets.*")
 
 # Configure logging FIRST, before any other imports that might generate output
 # Global references to original streams (before redirection)
@@ -50,8 +56,8 @@ PORT = 8765
 
 async def create_server():
     """Create and configure the server components"""
-    # Create AgentRunner instance first (regular constructor)
-    agent_runner = AgentRunner()
+    # Create AgentRunner instance with loggers in constructor
+    agent_runner = AgentRunner(log_info, log_error)
     
     # Then initialize async components
     await agent_runner.initialize()

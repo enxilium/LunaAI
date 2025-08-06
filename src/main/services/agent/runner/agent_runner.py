@@ -2,13 +2,14 @@
 AgentRunner - Handles all agent-related operations and ADK session management
 """
 import asyncio
+import warnings
 from typing import Dict, Optional, Tuple, Callable
 from pathlib import Path
 
-from google.genai.types import (
-    Part,
-    Modality,
-)
+# Suppress deprecation warnings from Google ADK and related libraries
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="google.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets.*")
 
 from google.adk.runners import Runner
 from google.adk.agents import LiveRequestQueue
@@ -16,6 +17,7 @@ from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.sessions import InMemorySessionService
 from google.adk.artifacts import InMemoryArtifactService
 from google.genai import types
+from google.genai.types import Modality
 
 # Import async agent creation function from parent agent module
 from ..agent import get_agent_async
@@ -39,8 +41,10 @@ class AgentRunner:
         self.runner = None
         
         self.live_request_queue = LiveRequestQueue()
+        # Set response modality (AUDIO for Luna) - matching old commit pattern
+        modality = [Modality.AUDIO]
         self.runConfig = RunConfig(
-            response_modalities=[Modality.AUDIO],
+            response_modalities=modality,
             speech_config=types.SpeechConfig(
                 language_code="en-US", #TODO: Update to dynamic.
                 voice_config=types.VoiceConfig(

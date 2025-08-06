@@ -8,21 +8,15 @@ const OrbContainer: React.FC = () => {
     const { key: accessKey } = useKey("picovoice");
     const { keywordDetection } = useKeywordDetection(accessKey);
     const {
-        isConnected,
-        agentState,
-        inputAudioData,
-        outputAudioData,
-        startSession,
-        stopSession,
-        setMicrophoneMuted,
-        setOutputVolume,
-        error,
+        connectionState,
+        audioRef,
+        startListening,
+        stopListening,
+        toggleVideoStreaming,
     } = useConnection();
 
-    const isActive =
-        agentState === "speaking" ||
-        agentState === "processing" ||
-        Boolean(inputAudioData || outputAudioData);
+    const { isConnected, isListening, error, isStreamingVideo } =
+        connectionState;
 
     // Handle wake word detection
     useEffect(() => {
@@ -31,7 +25,7 @@ const OrbContainer: React.FC = () => {
                 console.log("🎤 Wake word detected");
 
                 try {
-                    await startSession();
+                    await startListening();
                     window.electron.send("show-orb");
                 } catch (err) {
                     console.error("❌ Failed to start session:", err);
@@ -40,10 +34,12 @@ const OrbContainer: React.FC = () => {
         };
 
         handleWakeWord();
-    }, [keywordDetection, isConnected, startSession]); // Handle manual deactivation
+    }, [keywordDetection, isConnected, startListening]);
+
+    // Handle manual deactivation
     const handleDeactivate = async () => {
         try {
-            await stopSession();
+            await stopListening();
             window.electron.send("hide-orb");
         } catch (err) {
             console.error("❌ Failed to stop session:", err);
@@ -54,7 +50,7 @@ const OrbContainer: React.FC = () => {
     const handleManualActivate = async () => {
         if (!isConnected) {
             try {
-                await startSession();
+                await startListening();
                 window.electron.send("show-orb");
             } catch (err) {
                 console.error("❌ Failed to start session:", err);
@@ -64,6 +60,9 @@ const OrbContainer: React.FC = () => {
 
     return (
         <div className="orb-container">
+            {/* Hidden audio ref for AudioWorklet */}
+            <div ref={audioRef} style={{ display: "none" }} />
+
             {error && (
                 <div
                     style={{
@@ -77,25 +76,22 @@ const OrbContainer: React.FC = () => {
             )}
 
             <div style={{ marginBottom: "10px", fontSize: "12px" }}>
-                <div>Session: {isConnected ? "✅ Active" : "❌ Inactive"}</div>
+                <div>Connected: {isConnected ? "✅ Yes" : "❌ No"}</div>
                 <div>
-                    Agent: {agentState} {isActive ? "🟢" : "⚪"}
+                    Listening: {isListening ? "🎤 Active" : "⚪ Inactive"}
                 </div>
-                <div>
-                    Audio: {inputAudioData ? "🎤" : "🔇"}{" "}
-                    {outputAudioData ? "🔊" : "🔇"}
-                </div>
+                <div>Video: {isStreamingVideo ? "� Streaming" : "� Off"}</div>
             </div>
 
             <AudioOrb
                 color="rgb(150, 50, 255)"
-                isActive={isActive}
+                isActive={isListening}
                 onDeactivate={handleDeactivate}
             />
 
             {/* Manual controls for testing */}
             <div style={{ marginTop: "10px" }}>
-                {!isConnected && (
+                {!isListening && (
                     <button
                         onClick={handleManualActivate}
                         style={{
@@ -109,17 +105,17 @@ const OrbContainer: React.FC = () => {
                             fontSize: "10px",
                         }}
                     >
-                        Start Session
+                        Start Listening
                     </button>
                 )}
 
-                {isConnected && (
+                {isListening && (
                     <button
-                        onClick={() => setMicrophoneMuted(true)}
+                        onClick={handleDeactivate}
                         style={{
                             padding: "4px 8px",
                             margin: "2px",
-                            background: "orange",
+                            background: "red",
                             color: "white",
                             border: "none",
                             borderRadius: "4px",
@@ -127,34 +123,16 @@ const OrbContainer: React.FC = () => {
                             fontSize: "10px",
                         }}
                     >
-                        Mute Mic
-                    </button>
-                )}
-
-                {isConnected && (
-                    <button
-                        onClick={() => setMicrophoneMuted(false)}
-                        style={{
-                            padding: "4px 8px",
-                            margin: "2px",
-                            background: "green",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "10px",
-                        }}
-                    >
-                        Unmute Mic
+                        Stop Listening
                     </button>
                 )}
 
                 <button
-                    onClick={() => setOutputVolume(0.5)}
+                    onClick={toggleVideoStreaming}
                     style={{
                         padding: "4px 8px",
                         margin: "2px",
-                        background: "gray",
+                        background: isStreamingVideo ? "orange" : "green",
                         color: "white",
                         border: "none",
                         borderRadius: "4px",
@@ -162,23 +140,7 @@ const OrbContainer: React.FC = () => {
                         fontSize: "10px",
                     }}
                 >
-                    Vol 50%
-                </button>
-
-                <button
-                    onClick={() => setOutputVolume(1.0)}
-                    style={{
-                        padding: "4px 8px",
-                        margin: "2px",
-                        background: "gray",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "10px",
-                    }}
-                >
-                    Vol 100%
+                    {isStreamingVideo ? "Stop Video" : "Start Video"}
                 </button>
             </div>
         </div>

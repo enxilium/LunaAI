@@ -4,9 +4,15 @@ WebSocketServer - Handles FastAPI setup, WebSocket connections, and message rout
 import json
 import asyncio
 import base64
+import warnings
 from typing import Callable
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
+
+# Suppress deprecation warnings from Google ADK and related libraries
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="google.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pydantic.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="websockets.*")
 
 from google.genai.types import Blob
 
