@@ -82,9 +82,6 @@ async def create_server():
     # Create AgentRunner instance with loggers in constructor
     agent_runner = AgentRunner(log_info, log_error)
     
-    # Then initialize async components
-    await agent_runner.initialize()
-    
     # Create WebSocketServer with loggers directly
     websocket_server = WebSocketServer(agent_runner, log_info, log_error)
     
