@@ -3,22 +3,15 @@ const { ipcMain, app } = require("electron");
 const { getMainWindow, getOrbWindow } = require("../windows");
 const logger = require("../utils/logger");
 
-const {
-    getScreenSources,
-    getPrimaryScreenSource,
-    startScreenCapture,
-    stopScreenCapture,
-    getScreenCaptureStatus,
-    getMediaConstraints,
-} = require("../commands");
+const { getScreenSources, getPrimaryScreenSource } = require("../commands");
 
 const { getKey } = require("../utils/get-key");
 const { getAsset } = require("../utils/get-asset");
 
-const { 
+const {
     updateSetting,
     getAllSettings,
-    getSetting
+    getSetting,
 } = require("../utils/manage-settings");
 
 let eventsService = null;
@@ -66,15 +59,11 @@ class EventsService extends EventEmitter {
         const invokeHandlers = {
             "get-all-settings": getAllSettings,
             "get-setting": getSetting,
-            "error": this.logError,
+            error: this.logError,
             "get-key": getKey,
             "get-asset": (type, ...args) => getAsset(args[0], type),
             "screen-capturer:get-sources": getScreenSources,
             "screen-capturer:get-primary-source": getPrimaryScreenSource,
-            "screen-capturer:start-capture": startScreenCapture,
-            "screen-capturer:stop-capture": stopScreenCapture,
-            "screen-capturer:get-status": getScreenCaptureStatus,
-            "screen-capturer:get-media-constraints": getMediaConstraints,
         };
 
         for (const [name, handler] of Object.entries(invokeHandlers)) {

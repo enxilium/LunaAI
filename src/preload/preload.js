@@ -146,43 +146,6 @@ contextBridge.exposeInMainWorld("electron", {
     getPrimaryScreenSource: () => {
         return ipcRenderer.invoke("screen-capturer:get-primary-source");
     },
-
-    /**
-     * @description Start screen capture
-     * @param {string} sourceId - Optional source ID, defaults to primary screen
-     * @returns {Promise<Object>} Screen capture result
-     */
-    startScreenCapture: (sourceId = null) => {
-        return ipcRenderer.invoke("screen-capturer:start-capture", sourceId);
-    },
-
-    /**
-     * @description Stop screen capture
-     * @returns {Promise<Object>} Screen capture stop result
-     */
-    stopScreenCapture: () => {
-        return ipcRenderer.invoke("screen-capturer:stop-capture");
-    },
-
-    /**
-     * @description Get screen capture status
-     * @returns {Promise<Object>} Screen capture status
-     */
-    getScreenCaptureStatus: () => {
-        return ipcRenderer.invoke("screen-capturer:get-status");
-    },
-
-    /**
-     * @description Get media constraints for screen capture
-     * @param {string} sourceId - The source ID for constraints
-     * @returns {Promise<Object>} Media constraints
-     */
-    getMediaConstraints: (sourceId) => {
-        return ipcRenderer.invoke(
-            "screen-capturer:get-media-constraints",
-            sourceId
-        );
-    },
 });
 
 function reportError(error) {
