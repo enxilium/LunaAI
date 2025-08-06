@@ -9,6 +9,33 @@ import warnings
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Suppress known deprecation warnings from third-party libraries
+# These warnings are from library internals and will be resolved when the libraries upgrade
+
+# 1. Websockets deprecation warnings from uvicorn's internal use of deprecated websockets APIs
+warnings.filterwarnings(
+    "ignore",
+    message="websockets.legacy is deprecated",
+    category=DeprecationWarning,
+    module="websockets.legacy"
+)
+warnings.filterwarnings(
+    "ignore", 
+    message="websockets.server.WebSocketServerProtocol is deprecated",
+    category=DeprecationWarning,
+    module="uvicorn.protocols.websockets.websockets_impl"
+)
+
+# 2. Google ADK deprecation warning from internal Gemini session usage
+# The ADK library internally uses deprecated session.send() method
+# This will be resolved when Google ADK upgrades to use the newer specific methods
+warnings.filterwarnings(
+    "ignore",
+    message=r"The `session\.send` method is deprecated.*",
+    category=DeprecationWarning,
+    module="google.adk.models.gemini_llm_connection"
+)
+
 
 # Configure logging FIRST, before any other imports that might generate output
 # Global references to original streams (before redirection)
@@ -54,6 +81,9 @@ async def create_server():
     """Create and configure the server components"""
     # Create AgentRunner instance with loggers in constructor
     agent_runner = AgentRunner(log_info, log_error)
+    
+    # Then initialize async components
+    await agent_runner.initialize()
     
     # Create WebSocketServer with loggers directly
     websocket_server = WebSocketServer(agent_runner, log_info, log_error)

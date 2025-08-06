@@ -9,6 +9,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 
 from google.genai.types import Blob
+from google.adk.agents import LiveRequestQueue
 
 class WebSocketServer:
     """Handles WebSocket connections and message routing"""
@@ -85,7 +86,7 @@ class WebSocketServer:
             """Health check endpoint"""
             return {"status": "healthy", "active_connections": 1 if self.current_websocket else 0}
 
-    async def _handle_client_messages(self, websocket: WebSocket, live_request_queue) -> None:
+    async def _handle_client_messages(self, websocket: WebSocket, live_request_queue: LiveRequestQueue) -> None:
         """Receive client messages and forward to agent"""
         try:
             while True:
@@ -105,6 +106,9 @@ class WebSocketServer:
                 elif (message_type == "audio" and mime_type == "audio/pcm") or \
                      (message_type == "video" and mime_type == "image/jpeg"):
                     decoded_data = base64.b64decode(data)
+                    # Note: send_realtime is the correct method for streaming real-time audio/video data
+                    # The deprecation warning "session.send method is deprecated" comes from Google ADK 
+                    # internal code (gemini_llm_connection.py), not from our usage here
                     live_request_queue.send_realtime(Blob(data=decoded_data, mime_type=mime_type))
                 else:
                     self.log_error(f"[WEBSOCKET] Unsupported message: {message_type}/{mime_type}")
