@@ -4,62 +4,72 @@ from mem0 import Memory
 
 load_dotenv()
 
-# MEM0_CONFIG = {
-#     "llm": {
-#         "provider": "gemini",
-#         "config": {
-#             "model": "gemini-2.5-flash",
-#             "temperature": 0.2,
-#             "max_tokens": 2000,
-#             "top_p": 1.0
-#         }
-#     },
-#     "embedder": {
-#         "provider": "gemini",
-#         "config": {
-#             "model": "models/text-embedding-004",
-#         }
-#     },
-#     "vector_store": {
-#         "provider": "chroma",
-#         "config": {
-#             "collection_name": "memories",
-#             "path": "./chroma_db",
-#         }
-#     }
-# }
+MEM0_CONFIG = {
+    "llm": {
+        "provider": "gemini",
+        "config": {
+            "model": "gemini-2.5-flash",
+            "temperature": 0.2,
+            "max_tokens": 2000,
+            "top_p": 1.0
+        }
+    },
+    "embedder": {
+        "provider": "gemini",
+        "config": {
+            "model": "models/text-embedding-004",
+        }
+    },
+    "vector_store": {
+        "provider": "chroma",
+        "config": {
+            "collection_name": "memories",
+            "path": "./chroma_db",
+        }
+    }
+}
 
-# mem0 = Memory.from_config(MEM0_CONFIG)
+mem0 = Memory.from_config(MEM0_CONFIG)
+        
+def search_memory(query: str, category: str) -> dict:
+    """
+    Search through past conversations and memories. You should use this to search for any information
+    about the user that may be relevant to the current request, and should also be called if searching Google does not work.
+    If the user asks you if you remember certain information or facts, you MUST call this tool. Only say you don't remember something if this tool yields no results.
 
-# def search_memory(query: str, category: str) -> dict:
-#     """
-#     Search through past conversations and memories
+    Possible categories:
+    - "general" for general knowledge
+    - "command" for command history
+    - "preferences" for user preferences
+    """
+    print("Searching for memories")
+    try:
+        # Use ChromaDB $and operator format for filtering
+        memories = mem0.search(query, user_id="default")
+        if memories and "results" in memories:
+            memory_context = "\n".join([f"- {mem['memory']}" for mem in memories["results"]])
+            return {"status": "success", "memories": memory_context}
+        return {"status": "no_memories", "message": "No relevant memories found"}
+    except Exception as e:
+        print(f"Failed to search memory: {str(e)}") 
+        return {"status": "error", "message": f"Failed to search memory: {str(e)}"}
 
-#     Possible categories:
-#     - "general" for general knowledge
-#     - "command" for command history
-#     - "preferences" for user preferences
-#     """
-#     memories = mem0.search(query, user_id="default", filters={"category": category})
-#     if memories:
-#         memory_context = "\n".join([f"- {mem['memory']}" for mem in memories])
-#         return {"status": "success", "memories": memory_context}
-#     return {"status": "no_memories", "message": "No relevant memories found"}
 
-# def save_memory(content: str, category: str) -> dict:
-#     """
-#     Save important information to memory
+def save_memory(content: str, category: str) -> dict:
+    """
+    Save important information to memory. This can include any preferences the user mentions as well as general context knowledge that may be useful in a future conversation.
     
-#     Possible categories:
-#     - "general" for general knowledge
-#     - "command" for command history
-#     - "preferences" for user preferences
-#     """
-#     try:
-#         mem0.add([{"role": "user", "content": content}], user_id="default", metadata={"category": category})
-#         return {"status": "success", "message": "Information saved to memory"}
-#     except Exception as e:
-#         return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
+    Possible categories:
+    - "general" for general knowledge
+    - "command" for command history
+    - "preferences" for user preferences
+    """
+    try:
+        mem0.add([{"role": "user", "content": content}], user_id="default", metadata={"category": category})
+        return {"status": "success", "message": "Information saved to memory"}
+    except Exception as e:
+        print(f"Failed to save memory: {str(e)}")
+        return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
 
 def stop_streaming(function_name: str):
     """Stop the streaming
@@ -97,13 +107,12 @@ def end_conversation_session():
     This will mark the session for graceful closure after you finish your current response.
     The session will end after you complete your turn (e.g., saying "You're welcome, goodbye!").
     """
-    # Don't actually end the session here - just mark it for ending
-    # The session will end after the agent finishes speaking (TURN_COMPLETE)
+    print("ENDING CONVERSATION")
     return "Session marked for graceful closure after current response completes."
 
 util_tools = [
-    # search_memory,
-    # save_memory,
+    search_memory,
+    save_memory,
     stop_streaming,
     end_conversation_session
 ]
