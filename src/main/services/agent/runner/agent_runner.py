@@ -1,8 +1,7 @@
 """
 AgentRunner - Handles all agent-related operations and ADK session management
 """
-import warnings
-from typing import Dict, Optional, Tuple, Callable
+from typing import Tuple, Callable
 from pathlib import Path
 
 from google.adk.runners import Runner
@@ -11,7 +10,6 @@ from google.adk.agents.run_config import RunConfig, StreamingMode
 from google.adk.sessions import InMemorySessionService
 from google.adk.artifacts import InMemoryArtifactService
 from google.genai import types
-from google.genai.types import Modality
 
 # Import async agent creation function from parent agent module
 from ..agent import get_agent_async
@@ -31,12 +29,12 @@ class AgentRunner:
         
         # These will be set during initialize()
         self.current_session = None
-        self.agent = None
+        self.root_agent = None
         self.runner = None
         
         self.live_request_queue = LiveRequestQueue()
         # Set response modality (AUDIO for Luna) - matching old commit pattern
-        modality = [Modality.AUDIO]
+        modality = [types.Modality.AUDIO]
         self.runConfig = RunConfig(
             response_modalities=modality,
             speech_config=types.SpeechConfig(
@@ -65,11 +63,11 @@ class AgentRunner:
             state={}
         )
 
-        self.agent = await get_agent_async()
+        self.root_agent = await get_agent_async()
 
         self.runner = Runner(
             app_name=APP_NAME,
-            agent=self.agent,
+            agent=self.root_agent,
             session_service=self.session_service,
             artifact_service=self.artifact_service
         )

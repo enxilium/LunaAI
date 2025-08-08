@@ -22,6 +22,10 @@ module.exports = {
                     to: "agent/[name][ext]",
                 },
                 {
+                    from: "src/main/services/agent/tools/**/*.py",
+                    to: "agent/tools/[name][ext]",
+                },
+                {
                     from: "requirements.txt",
                     to: "requirements.txt",
                 },

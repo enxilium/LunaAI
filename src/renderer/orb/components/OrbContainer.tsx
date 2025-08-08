@@ -37,7 +37,7 @@ const OrbContainer: React.FC = () => {
 
     const stopSession = async () => {
         try {
-            sendMessage("stop-session");
+            sendMessage("stop_session");
             await stopListening();
             window.electron.send("hide-orb");
         } catch (err) {

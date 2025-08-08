@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
 from mem0 import Memory
+from typing import Dict, Any, List, Optional
+import asyncio
 
 load_dotenv()
 
@@ -24,14 +26,69 @@ MEM0_CONFIG = {
         "provider": "chroma",
         "config": {
             "collection_name": "memories",
-            "path": "./chroma_db",
+            "path": "./assets/data/chroma_db",
         }
     }
 }
 
 mem0 = Memory.from_config(MEM0_CONFIG)
+
+
+# Async versions for pattern recognition system
+async def search_memory(query: str, user_id: str = "default", limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Search through memories asynchronously.
+    
+    Args:
+        query: Search query
+        user_id: User identifier
+        limit: Maximum number of results
         
-def search_memory(query: str, category: str) -> dict:
+    Returns:
+        List of memory results
+    """
+    def _search_sync():
+        try:
+            memories = mem0.search(query, user_id=user_id, limit=limit)
+            if memories and "results" in memories:
+                return memories["results"]
+            return []
+        except Exception as e:
+            print(f"Failed to search memory: {str(e)}")
+            return []
+    
+    # Run in thread pool to avoid blocking
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _search_sync)
+
+
+async def save_memory(text: str, user_id: str = "default", metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+    """
+    Save information to memory asynchronously.
+    
+    Args:
+        text: Content to save
+        user_id: User identifier  
+        metadata: Additional metadata
+        
+    Returns:
+        Result dictionary with success/error info
+    """
+    def _save_sync():
+        try:
+            result = mem0.add([{"role": "user", "content": text}], user_id=user_id, metadata=metadata or {})
+            return {"status": "success", "id": result}
+        except Exception as e:
+            print(f"Failed to save memory: {str(e)}")
+            return {"status": "error", "message": str(e)}
+    
+    # Run in thread pool to avoid blocking
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _save_sync)
+
+
+# Sync versions for tool use (backwards compatibility)
+def search_memory_sync(query: str, category: str) -> dict:
     """
     Search through past conversations and memories. You should use this to search for any information
     about the user that may be relevant to the current request, and should also be called if searching Google does not work.
@@ -55,7 +112,7 @@ def search_memory(query: str, category: str) -> dict:
         return {"status": "error", "message": f"Failed to search memory: {str(e)}"}
 
 
-def save_memory(content: str, category: str) -> dict:
+def save_memory_sync(content: str, category: str) -> dict:
     """
     Save important information to memory. This can include any preferences the user mentions as well as general context knowledge that may be useful in a future conversation.
     
@@ -70,6 +127,7 @@ def save_memory(content: str, category: str) -> dict:
     except Exception as e:
         print(f"Failed to save memory: {str(e)}")
         return {"status": "error", "message": f"Failed to save memory: {str(e)}"}
+    
 
 def stop_streaming(function_name: str):
     """Stop the streaming
@@ -78,6 +136,7 @@ def stop_streaming(function_name: str):
         function_name: The name of the streaming function to stop.
     """
     pass
+
 
 def end_conversation_session():
     """End the current conversation session gracefully when the user indicates they are finished.
@@ -111,8 +170,8 @@ def end_conversation_session():
     return "Session marked for graceful closure after current response completes."
 
 util_tools = [
-    search_memory,
-    save_memory,
+    search_memory_sync,
+    save_memory_sync,
     stop_streaming,
     end_conversation_session
 ]
