@@ -33,6 +33,8 @@ MEM0_CONFIG = {
 
 mem0 = Memory.from_config(MEM0_CONFIG)
 
+mem0.reset() # TODO: Development mode for now for testing purposes.
+
 
 # Async versions for pattern recognition system
 async def search_memory(query: str, user_id: str = "default", limit: int = 10) -> List[Dict[str, Any]]:
