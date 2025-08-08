@@ -180,6 +180,25 @@ class ToolLogger:
             
             return results
     
+    def clear_all_logs(self) -> bool:
+        """
+        Clear all tool execution logs from the database
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM tool_executions")
+                deleted_count = cursor.rowcount
+                conn.commit()
+                print(f"[Tool Logger] Cleared {deleted_count} tool execution records")
+                return True
+        except Exception as e:
+            print(f"[Tool Logger] Error clearing logs: {e}")
+            return False
+    
     def get_tool_usage_stats(self, user_id: str = None, days: int = 30) -> Dict[str, Any]:
         """
         Get tool usage statistics

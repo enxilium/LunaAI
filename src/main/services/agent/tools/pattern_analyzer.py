@@ -23,37 +23,97 @@ class LLMPatternAnalyzer:
     
     def __init__(self, model: str = "gemini-2.5-flash"):
         """Initialize with Gemini client"""
-        # Get API key from config if not provided
-
         self.client = Client(api_key=GEMINI_API_KEY)
         self.model = model
     
     async def analyze_patterns(self, raw_patterns: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze raw patterns using Gemini to extract actionable insights"""
-        
-        if not self.client:
-            return {"error": "LLM client not initialized - missing API key"}
+
+        print("[PATTERN] Analyzing patterns with LLM...")
         
         # Create analysis prompt
         prompt = self._create_analysis_prompt(raw_patterns)
         
+        # Define response schema for structured output
+        response_schema = {
+            "type": "object",
+            "properties": {
+                "behavioral_insights": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["preference", "habit", "workflow", "optimization"],
+                                "description": "Type of behavioral insight"
+                            },
+                            "insight": {
+                                "type": "string",
+                                "description": "Clear, actionable insight about user behavior"
+                            },
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0.0,
+                                "maximum": 1.0,
+                                "description": "Confidence level in this insight"
+                            },
+                            "evidence": {
+                                "type": "string",
+                                "description": "What data supports this insight"
+                            }
+                        },
+                        "required": ["type", "insight", "confidence", "evidence"]
+                    }
+                },
+                "user_preferences": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "category": {
+                                "type": "string",
+                                "enum": ["time", "tools", "content", "workflow"],
+                                "description": "Category of preference"
+                            },
+                            "preference": {
+                                "type": "string",
+                                "description": "Specific preference identified"
+                            },
+                            "strength": {
+                                "type": "string",
+                                "enum": ["strong", "moderate", "weak"],
+                                "description": "Strength of the preference"
+                            },
+                            "evidence": {
+                                "type": "string",
+                                "description": "Supporting data for this preference"
+                            }
+                        },
+                        "required": ["category", "preference", "strength", "evidence"]
+                    }
+                }
+            },
+            "required": ["behavioral_insights", "user_preferences"]
+        }
+        
         try:
-            # Generate analysis using Gemini
+            # Generate analysis using Gemini with structured output
             response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=prompt,
                 config=GenerateContentConfig(
                     temperature=0.3,  # Lower temperature for more consistent analysis
-                    max_output_tokens=2000
+                    response_mime_type="application/json",
+                    response_schema=response_schema
                 )
             )
             
-            # Parse the response
+            # Parse the structured JSON response
             analysis_text = response.text
+            print(f"[PATTERN] Received structured analysis: {analysis_text}")
 
-            print("Received analysis:", analysis_text)
-
-            insights = self._parse_analysis_response(analysis_text)
+            insights = json.loads(analysis_text)
             
             return {
                 "success": True,
@@ -67,10 +127,14 @@ class LLMPatternAnalyzer:
             }
             
         except Exception as e:
+            print(f"[PATTERN] Error in LLM analysis: {e}")
             return {
                 "success": False,
                 "error": str(e),
-                "insights": []
+                "insights": {
+                    "behavioral_insights": [],
+                    "user_preferences": []
+                }
             }
     
     def _create_analysis_prompt(self, raw_patterns: Dict[str, Any]) -> str:
@@ -79,111 +143,77 @@ class LLMPatternAnalyzer:
         patterns_json = json.dumps(raw_patterns, indent=2)
         
         prompt = f"""
-You are an AI behavior analyst. Analyze the following tool usage patterns and extract actionable insights about user behavior, preferences, and potential optimizations.
+You are an AI behavior analyst. Analyze the following tool usage patterns and extract actionable insights about user behavior and preferences.
 
 TOOL USAGE DATA:
 {patterns_json}
 
-Please analyze this data and provide insights in the following JSON format:
+Based on this data, identify:
 
-{{
-    "behavioral_insights": [
-        {{
-            "type": "preference|habit|workflow|optimization",
-            "insight": "Clear, actionable insight about user behavior",
-            "confidence": 0.0-1.0,
-            "evidence": "What data supports this insight",
-            "actionable_suggestion": "What can be done with this insight"
-        }}
-    ],
-    "user_preferences": [
-        {{
-            "category": "time|tools|content|workflow",
-            "preference": "Specific preference identified",
-            "strength": "strong|moderate|weak",
-            "evidence": "Supporting data"
-        }}
-    ],
-    "optimization_opportunities": [
-        {{
-            "area": "performance|workflow|automation|suggestions",
-            "opportunity": "Specific optimization opportunity",
-            "impact": "high|medium|low",
-            "implementation": "How this could be implemented"
-        }}
-    ],
-    "notable_patterns": [
-        {{
-            "pattern": "Description of interesting pattern",
-            "frequency": "How often this occurs",
-            "significance": "Why this pattern matters"
-        }}
-    ]
-}}
+1. BEHAVIORAL INSIGHTS: Clear patterns in how the user behaves or works
+   - Look for time-based patterns (when they're most active, preferred working hours)
+   - Tool usage workflows and sequences
+   - Performance patterns and habits
+   - Only include insights with strong supporting evidence
 
-Focus on:
-1. Time-based behavior patterns (when user is most active, preferred working hours)
-2. Tool usage preferences and workflows
-3. Content preferences from search queries and tool inputs
-4. Performance patterns and potential optimizations
-5. Workflow inefficiencies or automation opportunities
+2. USER PREFERENCES: What the user clearly prefers or favors
+   - Time preferences (morning vs evening work)
+   - Tool preferences (frequently used tools)
+   - Content preferences (based on search queries, file types)
+   - Workflow preferences
 
-Be specific and actionable. Only include insights with strong supporting evidence from the data.
+Focus on insights that help personalize the user experience and are directly supported by the data.
+Be specific and actionable. Only include high-confidence insights.
 """
         
         return prompt
-    
-    def _parse_analysis_response(self, analysis_text: str) -> Dict[str, Any]:
-        """Parse the LLM response into structured insights"""
-        try:
-            # Try to extract JSON from the response
-            start_idx = analysis_text.find('{')
-            end_idx = analysis_text.rfind('}') + 1
-            
-            if start_idx != -1 and end_idx != -1:
-                json_str = analysis_text[start_idx:end_idx]
-                insights = json.loads(json_str)
-                return insights
-            else:
-                # If no JSON found, create a basic structure
-                return {
-                    "behavioral_insights": [
-                        {
-                            "type": "analysis",
-                            "insight": "Raw analysis provided",
-                            "confidence": 0.5,
-                            "evidence": "LLM response",
-                            "actionable_suggestion": analysis_text[:500]
-                        }
-                    ],
-                    "user_preferences": [],
-                    "optimization_opportunities": [],
-                    "notable_patterns": []
-                }
-                
-        except json.JSONDecodeError:
-            # Fallback for non-JSON responses
-            return {
-                "behavioral_insights": [
-                    {
-                        "type": "analysis",
-                        "insight": "Analysis could not be parsed as JSON",
-                        "confidence": 0.3,
-                        "evidence": "Raw LLM response",
-                        "actionable_suggestion": analysis_text[:500]
-                    }
-                ],
-                "user_preferences": [],
-                "optimization_opportunities": [],
-                "notable_patterns": [],
-                "raw_response": analysis_text
-            }
     
     async def generate_proactive_suggestions(self, insights: Dict[str, Any], current_context: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """Generate proactive suggestions based on insights and current context"""
         
         if not insights.get("success"):
             return []
+        
+        # Define suggestions response schema
+        suggestions_schema = {
+            "type": "object",
+            "properties": {
+                "suggestions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["automation", "optimization", "recommendation", "shortcut"],
+                                "description": "Type of suggestion"
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "Brief suggestion title"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Detailed description of the suggestion"
+                            },
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0.0,
+                                "maximum": 1.0,
+                                "description": "Confidence in suggestion value"
+                            },
+                            "timing": {
+                                "type": "string",
+                                "enum": ["immediate", "contextual", "scheduled"],
+                                "description": "When this suggestion should be offered"
+                            }
+                        },
+                        "required": ["type", "title", "description", "confidence", "timing"]
+                    }
+                }
+            },
+            "required": ["suggestions"]
+        }
         
         # Create suggestions prompt
         suggestions_prompt = self._create_suggestions_prompt(insights, current_context)
@@ -194,17 +224,18 @@ Be specific and actionable. Only include insights with strong supporting evidenc
                 contents=suggestions_prompt,
                 config=GenerateContentConfig(
                     temperature=0.4,
-                    max_output_tokens=1000
+                    response_mime_type="application/json",
+                    response_schema=suggestions_schema
                 )
             )
             
             suggestions_text = response.text
-            suggestions = self._parse_suggestions_response(suggestions_text)
+            parsed_suggestions = json.loads(suggestions_text)
             
-            return suggestions
+            return parsed_suggestions.get("suggestions", [])
             
         except Exception as e:
-            print(f"Error generating proactive suggestions: {e}")
+            print(f"[PATTERN] Error generating proactive suggestions: {e}")
             return []
     
     def _create_suggestions_prompt(self, insights: Dict[str, Any], current_context: Dict[str, Any] = None) -> str:
@@ -222,22 +253,7 @@ USER INSIGHTS:
 CURRENT CONTEXT:
 {context_json}
 
-Generate suggestions in this JSON format:
-
-{{
-    "suggestions": [
-        {{
-            "type": "automation|optimization|recommendation|shortcut",
-            "title": "Brief suggestion title",
-            "description": "Detailed description of the suggestion",
-            "confidence": 0.0-1.0,
-            "timing": "immediate|contextual|scheduled",
-            "implementation": "How this suggestion could be implemented"
-        }}
-    ]
-}}
-
-Focus on suggestions that:
+Generate suggestions that:
 1. Could save the user time
 2. Automate repetitive workflows
 3. Improve tool performance
@@ -245,20 +261,5 @@ Focus on suggestions that:
 5. Help with common user patterns
 
 Only suggest things with high confidence and clear value.
+Focus on actionable suggestions the user would actually find helpful.
 """
-    
-    def _parse_suggestions_response(self, suggestions_text: str) -> List[Dict[str, Any]]:
-        """Parse suggestions response into structured format"""
-        try:
-            start_idx = suggestions_text.find('{')
-            end_idx = suggestions_text.rfind('}') + 1
-            
-            if start_idx != -1 and end_idx != -1:
-                json_str = suggestions_text[start_idx:end_idx]
-                parsed = json.loads(json_str)
-                return parsed.get("suggestions", [])
-            else:
-                return []
-                
-        except json.JSONDecodeError:
-            return []

@@ -49,11 +49,16 @@ class StreamingServerService {
     getPythonExecutablePath() {
         if (!isPackaged) {
             // In development: use virtual environment Python
-            const venvPythonPath = path.join(
+            const venvPythonPath = process.platform != 'darwin' ? path.join(
                 process.cwd(),
                 ".venv",
                 "Scripts",
                 "python.exe"
+            ) : path.join(
+                process.cwd(),
+                ".venv",
+                "bin",
+                "python"
             );
 
             // Check if venv Python exists, fall back to system Python if not

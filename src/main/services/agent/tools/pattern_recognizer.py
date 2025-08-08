@@ -65,7 +65,6 @@ class PatternRecognizer:
                 }
             
             # Step 2: Analyze patterns with LLM
-            print("[PATTERN] Analyzing patterns with LLM...")
             llm_analysis = await self.analyzer.analyze_patterns(raw_patterns)
             
             if not llm_analysis.get("success"):
@@ -130,15 +129,15 @@ class PatternRecognizer:
             return False
     
     async def _save_insights_to_memory(self, insights: Dict[str, Any], raw_patterns: Dict[str, Any]) -> Dict[str, Any]:
-        """Save analyzed insights to Mem0 memory system"""
+        """Save analyzed insights to Mem0 memory system - only user preferences and behavioral insights"""
         saved_insights = []
         failed_saves = []
         
         try:
-            # Save behavioral insights
+            # Save behavioral insights only (things the agent can learn from)
             for insight in insights.get("behavioral_insights", []):
-                if insight.get("confidence", 0) >= 0.6:  # Only save high-confidence insights
-                    memory_text = f"User behavior pattern: {insight['insight']}. Evidence: {insight['evidence']}. Suggested action: {insight['actionable_suggestion']}"
+                if insight.get("confidence", 0) >= 0.7:  # Higher threshold for behavioral insights
+                    memory_text = f"User behavior: {insight['insight']}. Evidence: {insight['evidence']}"
                     
                     try:
                         result = await save_memory(
@@ -151,18 +150,22 @@ class PatternRecognizer:
                                 "analysis_date": datetime.now().isoformat()
                             }
                         )
+                        print(f"[MEMORY] Saved behavioral insight: {memory_text}")
+                        print(f"[MEMORY] Result: {result}")
+                        
                         saved_insights.append({
                             "type": "behavioral_insight",
                             "insight": insight["insight"],
                             "memory_id": result.get("id")
                         })
                     except Exception as e:
+                        print(f"[MEMORY] Failed to save behavioral insight: {e}")
                         failed_saves.append({"insight": insight["insight"], "error": str(e)})
             
-            # Save user preferences
+            # Save user preferences only (personalization data)
             for preference in insights.get("user_preferences", []):
                 if preference.get("strength") in ["strong", "moderate"]:
-                    memory_text = f"User preference: {preference['preference']} (strength: {preference['strength']}). Category: {preference['category']}. Evidence: {preference['evidence']}"
+                    memory_text = f"User prefers: {preference['preference']} ({preference['category']}). Strength: {preference['strength']}. Evidence: {preference['evidence']}"
                     
                     try:
                         result = await save_memory(
@@ -175,61 +178,17 @@ class PatternRecognizer:
                                 "analysis_date": datetime.now().isoformat()
                             }
                         )
+                        print(f"[MEMORY] Saved user preference: {memory_text}")
+                        print(f"[MEMORY] Result: {result}")
+                        
                         saved_insights.append({
                             "type": "user_preference",
                             "preference": preference["preference"],
                             "memory_id": result.get("id")
                         })
                     except Exception as e:
+                        print(f"[MEMORY] Failed to save user preference: {e}")
                         failed_saves.append({"preference": preference["preference"], "error": str(e)})
-            
-            # Save optimization opportunities
-            for optimization in insights.get("optimization_opportunities", []):
-                if optimization.get("impact") in ["high", "medium"]:
-                    memory_text = f"Optimization opportunity: {optimization['opportunity']} (impact: {optimization['impact']}). Area: {optimization['area']}. Implementation: {optimization['implementation']}"
-                    
-                    try:
-                        result = await save_memory(
-                            text=memory_text,
-                            user_id=self.user_id,
-                            metadata={
-                                "type": "optimization_opportunity",
-                                "area": optimization["area"],
-                                "impact": optimization["impact"],
-                                "analysis_date": datetime.now().isoformat()
-                            }
-                        )
-                        saved_insights.append({
-                            "type": "optimization_opportunity",
-                            "opportunity": optimization["opportunity"],
-                            "memory_id": result.get("id")
-                        })
-                    except Exception as e:
-                        failed_saves.append({"opportunity": optimization["opportunity"], "error": str(e)})
-            
-            # Save a summary of the analysis
-            summary_text = f"""Tool usage analysis summary: Analyzed {raw_patterns.get('analysis_metadata', {}).get('total_executions', 0)} tool executions over {self.days_to_analyze} days. 
-            Most used tools: {', '.join([tool['tool_name'] for tool in raw_patterns.get('tool_usage_patterns', {}).get('most_used_tools', [])[:3]])}. 
-            Peak usage hours: {', '.join([f"{hour}:00" for hour, count in raw_patterns.get('temporal_patterns', {}).get('peak_hours', [])[:2]])}."""
-            
-            try:
-                result = await save_memory(
-                    text=summary_text,
-                    user_id=self.user_id,
-                    metadata={
-                        "type": "usage_summary",
-                        "analysis_date": datetime.now().isoformat(),
-                        "days_analyzed": self.days_to_analyze,
-                        "total_executions": raw_patterns.get('analysis_metadata', {}).get('total_executions', 0)
-                    }
-                )
-                saved_insights.append({
-                    "type": "usage_summary",
-                    "summary": "Tool usage analysis summary",
-                    "memory_id": result.get("id")
-                })
-            except Exception as e:
-                failed_saves.append({"summary": "usage_summary", "error": str(e)})
             
             return {
                 "saved_insights": saved_insights,
@@ -239,6 +198,7 @@ class PatternRecognizer:
             }
             
         except Exception as e:
+            print(f"[MEMORY] Error in _save_insights_to_memory: {e}")
             return {
                 "saved_insights": [],
                 "failed_saves": [{"error": str(e)}],
