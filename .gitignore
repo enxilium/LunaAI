@@ -59,7 +59,8 @@ typings/
 
 # dotenv environment variables file
 .env
-.env.test
+.env.*
+luna_memory.db
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

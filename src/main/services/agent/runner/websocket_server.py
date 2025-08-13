@@ -76,6 +76,13 @@ class WebSocketServer:
             except Exception as e:
                 self.log_error(f"[WEBSOCKET] Error with client luna: {e}")
             finally:
+                # Await any pending pattern analysis before cleanup
+                try:
+                    from ..tools.callbacks import await_pending_analysis
+                    await await_pending_analysis()
+                except Exception as e:
+                    self.log_error(f"[WEBSOCKET] Error awaiting analysis: {e}")
+                
                 await self.agent_runner.end_conversation()
                 self.current_websocket = None
                 self.current_client_id = None

@@ -46,7 +46,7 @@ class AgentRunner:
                 ),
             ),
             support_cfc=True,
-            streaming_mode=StreamingMode.BIDI,
+            streaming_mode=StreamingMode.SSE,
         )
 
         self.log_info = log_info
@@ -79,6 +79,8 @@ class AgentRunner:
         self.log_info("[AGENT] Starting conversation session")
 
         await self._initialize()
+
+        self.log_info(f"[AGENT] Created session {self.current_session.id} for user default")
         
         live_events = self.runner.run_live(
             user_id="default",
@@ -208,6 +210,26 @@ class AgentRunner:
                     }
             except:
                 pass
+        
+        # Handle code execution events (executable_code and code_execution_result)
+        if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts') and event.content.parts:
+            for part in event.content.parts:
+                # Handle executable code generation
+                if hasattr(part, 'executable_code') and part.executable_code:
+                    code_snippet = getattr(part.executable_code, 'code', 'N/A')[:100]  # First 100 chars
+                    return {
+                        "type": "log_only",
+                        "log_message": f"CODE_GENERATED: {code_snippet}..."
+                    }
+                
+                # Handle code execution results
+                if hasattr(part, 'code_execution_result') and part.code_execution_result:
+                    outcome = getattr(part.code_execution_result, 'outcome', 'unknown')
+                    output_preview = str(getattr(part.code_execution_result, 'output', ''))[:50]  # First 50 chars
+                    return {
+                        "type": "log_only",
+                        "log_message": f"CODE_RESULT: {outcome} - {output_preview}..."
+                    }
         
         # Handle audio content (main content type for AUDIO modality)
         if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts') and event.content.parts:
