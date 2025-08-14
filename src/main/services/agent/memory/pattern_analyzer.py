@@ -22,7 +22,7 @@ from .memory_database import MemoryDatabase
 class LLMPatternAnalyzer:
     """Uses LLM to analyze raw patterns and extract semantic insights"""
     
-    def __init__(self, model: str = "gemini-2.5-flash"):
+    def __init__(self, model: str = "gemini-2.5-pro"):
         """Initialize with Gemini client and memory database"""
         # Load Analyzer-specific environment when needed
         load_env('analyzer')
