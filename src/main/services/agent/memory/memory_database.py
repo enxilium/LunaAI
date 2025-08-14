@@ -10,7 +10,6 @@ from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 
-
 class MemoryDatabase:
     """SQLite-based memory storage with confidence scoring"""
     
@@ -46,6 +45,7 @@ class MemoryDatabase:
                     tool TEXT NOT NULL,
                     arguments TEXT,
                     result TEXT,
+                    context TEXT,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -182,7 +182,7 @@ class MemoryDatabase:
             
             return deleted_count
     
-    def log_tool_execution(self, tool_name: str, tool_arguments: Any = None, tool_result: Any = None, timestamp: datetime = None):
+    def log_tool_execution(self, tool_name: str, tool_arguments: Any = None, tool_result: Any = None, context: str = None, timestamp: datetime = None):
         """Log a tool execution to the database"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -198,9 +198,9 @@ class MemoryDatabase:
                 timestamp_str = datetime.now().isoformat()
             
             cursor.execute("""
-                INSERT INTO tool_executions (tool, arguments, result, timestamp)
-                VALUES (?, ?, ?, ?)
-            """, (tool_name, arguments_json, result_json, timestamp_str))
+                INSERT INTO tool_executions (tool, arguments, result, context, timestamp)
+                VALUES (?, ?, ?, ?, ?)
+            """, (tool_name, arguments_json, result_json, context, timestamp_str))
             
             conn.commit()
             return cursor.lastrowid

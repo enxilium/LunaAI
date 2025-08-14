@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Tuple
 import json
 
 luna_prompt = """
-You are a helpful assistant that can perform a variety of tasks, from controlling the user's mouse and keyboard for desktop automation to calling third party MCPs to control the user's Spotify or Notion accounts. You have access to the user's video stream at all times but should analyze it only when asked to. Keep responses concise and direct, while maintaining a lighthearted, friendly personality.
+You are a helpful assistant that can perform a variety of tasks, from organizing files to manage and control the user's Spotify or Notion accounts. You have access to the user's video stream at all times but should analyze it only when asked to. Keep responses concise and direct, while maintaining a lighthearted, friendly personality. Don't ask too many questions unless further context is necessary, just execute the given task using your best judgment.
 
 Below are some of your utilities, which you should use when you see fit:
 1. Session Management:
@@ -44,64 +44,124 @@ delete_memory should be used sparingly and only when a memory is clearly incorre
 get_all_memories can be used to review all stored memories, which is helpful for understanding the full context of your relationship with the user.
 
 For example, if the user has told you before he always wanted to go Paris to visit and you saved this memory, if he asks "where should I go on vacation this year?" you should analyze his memories and suggest Paris unless told otherwise. Similarly, if the user mentioned at one point he enjoys a specific ingredient and asks at another time what he should make for dinner, you should suggest something that contains the favored ingredient in the recipe.
+
+3. Tool usage:
+Always use provided MCPs and functions. DO NOT attempt to generate your own code and execute it.
 """
 
-def create_analysis_prompt(raw_patterns: Dict[str, Any], stored_memories: List[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
-    """Create a structured prompt for pattern analysis including stored memories"""
+def create_analysis_prompt(analysis_data: Dict[str, Any]) -> Tuple[str, Dict[str, Any], str]:
+    """Create a structured prompt for comprehensive pattern analysis with system instructions"""
     
-    patterns_json = json.dumps(raw_patterns, indent=2)
+    tool_executions = analysis_data.get("tool_executions", [])
+    stored_memories = analysis_data.get("stored_memories", [])
+    
+    # Format tool executions for the prompt
+    tool_data = ""
+    if tool_executions:
+        tool_data = "RECENT TOOL EXECUTIONS:\n"
+        for i, execution in enumerate(tool_executions[:20], 1):  # Limit to most recent 20
+            tool_name = execution.get("tool", "unknown")
+            timestamp = execution.get("timestamp", "unknown")
+            arguments = execution.get("arguments", {})
+            context = execution.get("context", None)
+            context_str = f" | Context: {context}" if context else ""
+            tool_data += f"{i}. {tool_name} at {timestamp} with args: {arguments}{context_str}\n"
+    else:
+        tool_data = "No tool executions found.\n"
     
     # Format stored memories for the prompt
     memory_context = ""
     if stored_memories:
-        memory_context = "\n\nCURRENTLY STORED MEMORIES:\n"
+        memory_context = "\nCURRENTLY STORED MEMORIES:\n"
         for memory in stored_memories:
             memory_id = memory.get("id", "unknown")
             memory_text = memory.get("memory", "")
             confidence = memory.get("confidence", 0.0)
             memory_context += f"ID {memory_id} (confidence: {confidence:.2f}): {memory_text}\n"
     else:
-        memory_context = "\n\nNo stored memories found.\n"
+        memory_context = "\nNo stored memories found.\n"
     
+    # Simple prompt with just the data
     prompt = f"""
-You are analyzing user behavior patterns from tool usage data to determine memory modifications. The user has just executed a new tool. Here is a list of ONLY RELEVANT tools the user has used recently that relate to the current tool execution.
-
-TOOL USAGE DATA:
-{patterns_json}
-
-CONSERVATIVE ANALYSIS GUIDELINES:
-You must be EXTREMELY CONSERVATIVE with memory modifications. Only make changes when there is CLEAR, OBVIOUS, and REPEATED evidence in the tool data.
-
-EVIDENCE REQUIREMENTS:
-- **CREATE**: Requires 3+ related tool executions showing the same pattern/preference, OR 2+ executions of the exact same action at similar times
-- **REINFORCE**: Requires at least 2 new tool executions that directly support an existing memory
-- **WEAKEN**: Only when tool data CLEARLY contradicts an existing memory (not just absence of supporting data)
-- **UPDATE_CONTENT**: Only when new tool data provides significantly more specific information about an existing memory
-
-DO NOT MODIFY MEMORIES FOR:
-- Single tool executions (unless they are exact repeats of established patterns)
-- Vague correlations or assumptions
-- Tool data that could have multiple interpretations
-- Memories that are only tangentially related to the current tool usage
-- Time patterns with less than 3 occurrences at similar times
-
-ANALYSIS FOCUS (ONLY WHEN EVIDENCE IS STRONG):
-- Clear repeated tool usage patterns (same tools used together 3+ times)
-- Temporal patterns with consistent timing (3+ occurrences at similar times/days)
-- Obvious user preferences from repeated search queries or tool arguments
-- Workflow sequences that repeat consistently (3+ times in same order)
-
-Here is a list of currently stored memories about the user. ONLY modify memories that are DIRECTLY related to the current tool usage data.
+{tool_data}
 {memory_context}
 
-ANALYSIS GOAL:
-Return memory modifications ONLY when patterns are undeniably clear. Most of the time, you should return an empty list.
+Analyze the tool execution data and stored memories to identify temporal patterns and user preferences. Return appropriate memory modifications based on the patterns you identify.
+"""
+    
+    # Comprehensive system instructions
+    system_instruction = """
+You are analyzing user behavior patterns from tool usage data to identify TWO SPECIFIC TYPES of patterns:
+
+1. **TEMPORAL PATTERNS**: When the user tends to execute certain tools or actions
+2. **USER PREFERENCES & FACTS**: What the user likes, dislikes, or factual information about them
+
+FOCUSED ANALYSIS GUIDELINES:
+You must ONLY focus on these two pattern types. Ignore all other patterns or behaviors.
+
+**TEMPORAL PATTERNS TO IDENTIFY:**
+- Daily routines (e.g., "User checks weather every morning around 8 AM")
+- Weekly patterns (e.g., "User plays music on Friday evenings")
+- Contextual timing (e.g., "User sets timers when working", "User searches for restaurants around lunch time")
+- Time-based preferences (e.g., "User prefers energetic music in the morning")
+
+**USER PREFERENCES & FACTS TO IDENTIFY:**
+- Music preferences (genre, artists, mood-based preferences)
+- Contextual preferences (e.g., "User prefers classical music when studying", "User likes upbeat music for workouts")
+- Food preferences and dietary restrictions  
+- Work habits and productivity patterns
+- Entertainment preferences
+- Personal facts and characteristics
+- Activity-based preferences (e.g., "User prefers jazz when relaxing", "User likes podcasts while commuting")
+
+EVIDENCE REQUIREMENTS:
+- **CREATE TEMPORAL MEMORY**: Requires 3+ tool executions at similar times/contexts
+- **CREATE PREFERENCE MEMORY**: Requires 3+ tool executions showing the same preference/choice, OR 2+ executions with clear context
+- **REINFORCE**: Requires 2+ new executions supporting existing memory
+- **WEAKEN**: Only when data clearly contradicts existing memory
+- **UPDATE_CONTENT**: When new data provides more specific information
+
+**CONTEXT PARAMETER IMPORTANCE:**
+Pay special attention to the 'context' parameter in tool executions. This provides crucial information about WHY the user made a request, which helps identify contextual preferences.
+
+Examples:
+- play_song(genre="classical", context="studying") → "User prefers classical music when studying"
+- play_song(genre="rock", context="working out") → "User likes rock music for workouts"
+- play_song(genre="ambient", context="relaxing") → "User prefers ambient music for relaxation"
+
+IGNORE THESE PATTERNS:
+- Workflow sequences unrelated to time or preferences
+- Tool usage frequency without temporal context
+- Technical patterns that don't reveal user preferences or timing
+
+ANALYSIS FOCUS EXAMPLES:
+
+**GOOD TEMPORAL PATTERNS:**
+✅ "User plays music every evening around 7 PM"
+✅ "User checks weather every morning between 7-9 AM"
+✅ "User uses timer tool during work hours (9 AM - 5 PM)"
+
+**GOOD PREFERENCE/FACT PATTERNS:**
+✅ "User prefers jazz music when working"
+✅ "User enjoys spicy food"
+✅ "User works in 25-minute focused sessions"
+
+**BAD PATTERNS TO IGNORE:**
+❌ "User frequently uses search tool" (no temporal or preference context)
+❌ "User uses tools in sequence" (workflow, not preference/timing)
+❌ "User has used 5 different tools" (frequency, not preference/timing)
+
+MEMORY CONTENT REQUIREMENTS:
+- For temporal patterns: Include specific times, days, or contexts
+- For preferences: Include what they prefer and when/why (if clear from context)
+- Be specific and actionable for future assistance
+- Base only on factual observations from tool data
 
 MODIFICATION TYPES:
-1. **CREATE**: Add a new memory ONLY for patterns with overwhelming evidence
-2. **REINFORCE**: Increase confidence ONLY when new data strongly supports existing memory
-3. **WEAKEN**: Decrease confidence ONLY when data clearly contradicts existing memory  
-4. **UPDATE_CONTENT**: Modify ONLY when new data provides significantly more specific information
+1. **CREATE**: Add a new memory for patterns with strong evidence across multiple tool executions
+2. **REINFORCE**: Increase confidence when new data strongly supports existing memory
+3. **WEAKEN**: Decrease confidence when data clearly contradicts existing memory  
+4. **UPDATE_CONTENT**: Modify when new data provides significantly more specific information
 
 CRITICAL FORMATTING RULES:
 - For "create" action: set "id" to null, MUST include "memory" with the new memory text
@@ -109,29 +169,11 @@ CRITICAL FORMATTING RULES:
 - For "weaken" action: MUST include "id" with the memory ID, set "memory" to null  
 - For "update_content" action: MUST include both "id" with memory ID AND "memory" with new text
 
-MEMORY QUALITY REQUIREMENTS:
-- Must be based on factual, repeated observations from the tool data
-- Include timing information ONLY when there are 3+ consistent time-based occurrences
-- Avoid assumptions or interpretations - stick to what the data clearly shows
-- Focus on patterns that would genuinely help provide better assistance
-
-EXAMPLES OF SUFFICIENT EVIDENCE:
-- User played 5 different EDM songs in the past week = "User enjoys EDM music"
-- User searches weather every day at 8 AM for a week = "User checks weather every morning around 8 AM"
-- User uses timer tool for 25 minutes, then break, repeated 4 times = "User works in 25-minute focused sessions"
-
-EXAMPLES OF INSUFFICIENT EVIDENCE (DO NOT CREATE MEMORIES):
-- User played one song = Cannot determine music preference
-- User searched something twice = Not enough for a pattern
-- User used a tool at similar times twice = Need more occurrences for timing pattern
-
-WHEN IN DOUBT, DO NOT MODIFY. It's better to miss a pattern than create incorrect memories.
-
 STRICT FORMATTING REQUIREMENTS:
 1. Every object MUST have "action", "id", and "memory" fields
 2. Use null for fields not needed by that action type
-3. Never omit required fields - use null instead
-4. Most analyses should return an empty modifications array
+3. Focus ONLY on temporal patterns and user preferences/facts
+4. Ignore all other types of patterns
 """
     
     response_schema = {
@@ -148,14 +190,14 @@ STRICT FORMATTING REQUIREMENTS:
                             "description": "Type of memory modification to perform"
                         },
                         "id": {
-                            "any_of": [
+                            "anyOf": [
                                 {"type": "INTEGER"},
                                 {"type": "NULL"}
                             ],
                             "description": "Memory ID for reinforce/weaken/update_content actions, null for create"
                         },
                         "memory": {
-                            "any_of": [
+                            "anyOf": [
                                 {"type": "STRING"},
                                 {"type": "NULL"}
                             ],
@@ -170,5 +212,4 @@ STRICT FORMATTING REQUIREMENTS:
         "required": ["memory_modifications"]
     }
     
-    return prompt, response_schema
-
+    return prompt, response_schema, system_instruction

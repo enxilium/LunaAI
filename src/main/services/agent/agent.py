@@ -7,10 +7,11 @@ from .tools import get_async_tools
 from .prompts import luna_prompt
 from .tools.callbacks import after_tool_callback
 
-
 async def get_agent_async():
     """Creates an ADK Agent equipped with MCP tools and tool logging asynchronously"""
     
+    print("Initializing agent session")
+
     # Load Luna-specific environment when needed
     load_env('luna')
     
@@ -23,7 +24,7 @@ async def get_agent_async():
         description="A multimodal AI agent that can monitor video streams, answer questions, provide information, and assist with various tasks including UI automation. Has persistent memory capabilities and learns from usage patterns to provide proactive suggestions.",
         instruction=luna_prompt,
         tools=all_tools,
-        after_tool_callback=after_tool_callback,
+        after_tool_callback=after_tool_callback
     )
     
     return agent

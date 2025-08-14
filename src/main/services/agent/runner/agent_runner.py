@@ -225,10 +225,10 @@ class AgentRunner:
                 # Handle code execution results
                 if hasattr(part, 'code_execution_result') and part.code_execution_result:
                     outcome = getattr(part.code_execution_result, 'outcome', 'unknown')
-                    output_preview = str(getattr(part.code_execution_result, 'output', ''))[:50]  # First 50 chars
+                    output = str(getattr(part.code_execution_result, 'output', ''))  # First 50 chars
                     return {
                         "type": "log_only",
-                        "log_message": f"CODE_RESULT: {outcome} - {output_preview}..."
+                        "log_message": f"CODE_RESULT: {outcome} - {output}..."
                     }
         
         # Handle audio content (main content type for AUDIO modality)

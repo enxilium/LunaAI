@@ -84,7 +84,7 @@ def get_all_memories() -> Dict[str, Any]:
         return {"status": "error", "message": str(e), "memories": []}
 
 
-def modify_memory(memory_id: int, new_text: Optional[str], new_confidence: Optional[float]) -> Dict[str, Any]:
+def modify_memory(memory_id: int, new_text: str, new_confidence: Optional[float]) -> Dict[str, Any]:
     """
     Modify an existing memory's content or confidence.
     
@@ -197,13 +197,21 @@ def end_conversation_session():
     return "Session marked for graceful closure after current response completes."
 
 # NOTE: This is a test tool.
-def play_song(genre: Optional[str], song_title: Optional[str], artist: Optional[str]):
+def play_song(genre: Optional[str] = None, song_title: Optional[str] = None, artist: Optional[str] = None, context: Optional[str] = None):
     """
     Play a song from the user's playlist. At least one of genre, song_title, or artist must be provided.
+    
+    Args:
+        genre: The music genre to play (optional)
+        song_title: Specific song title to play (optional)
+        artist: Specific artist to play (optional)
+        context: Optional context about why the user is requesting music (e.g., "studying", "working out", "relaxing")
     """
-    pass
-
-    return "Playing song from user's playlist."
+    # Validate that at least one parameter is provided
+    if not any([genre, song_title, artist]):
+        return {"status": "error", "message": "At least one of genre, song_title, or artist must be provided"}
+    
+    return {"status": "success", "message": "Playing song from user's playlist."}
 
 
 # Export the tools

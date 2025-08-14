@@ -9,7 +9,6 @@ import json
 from datetime import datetime
 from typing import Dict, List, Any
 
-from .pattern_extractor import AlgorithmicPatternExtractor
 from .pattern_analyzer import LLMPatternAnalyzer
 from .memory_database import MemoryDatabase
 
@@ -22,67 +21,70 @@ class PatternRecognizer:
         self.days_to_analyze = days_to_analyze
         
         # Initialize components
-        self.extractor = AlgorithmicPatternExtractor()
         self.analyzer = LLMPatternAnalyzer()
         self.memory_db = MemoryDatabase()
         
         # Track last analysis to avoid over-processing
         self.last_analysis_timestamp = None
-        self.min_analysis_interval_minutes = 30  # Don't analyze more than once per 30 minutes
     
     async def recognize_patterns_async(self, trigger_context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Asynchronously recognize patterns from tool execution data
-        
-        Args:
-            trigger_context: Context about what triggered this analysis (optional)
-            
-        Returns:
-            Dictionary containing analysis results and saved insights
         """
+        # Get total tool executions count to determine if we should run analysis
+        total_tool_count = len(self.memory_db.get_tool_executions(limit=1000))
+        
+        # In development: run on every tool call
+        # In production: run every 10 tool calls
+        is_development = True  # TODO: Set this based on environment
+        
+        if is_development:
+            should_analyze = True
+        else:
+            should_analyze = (total_tool_count % 10 == 0)
+        
+        if not should_analyze:
+            return {
+                "skipped": True,
+                "reason": f"Waiting for analysis interval (tool count: {total_tool_count})",
+                "total_tool_count": total_tool_count
+            }
+        
+        # Get ALL tool executions for comprehensive analysis
+        all_tool_executions = self.memory_db.get_tool_executions(limit=100)
+        
+        # Get ALL stored memories for context
+        stored_memories = self.memory_db.get_memories(min_confidence=0.0)
+        
+        # Log what we're analyzing (required log #2)
+        print(f"[RELEVANT TOOLS] ALL (Total: {len(all_tool_executions)} executions)")
+        
+        analysis_data = {
+            "tool_executions": all_tool_executions,
+            "stored_memories": stored_memories,
+            "total_executions": len(all_tool_executions),
+            "analysis_trigger": "comprehensive_analysis"
+        }
+        
+        # Analyze patterns with LLM
+        llm_analysis = await self.analyzer.analyze_patterns(analysis_data)
+        
+        if not llm_analysis.get("success"):
+            print(f"[PATTERN ANALYZER ERROR] {llm_analysis.get('error')}")
+            return {
+                "success": False,
+                "error": llm_analysis.get("error"),
+                "analysis_data": analysis_data
+            }
+        
+        # Save insights to memory database
+        memory_results = await self._save_insights_to_memory(llm_analysis.get("memory_modifications", []))
+        
+        # Print memory modifications for visibility (required log #3)
+        # Wrapped in try-catch to prevent silent failures
         try:
-            # Check if we should skip analysis (too soon since last run)
-            if self._should_skip_analysis():
-                return {
-                    "skipped": True,
-                    "reason": "Analysis interval not met",
-                    "last_analysis": self.last_analysis_timestamp
-                }
-            
-            # Get target tool from trigger context
-            target_tool = trigger_context.get("last_tool") if trigger_context else None
-            
-            # Extract raw patterns for similar tool analysis
-            raw_patterns = self.extractor.generate_similar_tool_summary(target_tool, self.days_to_analyze)
-            
-            # Check if we have sufficient relevant data for analysis
-            total_executions = raw_patterns.get("similar_tool_patterns", {}).get("analysis_metadata", {}).get("total_executions", 0)
-            
-            # Lowered threshold - need at least 3 relevant executions for meaningful analysis
-            if total_executions < 3:
-                return {
-                    "skipped": True,
-                    "reason": f"Insufficient relevant data for meaningful analysis (< 3 executions)",
-                    "total_executions": total_executions,
-                    "target_tool": target_tool
-                }
-            
-            # Analyze patterns with LLM
-            llm_analysis = await self.analyzer.analyze_patterns(raw_patterns)
-            
-            if not llm_analysis.get("success"):
-                return {
-                    "success": False,
-                    "error": llm_analysis.get("error"),
-                    "raw_patterns": raw_patterns
-                }
-            
-            # Save insights to memory database
-            memory_results = await self._save_insights_to_memory(llm_analysis.get("memory_modifications", []), raw_patterns)
-            
-            # Print memory modifications for visibility
             if memory_results.get("saved_insights"):
-                print(f"\n[MEMORY MODIFICATIONS]:")
+                print(f"[MEMORY MODIFICATIONS]:")
                 for i, insight in enumerate(memory_results["saved_insights"], 1):
                     action = insight.get("action")
                     memory_text = insight.get("memory", "")
@@ -99,37 +101,32 @@ class PatternRecognizer:
                     elif action == "updated":
                         print(f"   {i}. Updated memory ID {memory_id}: '{memory_text}'")
             else:
-                print(f"\n[MEMORY MODIFICATIONS]: No changes made")
-            
-            # Clean up low-confidence memories
-            cleanup_threshold = 0.1
-            deleted_count = self.memory_db.cleanup_low_confidence_memories(cleanup_threshold)
-            
-            # Update last analysis timestamp
-            self.last_analysis_timestamp = datetime.now().isoformat()
-            
-            return {
-                "success": True,
-                "analysis_timestamp": self.last_analysis_timestamp,
-                "target_tool": target_tool,
-                "total_executions": total_executions,
-                "insights_saved_count": len(memory_results.get("saved_insights", [])),
-                "memories_cleaned_up": deleted_count
-            }
-            
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            }
+                print(f"[MEMORY MODIFICATIONS]: No changes made")
+        except Exception as logging_error:
+            print(f"[MEMORY MODIFICATIONS LOGGING ERROR]: {str(logging_error)}")
+            print(f"[MEMORY MODIFICATIONS]: {len(memory_results.get('saved_insights', []))} modifications processed (logging failed)")
+        
+        # Clean up low-confidence memories
+        cleanup_threshold = 0.1
+        deleted_count = self.memory_db.cleanup_low_confidence_memories(cleanup_threshold)
+        
+        # Update last analysis timestamp
+        self.last_analysis_timestamp = datetime.now().isoformat()
+        
+        return {
+            "success": True,
+            "analysis_timestamp": self.last_analysis_timestamp,
+            "total_executions": len(all_tool_executions),
+            "insights_saved_count": len(memory_results.get("saved_insights", [])),
+            "memories_cleaned_up": deleted_count
+        }
     
     def _should_skip_analysis(self) -> bool:
         """Check if analysis should be skipped based on timing - DISABLED FOR TESTING"""
         # Disable throttling for comprehensive testing
         return False
     
-    async def _save_insights_to_memory(self, memory_modifications: List[Dict[str, Any]], raw_patterns: Dict[str, Any]) -> Dict[str, Any]:
+    async def _save_insights_to_memory(self, memory_modifications: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Process memory modifications and save pattern insights to database"""
         saved_insights = []
         failed_saves = []
@@ -202,19 +199,14 @@ class PatternRecognizer:
     
     async def get_relevant_insights(self) -> List[Dict[str, Any]]:
         """Retrieve relevant insights from memory using deterministic category filtering"""
-        try:
-            # Get all memories with learned_behaviors category
-            memories = self.memory_db.get_memories(min_confidence=0.3)
-            
-            # Filter by category
-            learned_behaviors = []
-            for memory in memories:
-                metadata = memory.get("metadata", {})
-                if metadata.get("category") == "learned_behaviors":
-                    learned_behaviors.append(memory)
-            
-            return learned_behaviors
-            
-        except Exception as e:
-            print(f"Error retrieving insights: {e}")
-            return []
+        # Get all memories with learned_behaviors category
+        memories = self.memory_db.get_memories(min_confidence=0.3)
+        
+        # Filter by category
+        learned_behaviors = []
+        for memory in memories:
+            metadata = memory.get("metadata", {})
+            if metadata.get("category") == "learned_behaviors":
+                learned_behaviors.append(memory)
+        
+        return learned_behaviors
