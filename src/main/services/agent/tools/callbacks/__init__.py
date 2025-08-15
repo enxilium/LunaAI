@@ -2,7 +2,13 @@ from google.adk.tools.tool_context import ToolContext
 from google.adk.tools.base_tool import BaseTool
 from typing import Dict, Any, Optional, Set
 import asyncio
-from ...memory.memory_database import MemoryDatabase
+
+try:
+    # Try relative import first (for normal package usage)
+    from ...memory.memory_database import MemoryDatabase
+except ImportError:
+    # Fall back to absolute import (for direct execution)
+    from memory.memory_database import MemoryDatabase
 
 # Global set to track active pattern analysis tasks
 _active_analysis_tasks: Set[asyncio.Task] = set()

@@ -6,7 +6,12 @@ Memory management and tool execution helpers
 
 from typing import List, Dict, Any, Optional
 
-from ..memory.memory_database import MemoryDatabase
+try:
+    # Try relative import first (for normal package usage)
+    from ..memory.memory_database import MemoryDatabase
+except ImportError:
+    # Fall back to absolute import (for direct execution)
+    from memory.memory_database import MemoryDatabase
 
 # Get singleton memory database instance - handles both memories and tool executions
 memory_db = MemoryDatabase.get_instance()

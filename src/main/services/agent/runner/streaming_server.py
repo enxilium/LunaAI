@@ -9,6 +9,11 @@ import warnings
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Add the agent directory to Python path for proper imports
+agent_dir = Path(__file__).parent.parent
+if str(agent_dir) not in sys.path:
+    sys.path.insert(0, str(agent_dir))
+
 # Suppress known deprecation warnings from third-party libraries
 # These warnings are from library internals and will be resolved when the libraries upgrade
 

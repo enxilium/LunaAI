@@ -6,7 +6,13 @@ import webbrowser
 import sqlite3
 from typing import List, Dict, Any, Optional
 from pathlib import Path
-from ..memory.memory_database import MemoryDatabase
+
+try:
+    # Try relative import first (for normal package usage)
+    from ..memory.memory_database import MemoryDatabase
+except ImportError:
+    # Fall back to absolute import (for direct execution)
+    from memory.memory_database import MemoryDatabase
 
 # Whoosh imports for fast searching
 from whoosh.index import create_in, open_dir, exists_in

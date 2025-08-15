@@ -86,45 +86,39 @@ class StreamingServerService {
             return true;
         }
 
-        try {
-            // Check if the server script exists
-            if (!fs.existsSync(this.serverScriptPath)) {
-                throw new Error(
-                    `Streaming server script not found at: ${this.serverScriptPath}`
-                );
-            }
-
-            // Spawn the Python process as a module to support relative imports
-            this.serverProcess = spawn(
-                this.pythonExecutablePath,
-                ["-m", "src.main.services.agent.runner.streaming_server"],
-                {
-                    cwd: process.cwd(), // Run from project root for module imports
-                    stdio: ["pipe", "pipe", "pipe"], // Capture stdout/stderr for our explicit logs
-                    env: {
-                        ...process.env,
-                        PYTHONPATH: path.dirname(this.serverScriptPath),
-                    },
-                }
+        // Check if the server script exists
+        if (!fs.existsSync(this.serverScriptPath)) {
+            throw new Error(
+                `Streaming server script not found at: ${this.serverScriptPath}`
             );
-
-            this.setupEventHandlers();
-
-            await this.waitForServerReady();
-
-            this.isRunning = true;
-
-            logger.success(
-                "StreamingServer",
-                `Server started successfully on ${this.serverHost}:${this.serverPort}`
-            );
-            
-            return true;
-        } catch (error) {
-            logger.error("StreamingServer", "Failed to start server:", error);
-            this.cleanup();
-            return false;
         }
+
+        // Spawn the Python process as a module to support relative imports
+        this.serverProcess = spawn(
+            this.pythonExecutablePath,
+            ["-m", "src.main.services.agent.runner.streaming_server"],
+            {
+                cwd: process.cwd(), // Run from project root for module imports
+                stdio: ["pipe", "pipe", "pipe"], // Capture stdout/stderr for our explicit logs
+                env: {
+                    ...process.env,
+                    PYTHONPATH: path.dirname(this.serverScriptPath),
+                },
+            }
+        );
+
+        this.setupEventHandlers();
+
+        await this.waitForServerReady();
+
+        this.isRunning = true;
+
+        logger.success(
+            "StreamingServer",
+            `Server started successfully on ${this.serverHost}:${this.serverPort}`
+        );
+        
+        return true;
     }
 
     /**
@@ -198,16 +192,9 @@ class StreamingServerService {
     /**
      * Wait for the server to be ready to accept connections
      */
-    async waitForServerReady(timeout = 30000) {
-        return new Promise((resolve, reject) => {
-            const startTime = Date.now();
-
+    async waitForServerReady() {
+        return new Promise((resolve) => {
             const checkServer = async () => {
-                if (Date.now() - startTime > timeout) {
-                    reject(new Error("Server startup timeout"));
-                    return;
-                }
-
                 try {
                     // Try to make a health check request
                     const response = await fetch(
