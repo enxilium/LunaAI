@@ -17,7 +17,7 @@ class AlgorithmicPatternExtractor:
     
     def __init__(self):
         """Initialize with memory database connection"""
-        self.memory_db = MemoryDatabase()
+        self.memory_db = MemoryDatabase.get_instance()
     
     def extract_temporal_patterns(self, days_back: int = 30) -> Dict[str, Any]:
         """Extract time-based usage patterns"""

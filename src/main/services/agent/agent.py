@@ -1,4 +1,4 @@
-import os
+import logging
 from google.adk.agents import Agent
 from google.adk.tools import google_search
 
@@ -6,6 +6,8 @@ from .util import load_env
 from .tools import get_async_tools
 from .prompts import luna_prompt
 from .tools.callbacks import after_tool_callback
+
+logging.getLogger("google_adk.google.adk.tools.base_authenticated_tool").setLevel(logging.ERROR)
 
 async def get_agent_async():
     """Creates an ADK Agent equipped with MCP tools and tool logging asynchronously"""

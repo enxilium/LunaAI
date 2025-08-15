@@ -14,6 +14,9 @@ from google.genai import types
 # Import async agent creation function from parent agent module
 from ..agent import get_agent_async
 
+# Import workspace system initialization
+from ..tools.workspaces import initialize_workspace_system
+
 # Application constants
 APP_NAME = "LUNA"
 
@@ -54,9 +57,14 @@ class AgentRunner:
 
         # Flag to track when end_conversation_session tool has been called
         self.pendingClose = False
+
+        self.log_info("[AGENT] Initializing workspace system...")
+        initialize_workspace_system()
     
     async def _initialize(self):
         """Async initialization - call this after creating AgentRunner instance"""
+        # Initialize workspace system for program searching
+        
         self.current_session = await self.session_service.create_session(
             app_name=APP_NAME,
             user_id="default",

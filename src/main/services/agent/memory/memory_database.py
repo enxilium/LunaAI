@@ -6,22 +6,51 @@ Simple, efficient memory storage with confidence scores
 
 import sqlite3
 import json
+import os
+import platform
+import subprocess
+import threading
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
 from pathlib import Path
 
 class MemoryDatabase:
-    """SQLite-based memory storage with confidence scoring"""
+    """SQLite-based memory storage with confidence scoring - Singleton Pattern"""
+    
+    _instance = None
+    _lock = threading.Lock()
+    _initialized = False
+    
+    def __new__(cls, db_path: str = None):
+        """Thread-safe singleton implementation"""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
     
     def __init__(self, db_path: str = None):
-        """Initialize with database connection"""
-        if db_path is None:
-            # Get the project root and place memory db in assets/data
-            project_root = Path(__file__).parents[5]  # Go up 5 levels
-            db_path = str(project_root / "assets" / "data" / "luna_memory.db")
-        
-        self.db_path = db_path
-        self._init_database()
+        """Initialize with database connection (only once due to singleton)"""
+        if self._initialized:
+            return
+            
+        with self._lock:
+            if self._initialized:
+                return
+                
+            if db_path is None:
+                # Get the project root and place memory db in assets/data
+                project_root = Path(__file__).parents[5]  # Go up 5 levels
+                db_path = str(project_root / "assets" / "data" / "luna_memory.db")
+            
+            self.db_path = db_path
+            self._init_database()
+            self._initialized = True
+    
+    @classmethod
+    def get_instance(cls, db_path: str = None) -> 'MemoryDatabase':
+        """Get the singleton instance explicitly"""
+        return cls(db_path)
     
     def _init_database(self):
         """Initialize database schema"""
@@ -50,11 +79,34 @@ class MemoryDatabase:
                 )
             """)
             
+            # Create workspaces table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS workspaces (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    description TEXT,
+                    programs TEXT NOT NULL,
+                    links TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    usage_count INTEGER DEFAULT 0
+                )
+            """)
+            
+            # Add links column if it doesn't exist (for existing databases)
+            try:
+                cursor.execute("ALTER TABLE workspaces ADD COLUMN links TEXT")
+            except sqlite3.OperationalError:
+                # Column already exists
+                pass
+            
             # Create indices for performance
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_memories_confidence ON memories(confidence DESC)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_memories_updated ON memories(last_updated DESC)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tool_executions_tool ON tool_executions(tool)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tool_executions_timestamp ON tool_executions(timestamp)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_workspaces_last_used ON workspaces(last_used DESC)")
             
             conn.commit()
     
@@ -277,8 +329,129 @@ class MemoryDatabase:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM memories")
             cursor.execute("DELETE FROM tool_executions")
+            cursor.execute("DELETE FROM workspaces")
             # Reset auto-increment counters
             cursor.execute("DELETE FROM sqlite_sequence WHERE name='memories'")
             cursor.execute("DELETE FROM sqlite_sequence WHERE name='tool_executions'")
+            cursor.execute("DELETE FROM sqlite_sequence WHERE name='workspaces'")
             conn.commit()
             return cursor.rowcount
+    
+    # Workspace Management Methods
+    
+    def add_workspace(self, name: str, programs: List[str], description: str = None, links: List[str] = None) -> int:
+        """Add a new workspace to the database"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            programs_json = json.dumps(programs)
+            links_json = json.dumps(links if links else [])
+            
+            cursor.execute("""
+                INSERT INTO workspaces (name, description, programs, links)
+                VALUES (?, ?, ?, ?)
+            """, (name, description, programs_json, links_json))
+            
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_workspaces(self, limit: int = None) -> List[Dict[str, Any]]:
+        """Retrieve all workspaces, ordered by last used"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT id, name, description, programs, links, created_at, last_used, usage_count
+                FROM workspaces 
+                ORDER BY last_used DESC
+            """
+            
+            if limit:
+                query += f" LIMIT {limit}"
+            
+            cursor.execute(query)
+            
+            workspaces = []
+            for row in cursor.fetchall():
+                workspace = dict(row)
+                workspace['programs'] = json.loads(workspace['programs'])
+                workspace['links'] = json.loads(workspace['links']) if workspace['links'] else []
+                workspaces.append(workspace)
+            
+            return workspaces
+    
+    def get_workspace_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Get a workspace by name"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                SELECT id, name, description, programs, links, created_at, last_used, usage_count
+                FROM workspaces 
+                WHERE name = ?
+            """, (name,))
+            
+            row = cursor.fetchone()
+            if row:
+                workspace = dict(row)
+                workspace['programs'] = json.loads(workspace['programs'])
+                workspace['links'] = json.loads(workspace['links']) if workspace['links'] else []
+                return workspace
+            return None
+    
+    def update_workspace_usage(self, workspace_id: int):
+        """Update workspace last used time and increment usage count"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                UPDATE workspaces 
+                SET last_used = CURRENT_TIMESTAMP, usage_count = usage_count + 1
+                WHERE id = ?
+            """, (workspace_id,))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    def delete_workspace(self, workspace_id: int) -> bool:
+        """Delete a workspace by ID"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute("DELETE FROM workspaces WHERE id = ?", (workspace_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    def search_workspaces(self, query: str) -> List[Dict[str, Any]]:
+        """Search workspaces by name, description, programs, or links"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            search_terms = query.lower().split()
+            like_conditions = " OR ".join([
+                "LOWER(name) LIKE ? OR LOWER(description) LIKE ? OR LOWER(programs) LIKE ? OR LOWER(links) LIKE ?" 
+                for _ in search_terms
+            ])
+            like_params = []
+            for term in search_terms:
+                like_params.extend([f"%{term}%", f"%{term}%", f"%{term}%", f"%{term}%"])
+            
+            cursor.execute(f"""
+                SELECT id, name, description, programs, links, created_at, last_used, usage_count
+                FROM workspaces 
+                WHERE {like_conditions}
+                ORDER BY usage_count DESC, last_used DESC
+                LIMIT 10
+            """, like_params)
+            
+            workspaces = []
+            for row in cursor.fetchall():
+                workspace = dict(row)
+                workspace['programs'] = json.loads(workspace['programs'])
+                workspace['links'] = json.loads(workspace['links']) if workspace['links'] else []
+                workspaces.append(workspace)
+            
+            return workspaces

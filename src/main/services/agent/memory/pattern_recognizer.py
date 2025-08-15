@@ -22,7 +22,7 @@ class PatternRecognizer:
         
         # Initialize components
         self.analyzer = LLMPatternAnalyzer()
-        self.memory_db = MemoryDatabase()
+        self.memory_db = MemoryDatabase.get_instance()
         
         # Track last analysis to avoid over-processing
         self.last_analysis_timestamp = None

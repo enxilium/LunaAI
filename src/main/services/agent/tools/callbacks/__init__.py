@@ -29,7 +29,7 @@ def after_tool_callback(
         return None  # Skip logging and pattern analysis for memory tools
     
     # Log the tool execution with result for confidence scoring
-    memory_db = MemoryDatabase()
+    memory_db = MemoryDatabase.get_instance()
     
     # Extract content from CallToolResult object
     serializable_result = str(tool_response.content) if hasattr(tool_response, 'content') else str(tool_response)

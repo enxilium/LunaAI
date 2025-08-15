@@ -8,8 +8,8 @@ from typing import List, Dict, Any, Optional
 
 from ..memory.memory_database import MemoryDatabase
 
-# Initialize memory database - handles both memories and tool executions
-memory_db = MemoryDatabase()
+# Get singleton memory database instance - handles both memories and tool executions
+memory_db = MemoryDatabase.get_instance()
 
 def search_memory(query: str) -> Dict[str, Any]:
     """
@@ -196,27 +196,10 @@ def end_conversation_session():
     print("ENDING CONVERSATION")
     return "Session marked for graceful closure after current response completes."
 
-# NOTE: This is a test tool.
-def play_song(genre: Optional[str] = None, song_title: Optional[str] = None, artist: Optional[str] = None, context: Optional[str] = None):
-    """
-    Play a song from the user's playlist. At least one of genre, song_title, or artist must be provided.
-    
-    Args:
-        genre: The music genre to play (optional)
-        song_title: Specific song title to play (optional)
-        artist: Specific artist to play (optional)
-        context: Optional context about why the user is requesting music (e.g., "studying", "working out", "relaxing")
-    """
-    # Validate that at least one parameter is provided
-    if not any([genre, song_title, artist]):
-        return {"status": "error", "message": "At least one of genre, song_title, or artist must be provided"}
-    
-    return {"status": "success", "message": "Playing song from user's playlist."}
 
 
 # Export the tools
 util_tools = [
-    play_song,
     search_memory,
     save_memory,
     get_all_memories,

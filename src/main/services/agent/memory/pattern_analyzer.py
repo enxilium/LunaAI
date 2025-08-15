@@ -36,7 +36,7 @@ class LLMPatternAnalyzer:
         
         self.client = Client(api_key=api_key)
         self.model = model
-        self.memory_db = MemoryDatabase()
+        self.memory_db = MemoryDatabase.get_instance()
     
     async def analyze_patterns(self, analysis_data: Dict[str, Any]) -> Dict[str, Any]:
         """Analyze patterns using Gemini to extract memory modifications"""
